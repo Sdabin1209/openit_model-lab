@@ -9,9 +9,30 @@ from boundary_contracts.sdk import ModelRegistry
 from model_lab.registry import FileModelRegistry, MemoryModelRegistry
 
 
-@pytest.fixture(params=["memory", "file"])
+class _HttpReg:
+    """서버(별도 스레드)에 붙은 HTTP 클라이언트. _tamper_adapter는 서버 쪽 저장소를 직접 바꾼다."""
+    def __init__(self, client, backing):
+        self._c, self._b = client, backing
+    def __getattr__(self, n):
+        return getattr(self._c, n)
+    def _tamper_adapter(self, pid, ver):
+        self._b._tamper_adapter(pid, ver)
+
+
+@pytest.fixture(params=["memory", "file", "http"])
 def reg(request, tmp_path):
-    return MemoryModelRegistry() if request.param == "memory" else FileModelRegistry(tmp_path / "reg")
+    if request.param == "memory":
+        return MemoryModelRegistry()
+    if request.param == "file":
+        return FileModelRegistry(tmp_path / "reg")
+    import threading
+    from model_lab.service.app import Service, make_server
+    from tests.doubles.http_clients import HttpModelRegistry
+    svc = Service(tmp_path / "srv", {"rt": "release-gate"}, {"wt": "model-lab"}, log=lambda s: None)
+    srv = make_server(svc)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    request.addfinalizer(srv.shutdown)
+    return _HttpReg(HttpModelRegistry(f"http://127.0.0.1:{srv.server_address[1]}", "wt"), svc.registry)
 
 
 def make(tmp_path, pid="pkg-a", ver="v1", payload=b"w", report=b"report-1", ref="eval-1"):
@@ -40,7 +61,7 @@ def code(fn, *a, **k):
 
 
 def test_protocol(reg):
-    assert isinstance(reg, ModelRegistry)
+    assert isinstance(getattr(reg, '_c', reg), ModelRegistry)
 
 
 def test_publish_and_read(reg, tmp_path):
