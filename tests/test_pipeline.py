@@ -225,3 +225,44 @@ def test_eval_requires_temperature_zero(cfg):
     c["serving"]["LORA_A"] = copy.deepcopy(c["serving"]["LORA_A"]); c["serving"]["LORA_A"]["decoding"]["temperature"] = 0.5
     with pytest.raises(PipelineError, match="온도 0"):
         mk(c).run()
+
+
+def test_publish_to_remote_registry_over_http(cfg, tmp_path, monkeypatch):
+    """registry.kind=http: 환경 변수의 토큰으로 원격 서버에 게시한다. 클라이언트는 대역(tests/doubles)이다."""
+    import threading
+    from model_lab.service.app import Service, make_server
+    svc = Service(tmp_path / "remote", {"r": "release-gate"}, {"w": "model-lab"}, log=lambda s: None)
+    srv = make_server(svc); threading.Thread(target=srv.serve_forever, daemon=True).start()
+    try:
+        monkeypatch.setenv("TEST_REGISTRY_TOKEN", "w")
+        c = copy.deepcopy(cfg)
+        c["registry"] = {"kind": "factory", "factory": "tests.doubles.http_clients:HttpModelRegistry",
+                         "args": {"base_url": f"http://127.0.0.1:{srv.server_address[1]}", "token_env": "TEST_REGISTRY_TOKEN"}}
+        r = mk(c); rec = r.run()
+        v = rec["result"]["packages"]["LORA_A"]["version"]
+        assert svc.registry.get_manifest("lora-a-parser", v)["content_hash"] == rec["result"]["packages"]["LORA_A"]["content_hash"]
+        assert svc.registry.list_ids()[0] == ["lora-a-parser", "lora-b-generator"]
+        assert run_once(c, clock=FIXED, log=lambda s: None)["action"] == "skip"
+    finally:
+        srv.shutdown()
+
+
+def test_http_kind_without_client_library_is_clear_error(cfg):
+    from model_lab.errors import PipelineError
+    c = copy.deepcopy(cfg); c["registry"] = {"kind": "http", "base_url": "http://x", "token_env": "NOPE_TOKEN_VAR"}
+    with pytest.raises((PipelineError, ConfigError)):
+        mk(c)
+
+
+def test_env_args_resolution():
+    from model_lab.factories import resolve_args
+    assert resolve_args({"base_url": "u", "token_env": "T"}, {"T": "s"}) == {"base_url": "u", "token": "s"}
+    with pytest.raises(ConfigError):
+        resolve_args({"token_env": "MISSING"}, {})
+
+
+def test_neighbor_reader_factories_are_accepted_by_config(cfg):
+    c = copy.deepcopy({k: v for k, v in cfg.items() if k != "_base_dir"})
+    c["inputs"]["question_reader"] = {"factory": "boundary_contracts.clients:HttpQuestionReader", "args": {"base_url": "http://q", "token_env": "QT"}}
+    c["inputs"]["failure_store"] = {"factory": "boundary_contracts.clients:HttpFailureStore", "args": {"base_url": "http://f", "token_env": "FT"}}
+    validate_config(c)

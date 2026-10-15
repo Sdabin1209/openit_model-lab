@@ -22,6 +22,8 @@
 | `evaluate.py` | 서빙과 같은 경로로 평가하고 보고서(쪼개 보기, 보지 못한 문항 세트 따로)를 만든다 |
 | `packager.py` | ModelPackageManifest 만들기 |
 | `registry.py` | I3 ModelRegistry의 파일·메모리 구현(이 영역 소유) |
+| `service/` | model-registry 서비스: 파일 레지스트리를 HTTP(HTTP.md I3)로 낸다. 토큰 분리, tar 안전 해제, `/healthz`·`/readyz` |
+| `factories.py` | 이웃 읽기 SDK·원격 레지스트리를 설정의 팩토리로 만든다(`*_env`는 환경 변수) |
 | `pipeline.py` | 단계 실행, 재개, run 기록, `run_once` |
 | `cli.py` | `model-lab run | run-once | status --config <파일>` |
 
@@ -39,7 +41,8 @@ training:  {trainer: hf|dry-run, quantization, lora, max_seq_len, per_device_bat
 roles:    {LORA_A: {package_id, training?}, LORA_B: {package_id, training?}}   # 역할별 training은 공통을 덮어쓴다
 serving:  {LORA_A: <ServingConfig>, LORA_B: <ServingConfig>}                   # 형식은 model-runtime이 정한다
 evaluation: {backend: {kind: hf|fake-oracle}, split: EVAL|VALIDATION, limit_samples, max_listed_failures}
-registry: {kind: file, path}
+registry: {kind: file|http|factory, path | base_url, token_env, timeout | factory, args}
+checks:   {max_lora_rank}                                                   # 대상 엔진 프로파일의 상한. 게시 전 어댑터 r과 대조
 publish:  {enabled}
 ```
 
@@ -54,7 +57,8 @@ publish:  {enabled}
 - `runs/<run_id>/run.json`이 설정(프로파일 병합 후), 시드, 데이터셋 ref, 라이브러리 버전(boundary-contracts, turn-engine, model-runtime, model-lab)과 환경(torch 등), 단계별 상태·해시·결과를 기록한다. 단계가 `done`이고 산출물 해시가 맞으면 건너뛴다.
 - 학습은 `work/<ROLE>/`의 체크포인트(`hf`: 어댑터+옵티마이저+스케줄러+스텝, 마지막에 `state.json`을 써서 완전한 것만 인정)에서 이어 한다. 데이터 순서는 (시드, 에폭)으로 정해져 재개해도 같다.
 - 시각은 run 기록에만 있다. 패키지의 `created_at`은 처음 정한 값을 run 기록에 고정해, 같은 run을 다시 돌려도 같은 매니페스트(같은 `content_hash`)가 나온다. 레지스트리 게시는 멱등이다.
-- **한계 [확인: GPU 시험, STATUS.md]**: 데이터·설정·`run_id`·변환 결과·dry-run 어댑터는 비트 단위로 같다. GPU 학습(`hf`)의 어댑터는 같은 시드로도 비트 단위로 같지 않을 수 있다(커널 비결정성). 그래서 이미 끝난 run을 다시 학습하지 않는 것이 재현성의 근거이고, 같은 `(package_id, version)`에 다른 어댑터를 게시하려 하면 레지스트리가 `CONFLICT`로 막는다. 비교할 때는 `ext."model-lab".train_data_hash`(학습 데이터 해시)와 `config_hash`를 쓴다.
+- **재현성 측정 [확인: gpu-dev RTX 4070 SUPER, STATUS.md]**: 데이터·설정·`run_id`·변환 결과·dry-run 어댑터는 비트 단위로 같다. GPU 학습은 `attn_implementation: sdpa`(기본)에서는 같은 시드로도 어댑터가 달랐고, `eager` + `deterministic: true`에서 같은 설정을 두 번 돌린 어댑터·평가 보고서 해시가 일치했다(양자화 없음/4비트 둘 다 `scripts/determinism_probe.py`, 스모크 실행 2회). 그래서 프로파일은 `eager`를 쓴다. 단 **체크포인트에서 재개한 학습이 중단 없는 학습과 같은 해시인지는 확인하지 못했다**(10스텝 시험에서 달랐고, 재개하지 않은 역할도 그 두 실행 사이에 달라 원인이 재개인지 환경인지 분리하지 못했다). 한계: 다른 GPU·드라이버·라이브러리 버전에서의 일치는 약속하지 않는다.
+- 이미 끝난 run을 다시 학습하지 않는 것이 재현성의 기본 장치이고, 같은 `(package_id, version)`에 다른 어댑터를 게시하려 하면 레지스트리가 `CONFLICT`로 막는다. 실험 비교는 `ext."model-lab".train_data_hash`와 `config_hash`로 한다.
 
 ## 5. 학습 데이터 변환 [확인: 브리프, I9]
 
@@ -87,6 +91,10 @@ publish:  {enabled}
 ## 8. I3 ModelRegistry [확인: `tests/test_registry.py`, 파일·메모리 구현이 같은 시험]
 
 CONVENTIONS 4절 멱등·CONFLICT, 게시 전 스키마·`content_hash`·`adapter_hash`·`serving_config_hash` 검증, `list_ids`(처음 게시된 순서)·`list_versions`(오래된 것부터), `open_adapter`(복사 후 해시 재계산, 다르면 INTEGRITY_ERROR), `get_eval_report`(NOT_FOUND). 파일 구현은 매니페스트를 마지막에 쓰는 순서와 파일 잠금으로 중단·동시 게시에 안전하다.
+
+## 8-1. 게시 대상과 서비스 (D49)
+
+게시 단계는 `registry` 설정으로 로컬 파일 레지스트리 또는 원격 model-registry(HTTP)를 고른다. 원격은 `boundary_contracts.clients.HttpModelRegistry`(v1.1.1 이상, 설치되면 `kind: http`)로 하고, 그 전에는 같은 Protocol을 지키는 시험용 대역(`tests/doubles/http_clients.py`)을 `kind: factory`로 가리켜 서버와 파이프라인 끝까지를 시험한다. 서버는 같은 파일 레지스트리를 HTTP로 낼 뿐이라 규칙(멱등·CONFLICT·해시 검증)이 한 곳에 있다. 서비스 쪽도 클라이언트와 같은 적합성 시험(`tests/test_registry.py`의 `http` 매개변수)을 통과한다. 이웃 읽기(I1·I2·I7)도 `inputs.*`의 팩토리 명세로 HTTP 클라이언트를 고른다.
 
 ## 9. 자동 실행 (D39)
 

@@ -9,6 +9,10 @@
 `publish`, `get_manifest`, `list_ids`, `list_versions`(오래된 것부터), `open_adapter`(해시 검증), `get_eval_report`. 생산 계약: `ModelPackageManifest`(역할마다 하나, 서빙 설정은 역할별). 평가 리포트는 `eval_report_ref`로 가져오는 JSON 바이트이고 형식은 이 영역이 정한다(`docs/design.md` 6절). 게이트는 해석하지 않는다.
 읽기 전용 SDK를 따로 만들지 않았다: 소비자(release-gate)는 같은 Protocol의 읽기 메서드를 쓴다. 읽기 토큰·원격 구현은 게이트와 배포 방식이 정해진 뒤 [미정].
 
+## 서비스 형태 (D49): model-registry
+같은 I3를 HTTP로 낸다(`../boundary-contracts/HTTP.md` I3 절): `GET /v1/packages`, `/v1/packages/{id}/versions`, `/v1/packages/{id}/versions/{version}`, `.../adapter`(tar), `/v1/eval-reports/{ref}`, `POST /v1/packages`(tar: `manifest.json`, `adapter/…`, `eval_report`; 201 새로 / 200 같은 내용 / 409 다른 내용). 읽기 토큰(`MODEL_REGISTRY_READ_TOKENS`, 예: `release-gate`)과 쓰기 토큰(`MODEL_REGISTRY_WRITE_TOKENS`, 역할 `model-lab`만)을 분리한다. 읽기 토큰의 쓰기 호출은 403. 어댑터는 서버가 해시를 검증한 뒤에만 내고 클라이언트도 다시 계산한다. 상세는 `docs/runbook.md` 맨 위.
+클라이언트 SDK는 헤드의 `boundary_contracts.clients.HttpModelRegistry`(v1.1.1)를 쓴다. 이 영역의 시험은 같은 Protocol의 대역으로 한다.
+
 ## 소비
 | 대상 | 방법 | 버전 |
 | --- | --- | --- |

@@ -73,6 +73,8 @@ _BACKEND = {
         "corrupt_every": {"type": "integer", "minimum": 0},
     },
 }
+_FACTORY = {"type": "object", "additionalProperties": False, "required": ["factory"],
+            "properties": {"factory": {"type": "string", "pattern": r"^[\w.]+:\w+$"}, "args": {"type": "object"}}}
 _SERVING = {"type": "object"}  # 형식은 model-runtime의 validate_serving_config가 검증한다
 
 CONFIG_SCHEMA: dict[str, Any] = {
@@ -94,9 +96,9 @@ CONFIG_SCHEMA: dict[str, Any] = {
                 "dataset": {"type": "object", "additionalProperties": False, "required": ["id"],
                             "properties": {"id": _ID, "version": {"type": "string", "minLength": 1}}},
                 # 이웃(synthetic-data)의 읽기 SDK를 만드는 함수. 'pkg.module:callable', args는 키워드 인자.
-                "dataset_store": {"type": "object", "additionalProperties": False, "required": ["factory"],
-                                  "properties": {"factory": {"type": "string", "pattern": r"^[\w.]+:\w+$"},
-                                                 "args": {"type": "object"}}},
+                "dataset_store": _FACTORY,
+                # 아직 쓰지 않는 이웃 읽기 SDK. 같은 방식으로 고른다(HttpQuestionReader, HttpFailureStore 등).
+                "question_reader": _FACTORY, "failure_store": _FACTORY,
             },
         },
         "base_model": _BASE_MODEL,
@@ -117,9 +119,14 @@ CONFIG_SCHEMA: dict[str, Any] = {
                 "max_listed_failures": {"type": "integer", "minimum": 0},
             },
         },
+        # 게시 대상: file(로컬 파일), http(원격 model-registry; boundary_contracts.clients.HttpModelRegistry),
+        # factory(임의 구현). 토큰은 token_env가 가리키는 환경 변수에서 읽는다.
         "registry": {
             "type": "object", "additionalProperties": False, "required": ["kind"],
-            "properties": {"kind": {"enum": ["file"]}, "path": {"type": "string"}},
+            "properties": {"kind": {"enum": ["file", "http", "factory"]}, "path": {"type": "string"},
+                           "base_url": {"type": "string"}, "token_env": {"type": "string"},
+                           "timeout": {"type": "number", "exclusiveMinimum": 0},
+                           "factory": {"type": "string", "pattern": r"^[\w.]+:\w+$"}, "args": {"type": "object"}},
         },
         "checks": {"type": "object", "additionalProperties": False,
                    "properties": {"max_lora_rank": {"type": "integer", "minimum": 1}}},
@@ -189,6 +196,6 @@ def config_hash(cfg: dict) -> str:
     """실행을 식별하는 설정 해시. 경로 해석에 쓰는 _base_dir과 runs_dir는 제외한다(위치가 달라도 같은 설정)."""
     c = {k: v for k, v in cfg.items() if k != "_base_dir"}
     c["run"] = {k: v for k, v in c["run"].items() if k not in ("runs_dir", "name")}
-    c["registry"] = {k: v for k, v in c["registry"].items() if k != "path"}
+    c["registry"] = {"kind": c["registry"]["kind"]}      # 게시 위치는 결과(해시)에 영향이 없다
     c["inputs"] = {k: v for k, v in c["inputs"].items() if k not in ("schema_dir",)}
     return canonical.sha256_hash(c)

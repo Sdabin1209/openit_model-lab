@@ -19,7 +19,7 @@ from typing import Callable
 import model_runtime
 from boundary_contracts import BoundaryError, canonical
 
-from . import datasets, evaluate, packager, schemas
+from . import datasets, evaluate, factories, packager, schemas
 from .config import ROLE_TO_FILE_ROLE, ROLES, config_hash, resolved_path, role_training
 from .errors import ConfigError, PipelineError
 from .registry import FileModelRegistry
@@ -59,9 +59,21 @@ def _atomic_json(path: Path, obj) -> None:
 
 
 def make_dataset_store(cfg: dict):
-    spec = cfg["inputs"]["dataset_store"]
-    mod, fn = spec["factory"].split(":")
-    return getattr(importlib.import_module(mod), fn)(**spec.get("args", {}))
+    return factories.build(cfg["inputs"]["dataset_store"])
+
+
+def make_registry(cfg: dict):
+    """게시 대상(I3). file = 로컬 파일 구현, http = 원격 model-registry, factory = 임의 구현."""
+    spec = cfg["registry"]
+    if spec["kind"] == "file":
+        return FileModelRegistry(resolved_path(cfg, spec.get("path", "registry")))
+    if spec["kind"] == "http":
+        if "base_url" not in spec:
+            raise ConfigError("registry.kind=http에는 base_url이 필요하다")
+        return factories.build_http("model_registry", spec)
+    if "factory" not in spec:
+        raise ConfigError("registry.kind=factory에는 factory가 필요하다")
+    return factories.build(spec)
 
 
 class Run:
@@ -73,7 +85,7 @@ class Run:
         if set(cfg["roles"]) != set(ROLES) or set(cfg["serving"]) != set(ROLES):
             raise ConfigError("roles와 serving에 LORA_A, LORA_B가 모두 있어야 한다(model-runtime.load가 두 역할을 함께 받는다)")
         self.store = dataset_store or make_dataset_store(cfg)
-        self.registry = registry or FileModelRegistry(resolved_path(cfg, cfg["registry"].get("path", "registry")))
+        self.registry = registry or make_registry(cfg)
         self.trainer_factory = trainer_factory or (lambda kind: make_trainer(kind))
         self.clock, self.log = clock, log
         self.schema_dir = resolved_path(cfg, cfg["inputs"]["schema_dir"])

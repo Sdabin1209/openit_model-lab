@@ -1,11 +1,44 @@
 # 런북
 
+## deploy가 알아야 하는 것 (맨 위 요약)
+
+이 리포지토리에는 진입점이 둘 있다.
+
+| 진입점 | 무엇 | 어떻게 |
+| --- | --- | --- |
+| **model-registry 서비스** (I3 서버) | 상시 서비스. 모델 패키지 저장·조회 | 이미지 `Dockerfile`(비root uid 10001, 포트 8080, 볼륨 `/data` 하나). `GET /healthz`, `GET /readyz`. 로그는 표준 출력 |
+| **run-once 잡** (학습·평가·패키징·게시) | 스케줄러가 부르는 일회성 명령. 서비스 아님, 이미지 없음(D22 (2)). GPU 호스트에서 돈다 | `python -m model_lab run-once --config <설정 파일>` |
+
+### model-registry 서비스 환경 변수
+| 이름 | 뜻 |
+| --- | --- |
+| `MODEL_REGISTRY_READ_TOKENS` | `역할=토큰,역할=토큰` (예: `release-gate=...`). 읽기 경로만 허용 |
+| `MODEL_REGISTRY_WRITE_TOKENS` | `model-lab=토큰`. 게시(`POST /v1/packages`). 역할은 `model-lab`만 허용(시작할 때 검사) |
+| `MODEL_REGISTRY_ROOT` | 저장 위치(기본 `/data`, 볼륨 하나). 파일 레지스트리 그대로 |
+| `MODEL_REGISTRY_PORT` / `MODEL_REGISTRY_HOST` | 기본 8080 / 0.0.0.0 |
+| `MODEL_REGISTRY_MAX_BODY` | 게시 본문 상한 바이트(기본 4GiB) |
+토큰이 하나도 없으면 시작하지 않는다(종료 코드 2). 경로·상태 코드는 `../boundary-contracts/HTTP.md`의 I3 절. `/readyz`는 저장소를 읽고 임시 파일을 쓸 수 있을 때 200.
+이미지 라벨: `io.openit.service=model-registry`, `io.openit.revision`(빌드 인자 `REVISION`), `io.openit.contracts.boundary=v1.1.0`, `io.openit.contracts.survey-schema`/`turn-engine`/`model-runtime`은 `n/a`(서비스에 포함하지 않음). 확인: `scripts/smoke_registry.sh`(빌드 -> 빈 포트로 실행 -> healthz/readyz/토큰/게시/조회).
+
+### run-once 잡
+- 명령: `python -m model_lab run-once --config <설정 파일>` (또는 `model-lab run-once`). 출력은 JSON 한 줄: `{"action": "ran"|"skip", "run_id": ..., "dataset_version": ...}`.
+- 종료 코드: 0 = 실행을 끝냈거나 할 일 없음, 2 = 오류(설정·데이터·환경. 재시도해도 같음), 3 = `UNAVAILABLE`(이웃·레지스트리 일시 장애, 같은 명령 재실행 가능).
+- 멱등: 같은 (설정, 데이터셋 버전, 시드, 라이브러리 버전)이면 같은 `runs/<run_id>/`를 가리키고, 끝난 run은 `skip`. 중단된 run은 이어서(학습은 체크포인트부터). 같은 시각에 두 번 부르지 않는다(스케줄러가 직렬화).
+- 작업 폴더: `runs_dir`(설정). 비밀 값은 설정 파일에 없고 환경 변수로만 받는다.
+- 설정 형식(요약, 정본은 `model_lab/config.py`의 `CONFIG_SCHEMA`와 `docs/design.md` 3절). 예: `configs/gpu-dev-smoke.yaml`.
+  - `profile`: 학습 프로파일(`profiles/gpu-dev-12g.yaml`: 기반 모델, 양자화, 최대 길이, 배치, 학습률, 에폭, GPU 수·메모리 비율, `checks.max_lora_rank`)
+  - `inputs.dataset`: `{id, version?}` (version 생략 = 최신), `inputs.dataset_store`: 읽기 SDK 팩토리
+  - `registry`: 게시 대상. 로컬 `{kind: file, path}` 또는 원격 `{kind: http, base_url, token_env, timeout}`(`boundary_contracts.clients.HttpModelRegistry`, v1.1.1 이상 설치 필요). `token_env`가 가리키는 환경 변수(쓰기 토큰)를 잡 실행 환경에 준다
+  - 이웃 읽기 SDK는 모두 `{factory: "pkg.mod:fn", args: {..., token_env: 변수}}`로 고른다. `*_env` 인자는 환경 변수 값으로 바뀐다. `inputs.question_reader`, `inputs.failure_store` 자리는 열려 있으나 아직 쓰지 않는다
+- 필요 환경: GPU 호스트에 `requirements.lock` + `requirements-train.txt`(torch 등), 모델 캐시(`~/.cache/huggingface`), `flock ~/openit-gpu/.gpu.lock`으로 GPU 직렬화(D47).
+- 다른 호스트의 서버에 게시할 때: GPU 호스트에서 서버 주소로 HTTP가 닿아야 하고, 쓰기 토큰은 잡 실행 환경에만 둔다. 어댑터(수십~수백 MB)는 게시 때 tar로 올라간다.
+
 ## 환경 (CPU)
 ```
 python3 -m venv .venv
 .venv/bin/pip install -e ../boundary-contracts -e ../turn-engine -e ../model-runtime pytest pyyaml
 # 태그로 설치(CI·이미지): .venv/bin/pip install -r requirements.txt   (requirements.lock이 확인된 전체 버전)
-.venv/bin/python -m pytest -q                      # 40건
+.venv/bin/python -m pytest -q                      # 61건
 ```
 D22 (2): 서비스가 없는 run-once 잡이라 Dockerfile 없이 `requirements.lock`으로 환경을 고정한다.
 
