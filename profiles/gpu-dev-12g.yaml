@@ -1,0 +1,21 @@
+# gpu-dev 호스트(RTX 4070 SUPER 12GB) 프로파일. 12GB에 맞춘 값은 이 파일에만 둔다(D47).
+# 이 호스트의 학습 결과는 파이프라인 검증용이며 성능 판단 근거가 아니다. 실제 스테이션은 다른 프로파일을 쓴다.
+base_model:
+  id: Qwen/Qwen2.5-1.5B-Instruct        # 임시 기반 모델(Apache-2.0). 실제 선정은 헤드가 별도로 올린다.
+  revision: main                        # 실행 때 해석된 커밋은 run 기록과 매니페스트에 남는다
+training:
+  trainer: hf
+  quantization: {mode: 4bit-nf4, compute_dtype: bfloat16}
+  dtype: bfloat16
+  lora: {r: 16, alpha: 32, dropout: 0.05, target_modules: [q_proj, k_proj, v_proj, o_proj]}
+  max_seq_len: 4096
+  per_device_batch_size: 1
+  grad_accum_steps: 8
+  learning_rate: 0.0002
+  warmup_ratio: 0.03
+  epochs: 1
+  gpu_count: 1
+  gpu_memory_fraction: 0.85
+  gradient_checkpointing: true
+  checkpoint_every_steps: 25
+  log_every_steps: 5

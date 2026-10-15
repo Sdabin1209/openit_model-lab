@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "model-lab"
+version = "0.1.0"
+description = "openit model-lab: LoRA-A/B 학습·평가·패키징·게시 파이프라인"
+requires-python = ">=3.10"
+dependencies = ["boundary-contracts", "turn-engine", "model-runtime", "jsonschema>=4", "pyyaml>=6"]
+
+[project.optional-dependencies]
+train = ["torch", "transformers", "peft", "accelerate", "bitsandbytes"]
+dev = ["pytest"]
+
+[project.scripts]
+model-lab = "model_lab.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["model_lab*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

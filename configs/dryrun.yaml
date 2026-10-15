@@ -1,0 +1,24 @@
+# CPU 전용 시험 설정: dry-run 학습기 + fake-oracle 평가. 모델이 없어도 파이프라인이 끝까지 돈다.
+# 데이터셋 저장소는 시험용 대역이다: python scripts/make_fixture_dataset.py fixtures/store 로 먼저 만든다.
+config_version: 1
+run: {name: dryrun, seed: 1234, runs_dir: ../runs}
+inputs:
+  schema_dir: ../../survey-service/schema/schemas
+  dataset: {id: fx-golden}               # version을 생략하면 가장 최근 버전(run-once가 쓰는 방식)
+  dataset_store: {factory: "tests.doubles.dataset_store:from_dir", args: {root: fixtures/store}}
+base_model: {id: Qwen/Qwen2.5-1.5B-Instruct, revision: dry-run}
+training: {trainer: dry-run, epochs: 1, per_device_batch_size: 2, grad_accum_steps: 2, checkpoint_every_steps: 10}
+roles:
+  LORA_A: {package_id: lora-a-parser}
+  LORA_B: {package_id: lora-b-generator}
+serving:
+  LORA_A: &serving
+    prompt_template_version: prompt-2
+    decoding: {constraint_mode: none, temperature: 0, seed: 1000, max_tokens: 512}
+    max_attempts: 3
+    constraint: {backend: fake, backend_version: "1", supported_features: [], relax_policy_version: relax-1}
+    output_contract: 1
+    protection_policy_version: protect-1
+  LORA_B: *serving
+evaluation: {backend: {kind: fake-oracle, corrupt_every: 0}, split: EVAL}
+registry: {kind: file, path: ../runs/registry-dryrun}

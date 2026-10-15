@@ -1,0 +1,7 @@
+# GPU 학습·평가용 추가 의존. 아직 잠그지 않았다(GPU 호스트에 pip가 없어 설치해 보지 못함, docs/STATUS.md).
+# 호스트에서 처음 설치에 성공하면 pip freeze로 requirements-train.lock을 만든다.
+torch
+transformers
+peft
+accelerate
+bitsandbytes
