@@ -105,8 +105,8 @@ def evaluate_sample(role: str, session, sample: Mapping) -> dict:
         "protections": [list(p) for p in getattr(info, "protections", ())],
     }
     if role == "LORA_A":
-        rec["raw_exact"] = raw.output is not None and _same(_strip_parser(raw.output), _strip_parser(exp))
-        rec["prot_exact"] = _same(_strip_parser(out), _strip_parser(exp))
+        rec["raw_exact"] = raw.output is not None and _same(raw.output, exp)
+        rec["prot_exact"] = _same(out, exp)
         e = collections.Counter(_item_sig(i) for i in (_items(exp) or []))
         for key, o in (("raw", raw.output), ("prot", out)):
             oi = _items(o)
@@ -122,11 +122,6 @@ def evaluate_sample(role: str, session, sample: Mapping) -> dict:
         rt = out.get("response_text") or ""
         rec["response_len"] = len(rt)
     return rec
-
-
-def _strip_parser(o: Any) -> Any:
-    """비교에서 item_no/source_text 표기 차이를 제외하지 않는다: 정답과 같은 구조 전체를 비교한다."""
-    return o
 
 
 def aggregate(recs: list[dict], role: str) -> dict:

@@ -191,16 +191,21 @@ class Run:
             datasets.check_no_leak(splits["TRAIN"] + splits["VALIDATION"], splits["EVAL"] + [])
             if not splits["TRAIN"]:
                 raise PipelineError(f"{role}: 학습 샘플이 없다")
+            labels: dict = {}
             for split, name in (("TRAIN", "train"), ("VALIDATION", "val")):
                 with open(out / f"{name}.jsonl", "w", encoding="utf-8") as fh:
                     for s in splits[split]:   # 학습·검증에는 해당 분할만 들어간다. EVAL은 여기에 쓰지 않는다.
-                        fh.write(json.dumps(to_example(role, s, serving, self.schema_dir), ensure_ascii=False, sort_keys=True) + "\n")
+                        ex = to_example(role, s, serving, self.schema_dir)
+                        if name == "train":
+                            labels.setdefault(ex["prompt"], set()).add(ex["completion"])
+                        fh.write(json.dumps(ex, ensure_ascii=False, sort_keys=True) + "\n")
+            conflicts = sum(1 for v in labels.values() if len(v) > 1)   # 같은 입력에 다른 정답(데이터셋 품질 정보, 중단하지 않는다)
             for split in ("EVAL", "VALIDATION"):
                 with open(out / f"{split.lower()}_samples.jsonl", "w", encoding="utf-8") as fh:
                     for s in splits[split]:
                         fh.write(json.dumps(s, ensure_ascii=False, sort_keys=True) + "\n")
             self._mark("transform", role, status="done", train=len(splits["TRAIN"]), validation=len(splits["VALIDATION"]),
-                       eval=len(splits["EVAL"]), train_file_hash=canonical.file_hash(out / "train.jsonl"))
+                       eval=len(splits["EVAL"]), conflicting_train_prompts=conflicts, train_file_hash=canonical.file_hash(out / "train.jsonl"))
         self.rec["stages"]["transform"]["status"] = "done"
         self._save()
 
