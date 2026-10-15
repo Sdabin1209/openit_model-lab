@@ -1,5 +1,10 @@
 # STATUS (2026-10-15)
 
+## 5차 갱신 (D60 기반 모델 비교) — 호스트 불가
+- gpu-dev SSH가 3회(처음 + 재시도 2회) 모두 시간 초과(`Connection timed out`)라 측정하지 못했다. 규칙대로 멈췄다. 후보 4개의 라이선스·구조는 모델 카드에서 읽어 `docs/base-model-comparison.md`에 적었다(EXAONE은 NC 라이선스와 원격 코드 실행 필요로, gemma-2-9b-it·Llama-3.1-8B는 접근 제한으로 제외·미확인).
+- 비교 스크립트와 기반 모델 백엔드를 준비했고 가짜 백엔드로 경로를 시험했다(시험 82건 통과). `hf_base` 백엔드는 CPU 환경에 torch가 없어 시험하지 못했다.
+- 남은 일: 호스트가 켜지면 문서 맨 아래 "실행 방법"으로 측정하고 표와 추천을 채운다.
+
 ## 4차 갱신 (D53, GPU 실행 안 함)
 - boundary-contracts v1.3.0으로 올림. 평가 결과를 역할별 `EvaluationReport`로 방출해 기존 `publish`의 eval_report로 올린다(METRICS.md 이름, 슬라이스 SEEN_UNSEEN·QUESTION_TYPE·UNIT 등, SAFETY 지표 포함, 임계치 없음). 못 구하는 지표는 생략하고 notes에 적었다(금지 표현률, 지연). 회귀 평가는 `reviewed_input` 우선. 시험 80건 통과, 이미지 스모크 통과(라벨 v1.3.0).
 - 확인하지 못한 것: 실제 release-gate가 이 보고서를 읽는지(게이트 쪽 통합), GPU 호스트에서 v1.3.0 환경 재시험(이번엔 GPU 실행 안 함), 실제 모델 출력에서의 지표 값(시험은 오라클 모델).

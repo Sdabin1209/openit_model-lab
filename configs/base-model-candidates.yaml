@@ -1,0 +1,10 @@
+# 기반 모델 비교 후보(D60). 학습하지 않고 기반 모델 그대로 파서 golden 일부를 같은 프롬프트·온도 0으로 돌린다.
+# 라이선스는 모델 카드(README)와 LICENSE를 직접 읽은 것만 "확인"으로 쓴다(docs/base-model-comparison.md).
+samples: 50                        # 파서 golden에서 고른 표본 수(위험 신호 사례는 모두 포함)
+decoding: {temperature: 0, seed: 1000, max_tokens: 512}
+training: {quantization: {mode: 4bit-nf4, compute_dtype: bfloat16}, dtype: bfloat16, gpu_memory_fraction: 0.9, attn_implementation: eager}
+candidates:
+  - {name: qwen2.5-7b, id: Qwen/Qwen2.5-7B-Instruct}
+  - {name: qwen3-8b, id: Qwen/Qwen3-8B}
+  - {name: kanana-1.5-8b, id: kakaocorp/kanana-1.5-8b-instruct-2505}
+  - {name: qwen2.5-14b-4bit, id: Qwen/Qwen2.5-14B-Instruct}
