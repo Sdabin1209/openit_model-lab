@@ -1,6 +1,7 @@
 # 변경 이력
 
 ## 0.1.0 (2026-10-15)
+- D61: 기반 모델 비교 중단(참고 자료로 보존). 내려받기 전 디스크 확인(disk_guard)과 모델 캐시 정리 스크립트(기본 dry-run) 추가.
 - 수정: model-registry가 오류 응답 전에 요청 본문을 비운다(간헐적 UNAVAILABLE 경쟁 조건), 회귀 시험 추가.
 - 기반 모델 후보 비교 도구(scripts/compare_base_models.py, configs/compare/base-model-candidates.yaml)와 docs/base-model-comparison.md. gpu-dev 불가로 측정은 미실행.
 - EvaluationReport(boundary-contracts v1.3.0) 방출, 회귀 평가의 reviewed_input 우선, eval_report_ref를 패키지 기준으로 변경.

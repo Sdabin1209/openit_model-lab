@@ -3,8 +3,9 @@
 samples: 50                        # 파서 golden에서 고른 표본 수(위험 신호 사례는 모두 포함)
 decoding: {temperature: 0, seed: 1000, max_tokens: 512}
 training: {quantization: {mode: 4bit-nf4, compute_dtype: bfloat16}, dtype: bfloat16, gpu_memory_fraction: 0.9, attn_implementation: eager}
+min_free_gb: 20                    # 내려받기 전 남겨 둘 여유(예상 크기에 더한다)
 candidates:
-  - {name: qwen2.5-7b, id: Qwen/Qwen2.5-7B-Instruct}
-  - {name: qwen3-8b, id: Qwen/Qwen3-8B}
-  - {name: kanana-1.5-8b, id: kakaocorp/kanana-1.5-8b-instruct-2505}
-  - {name: qwen2.5-14b-4bit, id: Qwen/Qwen2.5-14B-Instruct}
+  - {name: qwen2.5-7b, approx_gb: 16, id: Qwen/Qwen2.5-7B-Instruct}
+  - {name: qwen3-8b, approx_gb: 17, id: Qwen/Qwen3-8B}
+  - {name: kanana-1.5-8b, approx_gb: 17, id: kakaocorp/kanana-1.5-8b-instruct-2505}
+  - {name: qwen2.5-14b-4bit, approx_gb: 30, id: Qwen/Qwen2.5-14B-Instruct}

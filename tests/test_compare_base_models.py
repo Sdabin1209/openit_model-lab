@@ -34,3 +34,25 @@ def test_sample_selection_is_deterministic():
     import importlib
     m = importlib.import_module("compare_base_models")
     assert [s["sample_id"] for s in m.pick_samples(50)] == [s["sample_id"] for s in m.pick_samples(50)]
+
+
+def test_disk_guard_stops_before_download(tmp_path, monkeypatch):
+    import importlib
+    import pytest
+    sys.path.insert(0, str(ROOT / "scripts"))
+    m = importlib.import_module("compare_base_models")
+    monkeypatch.setenv("HF_HOME", str(tmp_path / "hf"))
+    with pytest.raises(SystemExit, match="디스크 부족"):
+        m.disk_guard({"id": "x/huge", "approx_gb": 10**9}, 20)                 # 남은 용량보다 큰 후보
+    m.disk_guard({"id": "x/small", "approx_gb": 0.001}, 0)                      # 충분하면 통과
+    done = tmp_path / "hf/hub/models--x--cached/blobs"; done.mkdir(parents=True)
+    m.disk_guard({"id": "x/cached", "approx_gb": 10**9}, 20)                    # 이미 받은(미완성 조각 없음) 후보는 건너뛴다
+    (done / "a.incomplete").write_text("")
+    with pytest.raises(SystemExit):
+        m.disk_guard({"id": "x/cached", "approx_gb": 10**9}, 20)                # 미완성이면 다시 받아야 하므로 검사한다
+
+
+def test_candidate_configs_have_size_estimates():
+    for f in ("base-model-candidates.yaml", "base-model-candidates-fewshot.yaml"):
+        cfg = yaml.safe_load((ROOT / "configs/compare" / f).read_text())
+        assert cfg["min_free_gb"] > 0 and all(c["approx_gb"] > 0 for c in cfg["candidates"])

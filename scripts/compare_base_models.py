@@ -26,6 +26,32 @@ from model_lab.transform import completion_of  # noqa: E402
 from tests.doubles.fixtures import load_pairs  # noqa: E402
 
 
+def hf_cache_dir() -> Path:
+    import os
+    return Path(os.environ.get("HF_HOME", Path.home() / ".cache" / "huggingface")) / "hub"
+
+
+def free_gb(path: Path) -> float:
+    import shutil
+    p = path
+    while not p.exists() and p != p.parent:
+        p = p.parent
+    return shutil.disk_usage(p).free / 2**30
+
+
+def disk_guard(cand: dict, min_free_gb: float) -> None:
+    """모델을 내려받기 전에 남은 용량을 확인한다. 후보의 예상 크기(approx_gb)와 여유(min_free_gb)를 더한 만큼 없으면 멈춘다.
+    이미 캐시에 있는 후보는 내려받지 않으므로 건너뛴다. 용량 정리는 scripts/clean_model_cache.sh(수동)."""
+    cache = hf_cache_dir() / ("models--" + cand["id"].replace("/", "--"))
+    if cache.exists() and not list(cache.rglob("*.incomplete")):
+        return
+    need = float(cand.get("approx_gb", 20)) + float(min_free_gb)
+    have = free_gb(hf_cache_dir())
+    if have < need:
+        raise SystemExit(f"디스크 부족: {cand['id']}를 내려받으려면 약 {need:.0f}GB가 필요한데 {have:.0f}GB만 남았다. "
+                         "scripts/clean_model_cache.sh로 정리 후보를 확인하라(자동 삭제하지 않는다).")
+
+
 def pick_samples(n: int) -> list[dict]:
     """파서 golden에서 결정적으로 n개. RISK_SIGNAL 사례는 모두 넣고 나머지는 균등 간격으로 고른다."""
     P = [p for p in load_pairs() if p["role"] == "PARSER"]
@@ -118,6 +144,7 @@ def main() -> int:
     for cand in cfg["candidates"]:
         if a.only and cand["name"] != a.only:
             continue
+        disk_guard(cand, cfg.get("min_free_gb", 20))      # 부족하면 이 후보 전에 멈춘다(후보 하나의 실패로 삼키지 않는다)
         try:
             r = run_candidate(cand, cfg, samples, Path(a.schema_dir), a.backend, out)
         except Exception as e:   # 후보 하나의 실패(메모리 부족 등)가 나머지를 막지 않는다. 사유만 남긴다(원문 없음)

@@ -86,6 +86,11 @@ D22 (2): 서비스가 없는 run-once 잡이라 Dockerfile 없이 `requirements.
 ## 자동 실행(스케줄러용)
 `model-lab run-once --config <설정>`을 주기적으로 부르면 된다. 새 데이터셋 버전이 없으면 `{"action": "skip"}`을 내고 끝난다. 같은 시각에 두 번 부르지 않는다(같은 run 디렉터리를 쓴다. 필요하면 스케줄러가 직렬화한다).
 
+## GPU 호스트 디스크와 모델 캐시 (D61)
+- 모델 내려받기 전에 비교 스크립트가 `df`로 남은 용량을 본다(`disk_guard`: 후보 예상 크기 `approx_gb` + `min_free_gb`). 부족하면 그 후보 전에 멈춘다(자동 삭제하지 않는다). 이미 완전히 받은 후보는 건너뛴다.
+- 캐시 정리: `scripts/clean_model_cache.sh`(기본 dry-run으로 크기와 미완성 조각 표시), `scripts/clean_model_cache.sh <모델 ID>`는 지울 대상과 크기만 보여 주고 `--yes`를 붙여야 지운다. gpu-dev는 사용자 워크스테이션이라 **삭제는 사용자 승인 뒤에만** 한다.
+- 2026-10-15 호스트 관찰(읽기만 함, 지우지 않았다): 디스크 1007GB 중 55GB 사용(901GB 남음), 모델 캐시 `~/.cache/huggingface/hub` 33GB. `models--Qwen--Qwen2.5-1.5B-Instruct` 2.9GB(파이프라인 스모크가 쓴다, 두는 것을 권한다), `models--Qwen--Qwen2.5-7B-Instruct` 15GB(비교 시험용), `models--Qwen--Qwen3-8B` 16GB 중 미완성 조각 9개 12GB(비교 시험 중 끊긴 것). 정리 명령 예: `scripts/clean_model_cache.sh Qwen/Qwen3-8B --yes`, `scripts/clean_model_cache.sh Qwen/Qwen2.5-7B-Instruct --yes`(승인 후).
+
 ## 문제 확인
 | 증상 | 확인 |
 | --- | --- |

@@ -1,5 +1,9 @@
 # STATUS (2026-10-15)
 
+## 7차 갱신 (D61): 기반 모델 비교 중단
+- 사용자 확인으로 후보 비교를 중단했다(목표는 작동하는 파이프라인). kanana·14B는 받지 않는다. 호스트에 비교 작업은 남아 있지 않음을 확인했다. 부분 결과(qwen2.5-7b 제로샷·few-shot)와 도구, 라이선스 조사는 `docs/base-model-comparison.md`에 참고 자료로 남겼다.
+- 용량 보호: 내려받기 전 `df` 확인(`disk_guard`)과 수동 정리 스크립트(`scripts/clean_model_cache.sh`, 기본 dry-run). 호스트의 Qwen3-8B 미완성 조각(12GB)과 Qwen2.5-7B 캐시(15GB)는 지우지 않았고 크기와 정리 명령만 runbook에 적었다.
+
 ## 6차 갱신: 호스트 재복구 후 few-shot 실행 중 다시 끊김
 - 점검 결과와 중단 지점은 docs/base-model-comparison.md의 "2차 시도 기록". 호스트에는 few-shot 작업이 남아 있을 수 있다(`base-compare-fewshot.log`, `runs-base-compare/`). 다음에 닿으면 먼저 그 상태를 확인하고(이어받기 가능), 완료된 후보의 `*-fewshot2.evaluation-report.json`을 가져와 표를 채운다.
 
