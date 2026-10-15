@@ -1,0 +1,9 @@
+# 변경 이력
+
+## 0.1.0 (2026-10-15)
+- 파이프라인(설정 -> I2 읽기 -> 변환 -> 학습 -> 평가 -> 패키징 -> I3 게시), `run`/`run-once`/`status`, 체크포인트 재개, run 기록.
+- I3 ModelRegistry 파일·메모리 구현과 적합성 시험.
+- 평가기: 서빙과 같은 경로(model-runtime `*_raw` + 보호 적용), 차원별 쪼개 보기, 보지 못한 문항 세트 따로 보고. 임계치·지표 선정 없음(O11).
+- 학습기: transformers+peft LoRA(`hf`), CPU 시험용 `dry-run`. 프로파일 `profiles/gpu-dev-12g.yaml`.
+- golden 평가기 시험, 변경 요청 CR-L001~L004.
+- 의존: boundary-contracts v1.1.0, turn-engine v0.2.0, model-runtime v0.3.0.

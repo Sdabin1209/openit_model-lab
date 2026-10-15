@@ -121,6 +121,8 @@ CONFIG_SCHEMA: dict[str, Any] = {
             "type": "object", "additionalProperties": False, "required": ["kind"],
             "properties": {"kind": {"enum": ["file"]}, "path": {"type": "string"}},
         },
+        "checks": {"type": "object", "additionalProperties": False,
+                   "properties": {"max_lora_rank": {"type": "integer", "minimum": 1}}},
         "publish": {"type": "object", "additionalProperties": False,
                     "properties": {"enabled": {"type": "boolean"}}},
     },

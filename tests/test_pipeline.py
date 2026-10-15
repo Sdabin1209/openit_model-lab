@@ -212,3 +212,16 @@ def test_config_hash_ignores_locations_but_not_training(cfg, tmp_path):
     assert config_hash(cfg) == config_hash(c2)
     c3 = copy.deepcopy(cfg); c3["training"]["epochs"] = 2
     assert config_hash(cfg) != config_hash(c3)
+
+
+def test_rank_check_before_publish(cfg):
+    c = copy.deepcopy(cfg); c["checks"] = {"max_lora_rank": 16}      # dry-run 어댑터에는 순위가 없다 -> 확인 못 하면 중단
+    with pytest.raises(PipelineError, match="max_lora_rank"):
+        mk(c).run()
+
+
+def test_eval_requires_temperature_zero(cfg):
+    c = copy.deepcopy(cfg)
+    c["serving"]["LORA_A"] = copy.deepcopy(c["serving"]["LORA_A"]); c["serving"]["LORA_A"]["decoding"]["temperature"] = 0.5
+    with pytest.raises(PipelineError, match="온도 0"):
+        mk(c).run()

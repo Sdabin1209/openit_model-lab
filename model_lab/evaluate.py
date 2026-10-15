@@ -142,6 +142,9 @@ def aggregate(recs: list[dict], role: str) -> dict:
             prot[name] += c
     a["protections"] = dict(sorted(prot.items()))
     a["rates"] = {k: a[k] / n for k in ("raw_valid", "raw_exact", "prot_exact")}
+    # 보호 전 출력의 스키마·규칙 유효(raw_valid)와 보호 개입 건수를 따로 담는다(D48). 임계치는 없다.
+    a["protection_interventions"] = {"samples_with_protection": cnt(lambda r: r["outcome"] in ("repaired", "fallback")),
+                                     "by_outcome": {k: v for k, v in a["outcomes"].items() if k != "ok"}}
     if role == "LORA_A":
         for key in ("raw", "prot"):
             tp, fp, fn = (sum(r[f"{key}_item_{x}"] for r in recs) for x in ("tp", "fp", "fn"))

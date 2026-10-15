@@ -21,3 +21,5 @@ training:
   log_every_steps: 5
   deterministic: true
   attn_implementation: eager            # sdpa 커널은 같은 시드에서도 어댑터가 달라졌다(determinism_probe 확인). eager는 비트 단위로 같았다.
+checks:
+  max_lora_rank: 16                     # gpu-dev 엔진 프로파일의 상한(model-runtime 기준). 학습의 lora.r은 이 값 이하여야 한다. 게시 전에 어댑터의 r을 대조한다.

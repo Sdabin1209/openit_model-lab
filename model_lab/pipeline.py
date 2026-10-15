@@ -263,6 +263,99 @@ class Run:
         session = model_runtime.load(adapters, {r: self.cfg["serving"][r] for r in ROLES}, schema_dir=self.schema_dir,
                                      expected_serving_config_hashes=hashes, backend=backend)
         split = self.cfg["evaluation"].get("split", "EVAL")
+        for role in ROLES:   # 평가는 온도 0(결정적)에서 한다(D48). 온도 > 0의 재현성은 약속되지 않는다.
+            if self.cfg["serving"][role]["decoding"]["temperature"] != 0:
+                raise PipelineError(f"{role}: 평가는 serving_config의 온도 0에서만 한다")
+        for role in ROLES:
+            fr = ROLE_TO_FILE_ROLE[role]
+            out = self.dir / "data" / role
+            out.mkdir(parents=True, exist_ok=True)
+            serving = self.cfg["serving"][role]
+            model_runtime.validate_serving_config(serving)
+            tv_samples, splits = [], {}
+            for split in ("TRAIN", "VALIDATION", "EVAL"):
+                samples = []
+                for f in datasets.split_files(dm, fr, split):
+                    samples += list(datasets.read_samples(base / f["path"], fr, self.schema_dir))
+                splits[split] = samples
+            datasets.check_no_leak(splits["TRAIN"] + splits["VALIDATION"], splits["EVAL"] + [])
+            if not splits["TRAIN"]:
+                raise PipelineError(f"{role}: 학습 샘플이 없다")
+            labels: dict = {}
+            for split, name in (("TRAIN", "train"), ("VALIDATION", "val")):
+                with open(out / f"{name}.jsonl", "w", encoding="utf-8") as fh:
+                    for s in splits[split]:   # 학습·검증에는 해당 분할만 들어간다. EVAL은 여기에 쓰지 않는다.
+                        ex = to_example(role, s, serving, self.schema_dir)
+                        if name == "train":
+                            labels.setdefault(ex["prompt"], set()).add(ex["completion"])
+                        fh.write(json.dumps(ex, ensure_ascii=False, sort_keys=True) + "\n")
+            conflicts = sum(1 for v in labels.values() if len(v) > 1)   # 같은 입력에 다른 정답(데이터셋 품질 정보, 중단하지 않는다)
+            for split in ("EVAL", "VALIDATION"):
+                with open(out / f"{split.lower()}_samples.jsonl", "w", encoding="utf-8") as fh:
+                    for s in splits[split]:
+                        fh.write(json.dumps(s, ensure_ascii=False, sort_keys=True) + "\n")
+            self._mark("transform", role, status="done", train=len(splits["TRAIN"]), validation=len(splits["VALIDATION"]),
+                       eval=len(splits["EVAL"]), conflicting_train_prompts=conflicts, train_file_hash=canonical.file_hash(out / "train.jsonl"))
+        self.rec["stages"]["transform"]["status"] = "done"
+        self._save()
+
+    # 3. 학습
+    def stage_train(self) -> None:
+        for role in ROLES:
+            adapter = self.dir / "adapters" / role
+            info = self.rec["stages"].get("train", {}).get(role, {})
+            if info.get("status") == "done" and adapter.is_dir() and canonical.directory_hash(adapter) == info["adapter_hash"]:
+                continue
+            tr = role_training(self.cfg, role)
+            trainer = self.trainer_factory(tr.get("trainer", "hf"))
+            base = {"id": self.cfg["base_model"]["id"], "revision": self.cfg["base_model"].get("revision", "unspecified")}
+            d = self.dir / "data" / role
+            req = TrainRequest(role=role, base_model=base, training=tr, seed=self.seed, train_path=d / "train.jsonl",
+                               val_path=d / "val.jsonl", adapter_dir=adapter, work_dir=self.dir / "work" / role)
+            self.log(f"[{self.run_id}] {role} 학습 시작({trainer.name})")
+            self._mark("train", role, status="running", started_at=self.clock())
+            res = trainer.train(req)
+            self._mark("train", role, status="done", adapter_hash=canonical.directory_hash(adapter),
+                       trainer=trainer.name, result=res, finished_at=self.clock())
+        self.rec["stages"]["train"]["status"] = "done"
+        self._save()
+
+    # 4. 평가
+    def _backend(self, adapters: dict, dm: dict):
+        ev = self.cfg["evaluation"]["backend"]
+        if ev["kind"] == "hf":
+            from .backends.hf import HFAdapterBackend
+            base = {"id": self.cfg["base_model"]["id"], "revision": self.cfg["base_model"].get("revision")}
+            return HFAdapterBackend(base, adapters, role_training(self.cfg, "LORA_A"))
+        from .backends.fake import oracle_backend
+        mapping = {}
+        for role in ROLES:
+            for s in self._eval_samples(role):
+                mapping[model_runtime.render_prompt(role, s["input"], serving_config=self.cfg["serving"][role],
+                                                    schema_dir=self.schema_dir)] = evaluate_completion(role, s)
+        feats = self.cfg["serving"]["LORA_A"]["constraint"]["supported_features"]
+        return oracle_backend(mapping, corrupt_every=ev.get("corrupt_every", 0), supported_features=feats)
+
+    def _eval_samples(self, role: str) -> list[dict]:
+        split = self.cfg["evaluation"].get("split", "EVAL")
+        p = self.dir / "data" / role / f"{split.lower()}_samples.jsonl"
+        rows = [json.loads(x) for x in p.read_text(encoding="utf-8").splitlines() if x.strip()]
+        lim = self.cfg["evaluation"].get("limit_samples")
+        return rows[:lim] if lim else rows
+
+    def stage_evaluate(self) -> None:
+        if self._done("evaluate") and all((self.dir / "eval" / f"report-{r}.json").exists() for r in ROLES):
+            return
+        dm = self._manifest()
+        adapters = {r: self.dir / "adapters" / r for r in ROLES}
+        hashes = {r: model_runtime.serving_config_hash(self.cfg["serving"][r]) for r in ROLES}
+        backend = self._backend(adapters, dm)
+        session = model_runtime.load(adapters, {r: self.cfg["serving"][r] for r in ROLES}, schema_dir=self.schema_dir,
+                                     expected_serving_config_hashes=hashes, backend=backend)
+        split = self.cfg["evaluation"].get("split", "EVAL")
+        for role in ROLES:   # 평가는 온도 0(결정적)에서 한다(D48). 온도 > 0의 재현성은 약속되지 않는다.
+            if self.cfg["serving"][role]["decoding"]["temperature"] != 0:
+                raise PipelineError(f"{role}: 평가는 serving_config의 온도 0에서만 한다")
         for role in ROLES:
             fr = ROLE_TO_FILE_ROLE[role]
             samples = self._eval_samples(role)
@@ -290,6 +383,12 @@ class Run:
     def stage_package(self) -> None:
         if self._done("package"):
             return
+        mr = self.cfg.get("checks", {}).get("max_lora_rank")     # 대상 엔진 프로파일의 상한(D48). 게시 전 확인
+        if mr is not None:
+            for role in ROLES:
+                r = json.loads((self.dir / "adapters" / role / "adapter_config.json").read_text()).get("r")
+                if r is None or r > mr:
+                    raise PipelineError(f"{role}: 어댑터 순위 {r}가 대상 엔진의 max_lora_rank {mr}를 넘는다")
         dm = self._manifest()
         st = self.rec["stages"].setdefault("package", {})
         created = st.get("created_at") or self.clock()      # 처음 정한 값을 고정한다(재실행해도 같은 매니페스트)

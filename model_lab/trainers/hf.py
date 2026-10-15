@@ -70,11 +70,12 @@ def resolved_revision(model, base_model: dict) -> str:
     """실제로 쓴 기반 모델의 커밋. transformers가 설정에 남긴 _commit_hash를 쓴다(없으면 요청한 revision)."""
     cfg = getattr(model, "config", None)
     h = getattr(cfg, "_commit_hash", None)
-    if not h:
-        try:   # 로컬 캐시 스냅샷 경로의 마지막 요소가 커밋이다
-            from huggingface_hub import snapshot_download
-            h = Path(snapshot_download(base_model["id"], revision=base_model.get("revision") or "main", local_files_only=True)).name
-        except Exception:
+    if not h:   # HF 캐시의 refs/<revision> 파일이 커밋 해시다
+        try:
+            root = Path(os.environ.get("HF_HOME", Path.home() / ".cache" / "huggingface")) / "hub"
+            ref = root / ("models--" + base_model["id"].replace("/", "--")) / "refs" / (base_model.get("revision") or "main")
+            h = ref.read_text().strip() if ref.is_file() else None
+        except OSError:
             h = None
     return h or base_model.get("revision", "unknown")
 
