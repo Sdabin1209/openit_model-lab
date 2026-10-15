@@ -1,0 +1,12 @@
+# 기반 모델 비교 후보(D60). 학습하지 않고 기반 모델 그대로 파서 golden 일부를 같은 프롬프트·온도 0으로 돌린다.
+# 라이선스는 모델 카드(README)와 LICENSE를 직접 읽은 것만 "확인"으로 쓴다(docs/base-model-comparison.md).
+samples: 50
+fewshot: 2                         # 표본에 없는 golden 사례 2개를 앞선 대화 턴으로 준다(제로샷은 형식을 거의 못 맞춘다)
+suffix: "-fewshot2"
+decoding: {temperature: 0, seed: 1000, max_tokens: 512}
+training: {quantization: {mode: 4bit-nf4, compute_dtype: bfloat16}, dtype: bfloat16, gpu_memory_fraction: 0.9, attn_implementation: sdpa}
+candidates:
+  - {name: qwen2.5-7b, id: Qwen/Qwen2.5-7B-Instruct}
+  - {name: qwen3-8b, id: Qwen/Qwen3-8B}
+  - {name: kanana-1.5-8b, id: kakaocorp/kanana-1.5-8b-instruct-2505}
+  - {name: qwen2.5-14b-4bit, id: Qwen/Qwen2.5-14B-Instruct}

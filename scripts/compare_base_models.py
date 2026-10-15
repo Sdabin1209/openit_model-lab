@@ -38,6 +38,25 @@ def pick_samples(n: int) -> list[dict]:
              "input": p["input"], "expected": p["expected"]} for p in chosen]
 
 
+def pick_fewshot(k: int, exclude_ids: set, schema_dir: Path) -> list[tuple[str, str]]:
+    """표본에 없는 파서 golden 중 서로 다른 의도의 정답 사례 k개(위험 신호 사례는 쓰지 않는다)를 (프롬프트, 정답 출력)으로."""
+    P = [p for p in load_pairs() if p["role"] == "PARSER" and f"{p['case']}-t{p['turn']}" not in exclude_ids
+         and not any(i["intent"] == "RISK_SIGNAL" for i in p["expected"]["items"]) and p["expected"]["items"]]
+    want, out, seen = ["ANSWERED_INTENT", "CORRECTION_MARKED", "SAYS_UNKNOWN", "CONFIRM_YES"], [], set()
+    for intent in want:
+        for p in P:
+            its = p["expected"]["items"]
+            if its[0]["intent"] == intent and len(its) == 1 and intent not in seen:
+                seen.add(intent)
+                sc = serving("x", "1", {"temperature": 0, "seed": 0, "max_tokens": 8})
+                out.append((model_runtime.render_prompt("LORA_A", p["input"], serving_config=sc, schema_dir=schema_dir),
+                            completion_of("LORA_A", p["expected"])))
+                break
+        if len(out) >= k:
+            break
+    return out
+
+
 def serving(backend_name: str, backend_version: str, decoding: dict) -> dict:
     return {"prompt_template_version": "prompt-2",
             "decoding": {"constraint_mode": "none", "temperature": decoding["temperature"], "seed": decoding["seed"], "max_tokens": decoding["max_tokens"]},
@@ -50,7 +69,8 @@ def run_candidate(cand: dict, cfg: dict, samples: list[dict], schema_dir: Path, 
     t0 = time.time()
     if backend_kind == "hf":
         from model_lab.backends.hf_base import HFBaseChatBackend
-        backend = HFBaseChatBackend({"id": cand["id"], "revision": "main"}, cfg["training"])
+        fs = pick_fewshot(cfg.get("fewshot", 0), {x["sample_id"] for x in samples}, schema_dir) if cfg.get("fewshot") else []
+        backend = HFBaseChatBackend({"id": cand["id"], "revision": "main"}, cfg["training"], fewshot=fs)
     else:
         from model_lab.backends.fake import oracle_backend
         sc0 = serving("fake", "1", cfg["decoding"])
@@ -69,17 +89,17 @@ def run_candidate(cand: dict, cfg: dict, samples: list[dict], schema_dir: Path, 
         rep, pairs = build_report("LORA_A", session, samples, seen_sets={("golden", "1")}, eval_files=[], return_records=True)
     metrics, notes = M.build_metrics("LORA_A", pairs, {("golden", "1")})
     notes.append("기반 모델 그대로(미학습)이며 프롬프트를 채팅 템플릿의 사용자 메시지로 넣었다. 평가 백엔드는 transformers이고 서빙 vLLM이 아니다. "
-                 f"양자화: {cfg['training']['quantization']['mode']}.")
+                 f"양자화: {cfg['training']['quantization']['mode']}. 예시(few-shot) 수: {cfg.get('fewshot', 0)}.")
     elapsed = time.time() - t0
     ev = M.evaluation_report(
-        role="LORA_A", report_id=f"basecmp-{cand['name']}", created_at="2026-10-15T00:00:00Z",
+        role="LORA_A", report_id=f"basecmp-{cand['name']}{cfg.get('suffix', '')}", created_at="2026-10-15T00:00:00Z",
         package={"id": f"base-{cand['name']}", "version": "0", "content_hash": canonical.sha256_hash({"model": cand["id"]})},
         dataset={"id": "golden-parser-subset", "version": str(len(samples)), "content_hash": canonical.sha256_hash([s["sample_id"] for s in samples])},
         question_sets=[], backend={"name": backend.name, "version": backend.version, "constrained_decoding": False},
         decoding=cfg["decoding"], metrics=metrics, notes=notes, detail={"overall": rep["overall"], "failures": rep["failures"]})
-    (out / f"{cand['name']}.evaluation-report.json").write_text(json.dumps(ev, ensure_ascii=False, indent=2, sort_keys=True), encoding="utf-8")
+    (out / f"{cand['name']}{cfg.get('suffix', '')}.evaluation-report.json").write_text(json.dumps(ev, ensure_ascii=False, indent=2, sort_keys=True), encoding="utf-8")
     top = {m["name"]: (round(m["value"], 4), m["n"]) for m in metrics if "slice" not in m}
-    res = {"name": cand["name"], "id": cand["id"], "metrics": top, "seconds": round(elapsed, 1), "samples": len(samples)}
+    res = {"name": cand["name"] + cfg.get("suffix", ""), "id": cand["id"], "metrics": top, "seconds": round(elapsed, 1), "samples": len(samples)}
     if backend_kind == "hf":
         res.update(peak_cuda_mb=backend.peak_mb(), generated=backend.generated, new_tokens=backend.new_tokens)
         del backend
@@ -101,7 +121,7 @@ def main() -> int:
         try:
             r = run_candidate(cand, cfg, samples, Path(a.schema_dir), a.backend, out)
         except Exception as e:   # 후보 하나의 실패(메모리 부족 등)가 나머지를 막지 않는다. 사유만 남긴다(원문 없음)
-            r = {"name": cand["name"], "id": cand["id"], "error": f"{type(e).__name__}: {str(e)[:200]}"}
+            r = {"name": cand["name"] + cfg.get("suffix", ""), "id": cand["id"], "error": f"{type(e).__name__}: {str(e)[:200]}"}
         print(json.dumps(r, ensure_ascii=False), flush=True)
         results.append(r)
         sp = out / "summary.json"

@@ -70,6 +70,7 @@ D22 (2): 서비스가 없는 run-once 잡이라 Dockerfile 없이 `requirements.
 설정 파일(또는 프로파일)의 `training`, `base_model`을 고친다. 코드를 고치지 않는다. 설정이 바뀌면 `config_hash`와 `run_id`가 바뀌어 새 run이 된다. 새 하드웨어는 `profiles/<이름>.yaml`을 추가하고 설정의 `profile:`이 가리키게 한다.
 
 ## GPU 호스트(gpu-dev) 실행 (D47)
+**SSH 옵션(이 환경)**: 기본 SSH는 키 교환(sntrup761 후양자 알고리즘의 큰 패킷)에서 멈춘다. 모든 `ssh`에 `-o KexAlgorithms=curve25519-sha256`을, rsync에는 `-e "ssh -o BatchMode=yes -o ConnectTimeout=15 -o KexAlgorithms=curve25519-sha256"`을 붙인다. 사용자의 `~/.ssh/config`는 고치지 않는다. 아래 예시의 `ssh gpu-dev`, `rsync … gpu-dev:`는 이 옵션을 붙인 것으로 읽는다. 리포지토리 루트를 통째로 rsync하면 중간에 `code 255`로 끊기는 일이 있어(원인 미확인) 하위 폴더(`model_lab/ configs/ scripts/ tests/ profiles/`)를 하나씩 보내니 안정적이었다.
 1. 코드 보내기(비밀 값 없음, 호스트에서 GitHub 접속 없음):
    `rsync -a --exclude .venv --exclude .git --exclude runs --exclude fixtures ./ gpu-dev:openit-gpu/model-lab/`
    호스트에는 이웃 폴더가 없다. 태그에서 만든 wheel과 문진 스키마 사본을 `vendor/`(gitignore)에 두고 보낸다:

@@ -16,7 +16,7 @@ class HFBaseChatBackend:
     version = BACKEND_VERSION
     supported_features = frozenset()
 
-    def __init__(self, base_model: dict, training: dict, *, use_chat_template: bool = True):
+    def __init__(self, base_model: dict, training: dict, *, use_chat_template: bool = True, fewshot: list | None = None):
         torch, transformers, _ = _import()
         if not torch.cuda.is_available():
             raise TrainerUnavailable("CUDA GPU가 없다")
@@ -28,6 +28,7 @@ class HFBaseChatBackend:
         self.tok, self.model = load_base(torch, transformers, base_model, training, for_training=False)
         self.model.eval()
         self.use_chat_template = use_chat_template
+        self.fewshot = fewshot or []     # [(프롬프트, 정답 출력)] 앞선 대화 턴으로 넣는다
         self._cache: dict = {}
         self.generated = 0
         self.new_tokens = 0
@@ -37,7 +38,10 @@ class HFBaseChatBackend:
 
     def _encode(self, prompt: str):
         if self.use_chat_template and getattr(self.tok, "chat_template", None):
-            msgs = [{"role": "user", "content": prompt}]
+            msgs = []
+            for u, a in self.fewshot:
+                msgs += [{"role": "user", "content": u}, {"role": "assistant", "content": a}]
+            msgs.append({"role": "user", "content": prompt})
             try:   # Qwen3: 추론(thinking) 모드를 끈다
                 text = self.tok.apply_chat_template(msgs, tokenize=False, add_generation_prompt=True, enable_thinking=False)
             except TypeError:
