@@ -133,3 +133,12 @@ def test_i3_server_conformance_with_real_client(server, tmp_path):
     m3, ad3, rep3 = make(tmp_path, pid="pkg-z", ref="eval-z", report=b"z")
     assert code_of(r.publish, m3, ad3, rep3) == "PERMISSION_DENIED"       # 읽기 토큰의 게시
     assert code_of(r.get_manifest, "nope", "v1") == "NOT_FOUND"
+
+
+def test_rejected_upload_still_returns_real_error_not_connection_reset(server):
+    """본문을 읽기 전에 403/400으로 답하면 아직 보내는 중인 클라이언트가 연결 초기화(UNAVAILABLE)를 본다.
+    서버가 본문을 비우고 답하는지 큰 본문으로 반복 확인한다(간헐 실패의 회귀 시험)."""
+    big = b"x" * (40 * 1024 * 1024)
+    for _ in range(8):
+        assert raw(server + "/v1/packages", "POST", "rt", big)[0] == 403          # 읽기 토큰
+        assert raw(server + "/v1/packages", "POST", "wt", big)[0] == 400          # tar가 아님

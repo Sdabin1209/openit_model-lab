@@ -1,5 +1,13 @@
 # STATUS (2026-10-15)
 
+## 6차 갱신: 호스트 재복구 후 few-shot 실행 중 다시 끊김
+- 점검 결과와 중단 지점은 docs/base-model-comparison.md의 "2차 시도 기록". 호스트에는 few-shot 작업이 남아 있을 수 있다(`base-compare-fewshot.log`, `runs-base-compare/`). 다음에 닿으면 먼저 그 상태를 확인하고(이어받기 가능), 완료된 후보의 `*-fewshot2.evaluation-report.json`을 가져와 표를 채운다.
+
+## 간헐 실패 시험 식별·수정
+- 식별: `pytest -rf` 반복에서 `tests/test_service.py::test_i3_server_conformance_with_real_client`가 가끔 실패했다(`PERMISSION_DENIED`를 기대했는데 `UNAVAILABLE`).
+- 원인(확인): 서버가 읽기 토큰의 게시를 본문을 읽기 전에 403으로 거절했다. 클라이언트가 아직 본문을 보내는 중이면 연결이 초기화되어 `UNAVAILABLE`이 된다(경쟁 조건). 시험만의 문제가 아니라 실제 서버의 결함이었다.
+- 수정: 오류로 답하기 전에 요청 본문을 비우면서 읽는다(`_drain`, 상한 `MODEL_REGISTRY_MAX_BODY`). 회귀 시험 `test_rejected_upload_still_returns_real_error_not_connection_reset`(40MB 본문 8회 x 2 경우).
+
 ## 5차 갱신 (D60 기반 모델 비교) — 부분 측정, 호스트가 다시 꺼짐
 - 호스트 복구 뒤 qwen2.5-7b 제로샷만 측정(스키마 유효율 0/50, 메모리 5.9GB). 다음 후보 내려받는 중 호스트 불가(재시도 2회 실패). few-shot 판 설정과 도구를 추가했으나 실행하지 못했다. 자세한 내용과 이어서 하는 방법은 docs/base-model-comparison.md.
 - 아래는 이전 기록(첫 불가 때).

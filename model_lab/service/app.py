@@ -123,7 +123,26 @@ def make_handler(svc: Service):
         def _fail(self, e: BoundaryError) -> None:
             if self.command in ("POST", "PUT", "PATCH"):
                 self.close_connection = True      # 본문을 다 읽지 않았을 수 있다
+                self._drain()
             self._json(STATUS[e.code], e.to_record())
+
+        _consumed = False
+
+        def _drain(self) -> None:
+            """오류로 답하기 전에 요청 본문을 버리면서 읽는다. 읽지 않고 답하면 아직 보내는 중인 클라이언트가 연결 초기화로
+            UNAVAILABLE을 받아 403/400 같은 실제 오류를 못 본다(간헐 실패의 원인이었다)."""
+            if self._consumed:
+                return
+            self._consumed = True
+            try:
+                left = min(int(self.headers.get("Content-Length") or 0), svc.max_body)
+                while left > 0:
+                    chunk = self.rfile.read(min(1 << 20, left))
+                    if not chunk:
+                        break
+                    left -= len(chunk)
+            except (OSError, ValueError):
+                pass
 
         def _dispatch(self):
             u = urlparse(self.path)
@@ -165,6 +184,7 @@ def make_handler(svc: Service):
 
         def _publish(self) -> None:
             n = int(self.headers.get("Content-Length") or -1)
+            self._consumed = True            # 이 함수가 본문을 읽는다(오류 시 남은 만큼 _drain이 아니라 아래 읽기 규칙을 따른다)
             if n < 0:
                 raise BoundaryError("INVALID_RECORD", "Content-Length가 필요하다")
             if n > svc.max_body:
