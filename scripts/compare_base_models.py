@@ -1,4 +1,4 @@
-"""기반 모델 후보 비교(학습 없음). 사용: python scripts/compare_base_models.py --config configs/base-model-candidates.yaml
+"""기반 모델 후보 비교(학습 없음). 사용: python scripts/compare_base_models.py --config configs/compare/base-model-candidates.yaml
        --schema-dir <.../schema/schemas> --out runs/base-compare [--only 이름] [--backend hf|fake]
 
 후보마다 파서 golden 표본에 render_prompt(서빙과 같은 프롬프트)를 만들어 model-runtime의 parse_raw/parse 경로로 평가하고

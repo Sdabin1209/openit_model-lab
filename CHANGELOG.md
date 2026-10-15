@@ -1,7 +1,7 @@
 # 변경 이력
 
 ## 0.1.0 (2026-10-15)
-- 기반 모델 후보 비교 도구(scripts/compare_base_models.py, configs/base-model-candidates.yaml)와 docs/base-model-comparison.md. gpu-dev 불가로 측정은 미실행.
+- 기반 모델 후보 비교 도구(scripts/compare_base_models.py, configs/compare/base-model-candidates.yaml)와 docs/base-model-comparison.md. gpu-dev 불가로 측정은 미실행.
 - EvaluationReport(boundary-contracts v1.3.0) 방출, 회귀 평가의 reviewed_input 우선, eval_report_ref를 패키지 기준으로 변경.
 - 데이터셋 파일 저장소 읽기 구현, 회귀 평가(I7), 실제 실행 설정 configs/gpu-dev.yaml, 시험용 설정 이름 변경(gpu-dev-fixture-*), 개발 네트워크 절차.
 - boundary-contracts v1.2.0, model-runtime v0.4.0로 올림. base_model.id 원래 이름 사용. 평가에서 is_fallback 비교 제거, 보고서에 평가 백엔드, 패키지 ext에 resumed 기록. 서버 적합성 시험을 실제 HttpModelRegistry로 수행. 게시 장애 시 게시만 재시도.

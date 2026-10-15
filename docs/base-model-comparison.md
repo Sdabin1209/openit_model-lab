@@ -44,7 +44,7 @@
 ```
 rsync -a --exclude .venv --exclude .git --exclude 'runs*' --exclude fixtures ./ gpu-dev:openit-gpu/model-lab/
 ssh gpu-dev 'cd ~/openit-gpu/model-lab && (setsid nohup flock -w 1800 ~/openit-gpu/.gpu.lock timeout 7200 \
-  .venv/bin/python scripts/compare_base_models.py --config configs/base-model-candidates.yaml \
+  .venv/bin/python scripts/compare_base_models.py --config configs/compare/base-model-candidates.yaml \
   --schema-dir vendor/survey-schema/schemas --out runs-base-compare > base-compare.log 2>&1 &)'
 # 끝나면
 rsync -a gpu-dev:openit-gpu/model-lab/runs-base-compare/ runs/base-compare/

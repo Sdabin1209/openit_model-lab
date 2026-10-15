@@ -11,7 +11,7 @@ from tests.conftest import ROOT, SCHEMA_DIR
 
 
 def run(tmp_path, cands, extra=()):
-    cfg = yaml.safe_load((ROOT / "configs/base-model-candidates.yaml").read_text())
+    cfg = yaml.safe_load((ROOT / "configs/compare/base-model-candidates.yaml").read_text())
     cfg["candidates"] = cands
     cp = tmp_path / "c.yaml"; cp.write_text(yaml.safe_dump(cfg))
     r = subprocess.run([sys.executable, str(ROOT / "scripts/compare_base_models.py"), "--config", str(cp), "--schema-dir", str(SCHEMA_DIR),
