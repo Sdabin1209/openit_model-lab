@@ -319,3 +319,12 @@ def test_neighbor_reader_factories_are_accepted_by_config(cfg):
     c["inputs"]["question_reader"] = {"factory": "boundary_contracts.clients:HttpQuestionReader", "args": {"base_url": "http://q", "token_env": "QT"}}
     c["inputs"]["failure_store"] = {"factory": "boundary_contracts.clients:HttpFailureStore", "args": {"base_url": "http://f", "token_env": "FT"}}
     validate_config(c)
+
+
+def test_all_shipped_configs_are_valid():
+    from pathlib import Path
+    from model_lab.config import load_config
+    files = sorted((Path(__file__).resolve().parents[1] / "configs").glob("*.yaml"))
+    assert len(files) >= 7
+    for f in files:
+        load_config(f)

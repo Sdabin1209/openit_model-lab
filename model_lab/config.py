@@ -117,6 +117,11 @@ CONFIG_SCHEMA: dict[str, Any] = {
                 "split": {"enum": ["EVAL", "VALIDATION"]},
                 "limit_samples": {"type": ["integer", "null"], "minimum": 1},
                 "max_listed_failures": {"type": "integer", "minimum": 0},
+                # 회귀 평가(I7). 켜면 inputs.failure_store에서 확정된 실패 사례를 읽는다. label을 바꾸면 새 run이 된다
+                # (실패 사례 저장소의 내용은 run_id에 들어가지 않으므로 집합이 달라졌음을 사람이 표시한다).
+                "regression": {"type": "object", "additionalProperties": False,
+                               "properties": {"enabled": {"type": "boolean"}, "limit_cases": {"type": ["integer", "null"], "minimum": 1},
+                                              "label": {"type": "string"}}},
             },
         },
         # 게시 대상: file(로컬 파일), http(원격 model-registry; boundary_contracts.clients.HttpModelRegistry),

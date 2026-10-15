@@ -19,7 +19,7 @@ from typing import Callable
 import model_runtime
 from boundary_contracts import BoundaryError, canonical
 
-from . import datasets, evaluate, factories, packager, schemas
+from . import datasets, evaluate, factories, packager, regression, schemas
 from .config import ROLE_TO_FILE_ROLE, ROLES, config_hash, resolved_path, role_training
 from .errors import ConfigError, PipelineError
 from .registry import FileModelRegistry
@@ -79,7 +79,7 @@ def make_registry(cfg: dict):
 class Run:
     """한 번의 실행. run.json이 설정, 시드, 데이터셋 버전, 라이브러리 버전, 단계별 결과를 기록한다."""
 
-    def __init__(self, cfg: dict, *, dataset_store=None, registry=None, trainer_factory: Callable | None = None,
+    def __init__(self, cfg: dict, *, dataset_store=None, registry=None, trainer_factory: Callable | None = None, failure_store=None,
                  clock: Callable[[], str] = now_utc, log: Callable[[str], None] = lambda s: print(s, flush=True)):
         self.cfg = cfg
         if set(cfg["roles"]) != set(ROLES) or set(cfg["serving"]) != set(ROLES):
@@ -88,6 +88,8 @@ class Run:
         self.registry = registry or make_registry(cfg)
         self.trainer_factory = trainer_factory or (lambda kind: make_trainer(kind))
         self.clock, self.log = clock, log
+        self._failure_store = failure_store
+        self._rset = None
         self.schema_dir = resolved_path(cfg, cfg["inputs"]["schema_dir"])
         self.contract_version = schemas.contract_version(self.schema_dir)
         self.runs_dir = resolved_path(cfg, cfg["run"].get("runs_dir", "runs"))
@@ -243,6 +245,22 @@ class Run:
         self._save()
 
     # 4. 평가
+    def _regression_enabled(self) -> bool:
+        return bool(self.cfg["evaluation"].get("regression", {}).get("enabled"))
+
+    def _regression_set(self) -> dict:
+        if self._rset is None:
+            store = self._failure_store
+            if store is None:
+                if "failure_store" not in self.cfg["inputs"]:
+                    raise ConfigError("evaluation.regression.enabled에는 inputs.failure_store가 필요하다")
+                store = factories.build(self.cfg["inputs"]["failure_store"])
+            self._rset = regression.build_set(store, self.schema_dir, limit=self.cfg["evaluation"]["regression"].get("limit_cases"),
+                                              max_listed=self.cfg["evaluation"].get("max_listed_failures", 20))
+            self.log(f"[{self.run_id}] 회귀 집합 {self.cfg['evaluation']['regression'].get('label', '')} "
+                     f"사례 {self._rset['cases_total']}건, 건너뜀 { {k: v['count'] for k, v in self._rset['skipped'].items()} }")
+        return self._rset
+
     def _backend(self, adapters: dict, dm: dict):
         ev = self.cfg["evaluation"]["backend"]
         if ev["kind"] == "hf":
@@ -252,7 +270,8 @@ class Run:
         from .backends.fake import oracle_backend
         mapping = {}
         for role in ROLES:
-            for s in self._eval_samples(role):
+            extra = self._regression_set()["samples"][role] if self._regression_enabled() else []
+            for s in self._eval_samples(role) + extra:
                 mapping[model_runtime.render_prompt(role, s["input"], serving_config=self.cfg["serving"][role],
                                                     schema_dir=self.schema_dir)] = evaluate_completion(role, s)
         feats = self.cfg["serving"]["LORA_A"]["constraint"]["supported_features"]
@@ -333,6 +352,22 @@ class Run:
         self._save()
 
     # 4. 평가
+    def _regression_enabled(self) -> bool:
+        return bool(self.cfg["evaluation"].get("regression", {}).get("enabled"))
+
+    def _regression_set(self) -> dict:
+        if self._rset is None:
+            store = self._failure_store
+            if store is None:
+                if "failure_store" not in self.cfg["inputs"]:
+                    raise ConfigError("evaluation.regression.enabled에는 inputs.failure_store가 필요하다")
+                store = factories.build(self.cfg["inputs"]["failure_store"])
+            self._rset = regression.build_set(store, self.schema_dir, limit=self.cfg["evaluation"]["regression"].get("limit_cases"),
+                                              max_listed=self.cfg["evaluation"].get("max_listed_failures", 20))
+            self.log(f"[{self.run_id}] 회귀 집합 {self.cfg['evaluation']['regression'].get('label', '')} "
+                     f"사례 {self._rset['cases_total']}건, 건너뜀 { {k: v['count'] for k, v in self._rset['skipped'].items()} }")
+        return self._rset
+
     def _backend(self, adapters: dict, dm: dict):
         ev = self.cfg["evaluation"]["backend"]
         if ev["kind"] == "hf":
@@ -342,7 +377,8 @@ class Run:
         from .backends.fake import oracle_backend
         mapping = {}
         for role in ROLES:
-            for s in self._eval_samples(role):
+            extra = self._regression_set()["samples"][role] if self._regression_enabled() else []
+            for s in self._eval_samples(role) + extra:
                 mapping[model_runtime.render_prompt(role, s["input"], serving_config=self.cfg["serving"][role],
                                                     schema_dir=self.schema_dir)] = evaluate_completion(role, s)
         feats = self.cfg["serving"]["LORA_A"]["constraint"]["supported_features"]
@@ -385,6 +421,11 @@ class Run:
             self.log(f"[{self.run_id}] {role} 평가 {len(samples)}건")
             rep = evaluate.build_report(role, session, samples, seen_sets=seen, eval_files=files,
                                         max_listed_failures=self.cfg["evaluation"].get("max_listed_failures", 20), context=ctx)
+            if self._regression_enabled():
+                rep["regression"] = regression.section(role, session, self._regression_set(),
+                                                       max_listed=self.cfg["evaluation"].get("max_listed_failures", 20))
+            else:
+                rep["regression"] = {"enabled": False}
             out = self.dir / "eval" / f"report-{role}.json"
             out.parent.mkdir(parents=True, exist_ok=True)
             out.write_bytes(evaluate.report_bytes(rep))

@@ -1,5 +1,10 @@
 # STATUS (2026-10-15)
 
+## 3차 갱신 (D52, GPU 실행 안 함)
+- 데이터셋 파일 저장소 독립 읽기 구현 `model_lab.file_dataset_store`(I2 레이아웃, Protocol, 해시 재확인). 시험용 gpu-dev 설정은 `gpu-dev-fixture-*.yaml`로 이름을 바꿨고 실제 설정은 `configs/gpu-dev.yaml`.
+- 회귀 평가(I7, 실제 `HttpFailureStore` + 작은 서버 대역으로 시험). 개발의 데이터 이동·SSH 역터널 절차는 runbook(운영 네트워크 경계는 가정).
+- 시험 75건 통과. 확인하지 못한 것: 실제 synthetic-data 출력의 `meta.json` 형식(정수 `seq`를 가정하고 없으면 created_at으로 대체), 실제 ops-feedback의 trace에 `parser_input`/`generator_input`이 들어 있는지, 실제 스테이션 네트워크.
+
 ## 2차 갱신 (헤드 결정 반영)
 - boundary-contracts v1.2.0, model-runtime v0.4.0으로 올림(requirements, 라벨). base_model.id는 원래 이름(`Qwen/Qwen2.5-1.5B-Instruct`)과 해석된 커밋 해시.
 - 서버 적합성 시험: 실제 `HttpModelRegistry`로 게시(tar) -> 조회 -> 어댑터 내려받기 -> 해시 검증, 200/201/409/403 (`tests/test_service.py`). 시험 65건 통과(CPU와 GPU 호스트 모두).
@@ -16,7 +21,7 @@
 - I3 파일·메모리 구현과 HTTP 서비스(model-registry), 같은 적합성 시험(memory/file/http), Dockerfile, 스모크.
 - 평가기(보호 전·후, 쪼개 보기, 보지 못한 문항 세트 따로, 임계치 없음), golden 평가 시험.
 - 시험 61건 통과(`.venv/bin/python -m pytest -q`). GPU 호스트에서도 같은 시험 통과(40건 시점, 태그 wheel 설치 환경).
-- **GPU 실행(gpu-dev, RTX 4070 SUPER 12GB)**: 호스트에 pip가 생긴 뒤 `configs/gpu-dev-smoke.yaml`로 학습(Qwen2.5-1.5B-Instruct, 4비트, LoRA r=16, 3스텝) -> 평가(4건) -> 패키징 -> 게시(호스트의 시험용 레지스트리)가 끝까지 돌았다. 최대 GPU 메모리 약 4.2GB. 같은 설정을 두 번 돌려 어댑터·평가 보고서 해시가 일치(eager 어텐션). 체크포인트 재개: 학습 중 프로세스를 죽이고 같은 명령을 다시 실행해 step 2에서 이어 끝까지 완료·게시. 학습 품질은 보지 않았다(3스텝, 파서 출력은 대부분 형식 위반으로 보호 적용).
+- **GPU 실행(gpu-dev, RTX 4070 SUPER 12GB)**: 호스트에 pip가 생긴 뒤 `configs/gpu-dev-fixture-smoke.yaml`로 학습(Qwen2.5-1.5B-Instruct, 4비트, LoRA r=16, 3스텝) -> 평가(4건) -> 패키징 -> 게시(호스트의 시험용 레지스트리)가 끝까지 돌았다. 최대 GPU 메모리 약 4.2GB. 같은 설정을 두 번 돌려 어댑터·평가 보고서 해시가 일치(eager 어텐션). 체크포인트 재개: 학습 중 프로세스를 죽이고 같은 명령을 다시 실행해 step 2에서 이어 끝까지 완료·게시. 학습 품질은 보지 않았다(3스텝, 파서 출력은 대부분 형식 위반으로 보호 적용).
 
 ## 확인하지 못한 것 / 한계
 - 재개한 학습이 중단 없는 학습과 같은 어댑터 해시인지: 다르게 나왔고 원인(재개 vs 환경)을 분리하지 못했다(design.md 4절).

@@ -82,7 +82,7 @@ publish:  {enabled}
 - 쪼개 보기(D13): 파서 = `question_set`, `seen`, `question_id`, `slot_kind`(unit/choice/yes_no/free), `unit`, `range`(`단위:하한-상한`), `intent`, `noise_type`. 생성기 = `question_set`, `seen`, `question_id`, `action`, `has_utterance`. 슬롯 유형·단위·범위는 샘플 입력의 `awaiting_questions`에서 정답 대상 슬롯을 찾아 얻는다. 문항에 별도의 "유형" 필드는 문진 스키마에 없어 `slot_kind`로 대신했다. [제안]
 - 본/보지 못한 문항: 샘플의 `question_set`이 학습·검증 파일의 문항 세트 합집합(파일별 `question_sets`, 없으면 매니페스트 전체)에 없으면 보지 못한 문항이다.
 - 평가 백엔드는 설정으로 고른다(`hf` = transformers+peft, `fake-oracle` = 정답을 그대로 내는 CPU 시험용). 제약 디코딩 백엔드는 model-runtime에 아직 없다(CR-L003).
-- 회귀 평가(FailureCase, I7)와 턴 시뮬레이터는 이 단계에서 만들지 않았다. [미정] I7과 O11이 정해진 뒤.
+- 회귀 평가(I7): `evaluation.regression`으로 켜고 끈다. 확정된(CONFIRMED) 정답 있는 FailureCase의 비식별 trace 입력으로 후보를 평가하고 보고서 `regression` 절에 값을 담는다(건너뛴 사례와 사유 포함, 임계치 없음). 턴 시뮬레이터는 만들지 않았다.
 
 ## 7. 패키징 [확인]
 

@@ -1,8 +1,9 @@
-# gpu-dev에서 한 바퀴 돌리고 같은 호스트의 model-registry 서버에 HTTP로 게시한다. 서버 주소·토큰은 환경 변수로만 받는다.
+# 시험용 설정: tests.doubles의 데이터셋 대역(golden으로 만든 가짜 데이터)을 읽는다. 실제 데이터셋 설정은 gpu-dev.yaml.
+# gpu-dev(12GB)에서 파이프라인이 끝까지 도는지만 보는 아주 짧은 실행. 학습 품질은 보지 않는다.
 # 준비: python scripts/make_fixture_dataset.py fixtures/store  (golden에서 시험용 데이터셋 저장소를 만든다)
 config_version: 1
 profile: ../profiles/gpu-dev-12g.yaml
-run: {name: gpu-dev-http-publish, seed: 1234, runs_dir: ../runs-http}
+run: {name: gpu-dev-smoke, seed: 1234, runs_dir: ../runs}
 inputs:
   schema_dir: ../vendor/survey-schema/schemas
   dataset: {id: fx-golden}
@@ -21,4 +22,4 @@ serving:
     protection_policy_version: protect-1
   LORA_B: *serving
 evaluation: {backend: {kind: hf}, split: EVAL, limit_samples: 4}
-registry: {kind: http, base_url_env: MODEL_REGISTRY_URL, token_env: MODEL_REGISTRY_WRITE_TOKEN, timeout: 120}   # 같은 호스트의 model-registry 서버(임시 포트)
+registry: {kind: file, path: ../runs/registry-gpu-smoke}

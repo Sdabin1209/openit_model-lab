@@ -1,13 +1,14 @@
-# 체크포인트 재개 확인용: 학습 도중 프로세스를 죽이고 같은 명령을 다시 실행해 이어서 같은 어댑터가 나오는지 본다.
+# 시험용 설정: tests.doubles의 데이터셋 대역(golden으로 만든 가짜 데이터)을 읽는다. 실제 데이터셋 설정은 gpu-dev.yaml.
+# gpu-dev(12GB)에서 파이프라인이 끝까지 도는지만 보는 아주 짧은 실행. 학습 품질은 보지 않는다.
 # 준비: python scripts/make_fixture_dataset.py fixtures/store  (golden에서 시험용 데이터셋 저장소를 만든다)
 config_version: 1
 profile: ../profiles/gpu-dev-12g.yaml
-run: {name: gpu-dev-resume-check, seed: 1234, runs_dir: ../runs}
+run: {name: gpu-dev-smoke-repeat, seed: 1234, runs_dir: ../runs-repeat}
 inputs:
   schema_dir: ../vendor/survey-schema/schemas
   dataset: {id: fx-golden}
   dataset_store: {factory: "tests.doubles.dataset_store:from_dir", args: {root: fixtures/store}}
-training: {max_train_samples: 80, max_steps: 10, checkpoint_every_steps: 2, log_every_steps: 1}
+training: {max_train_samples: 24, max_steps: 4, checkpoint_every_steps: 2, log_every_steps: 1}
 roles:
   LORA_A: {package_id: lora-a-parser}
   LORA_B: {package_id: lora-b-generator}
@@ -20,5 +21,5 @@ serving:
     output_contract: 1
     protection_policy_version: protect-1
   LORA_B: *serving
-evaluation: {backend: {kind: hf}, split: EVAL, limit_samples: 2}
-registry: {kind: file, path: ../runs/registry-gpu-resume}
+evaluation: {backend: {kind: hf}, split: EVAL, limit_samples: 4}
+registry: {kind: file, path: ../runs/registry-gpu-smoke-repeat}

@@ -20,12 +20,27 @@
 토큰이 하나도 없으면 시작하지 않는다(종료 코드 2). 경로·상태 코드는 `../boundary-contracts/HTTP.md`의 I3 절. `/readyz`는 저장소를 읽고 임시 파일을 쓸 수 있을 때 200.
 이미지 라벨: `io.openit.service=model-registry`, `io.openit.revision`(빌드 인자 `REVISION`), `io.openit.contracts.boundary=v1.2.0`, `io.openit.contracts.survey-schema`/`turn-engine`/`model-runtime`은 `n/a`(서비스에 포함하지 않음). 확인: `scripts/smoke_registry.sh`(빌드 -> 빈 포트로 실행 -> healthz/readyz/토큰/게시/조회).
 
+### 입력 저장소 선택 (설정의 `inputs.*`)
+| 입력 | 팩토리 | 인자 |
+| --- | --- | --- |
+| 데이터셋(I2, 실제) | `model_lab.file_dataset_store:file_dataset_store` | `root` 또는 `root_env: <환경 변수>`: synthetic-data가 낸 `<root>/<dataset_id>/<version>/{manifest.json, meta.json, files/…}`의 루트. 이 리포지토리의 독립 읽기 구현(`DatasetStore` Protocol, 읽기 전용, 매니페스트·파일 해시 재확인) |
+| 데이터셋(I2, 시험용) | `tests.doubles.dataset_store:from_dir` | golden으로 만든 가짜 데이터. `configs/gpu-dev-fixture-*.yaml`이 쓴다 |
+| 실패 사례(I7) | `boundary_contracts.clients:HttpFailureStore` | `base_url`/`base_url_env`, `token`/`token_env` |
+| 문항(I1, 자리만) | `boundary_contracts.clients:HttpQuestionReader` | 같은 방식 |
+실제 실행 설정 예: `configs/gpu-dev.yaml`(환경 변수 `DATASET_ROOT`, `MODEL_REGISTRY_URL`, `MODEL_REGISTRY_WRITE_TOKEN`, `FAILURE_STORE_URL`, `FAILURE_STORE_TOKEN`). `configs/gpu-dev-fixture-*.yaml`과 `configs/dryrun.yaml`은 시험용이다.
+
+### 회귀 평가 (I7)
+`evaluation.regression: {enabled, limit_cases, label}`로 켜고 끈다(기본 꺼짐). 켜면 `inputs.failure_store`에서 `review_status=CONFIRMED`이고 `expected`가 있는 최신 FailureCase를 읽어, 비식별 trace의 `parser_input`/`generator_input`을 입력으로 후보 어댑터를 평가하고 정답과의 일치를 보고서의 `regression` 절(`aggregate`, `by_failure_type`, `not_matching`)에 담는다. 종류는 `expected_kind`, 없으면 expected의 형태(`items` = 파서, `response_text` = 생성기)로 판별한다. trace가 없거나 입력이 없거나 입력 계약을 어기면 건너뛰고 사유(`skipped`: `trace_not_found`, `trace_input_missing`, `input_invalid`, `expected_invalid`, `kind_unknown`)와 건수·사례 ID를 남긴다. 임계치는 없다. 실패 사례 저장소 내용은 run_id에 들어가지 않으므로 집합이 달라졌을 때 새 run을 원하면 `label`을 바꾼다.
+
+### 개발에서의 데이터·네트워크 절차 (한 단락, 운영의 네트워크 경계는 사용자와 정하기 전이라 **가정**)
+데이터셋 이동: synthetic-data의 출력 폴더(데이터셋 루트)를 `rsync -a <루트>/ gpu-dev:openit-gpu/datasets/`로 gpu-dev에 옮기고 잡 환경에 `DATASET_ROOT=$HOME/openit-gpu/datasets`를 준다(이미 게시된 버전은 불변이라 증분 rsync가 안전하다). 레지스트리 접근: gpu-dev에서는 서빙 서버의 model-registry가 직접 닿지 않으므로 개발에서는 서버 쪽에서 SSH 역터널을 연다: `ssh -N -R 127.0.0.1:18080:127.0.0.1:<레지스트리 포트> gpu-dev`(실패 사례 저장소도 같은 방식으로 다른 포트). 그러면 호스트에서 `MODEL_REGISTRY_URL=http://127.0.0.1:18080`이다. 쓰기 토큰은 파일·명령줄에 두지 않고 표준 입력으로 넘겨 환경 변수로만 준다: `printf %s "$TOKEN" | ssh gpu-dev 'read -r MODEL_REGISTRY_WRITE_TOKEN; export MODEL_REGISTRY_WRITE_TOKEN MODEL_REGISTRY_URL=http://127.0.0.1:18080 DATASET_ROOT=$HOME/openit-gpu/datasets; cd openit-gpu/model-lab && setsid nohup flock -w 1800 ~/openit-gpu/.gpu.lock .venv/bin/python -m model_lab run-once --config configs/gpu-dev.yaml > run.log 2>&1 &'`. 터널이 끊기면 게시가 `UNAVAILABLE`(종료 코드 3)로 멈추고 학습 결과는 남으므로 터널을 다시 열고 같은 명령을 실행한다. 운영(실제 스테이션)에서 어떤 주소·인증·방화벽으로 닿게 할지는 정해지지 않았다.
+
 ### run-once 잡
 - 명령: `python -m model_lab run-once --config <설정 파일>` (또는 `model-lab run-once`). 출력은 JSON 한 줄: `{"action": "ran"|"skip", "run_id": ..., "dataset_version": ...}`.
 - 종료 코드: 0 = 실행을 끝냈거나 할 일 없음, 2 = 오류(설정·데이터·환경. 재시도해도 같음), 3 = `UNAVAILABLE`(이웃·레지스트리 일시 장애, 같은 명령 재실행 가능).
 - 멱등: 같은 (설정, 데이터셋 버전, 시드, 라이브러리 버전)이면 같은 `runs/<run_id>/`를 가리키고, 끝난 run은 `skip`. 중단된 run은 이어서(학습은 체크포인트부터). 같은 시각에 두 번 부르지 않는다(스케줄러가 직렬화).
 - 작업 폴더: `runs_dir`(설정). 비밀 값은 설정 파일에 없고 환경 변수로만 받는다.
-- 설정 형식(요약, 정본은 `model_lab/config.py`의 `CONFIG_SCHEMA`와 `docs/design.md` 3절). 예: `configs/gpu-dev-smoke.yaml`.
+- 설정 형식(요약, 정본은 `model_lab/config.py`의 `CONFIG_SCHEMA`와 `docs/design.md` 3절). 예: `configs/gpu-dev-fixture-smoke.yaml`.
   - `profile`: 학습 프로파일(`profiles/gpu-dev-12g.yaml`: 기반 모델, 양자화, 최대 길이, 배치, 학습률, 에폭, GPU 수·메모리 비율, `checks.max_lora_rank`)
   - `inputs.dataset`: `{id, version?}` (version 생략 = 최신), `inputs.dataset_store`: 읽기 SDK 팩토리
   - `registry`: 게시 대상. 로컬 `{kind: file, path}` 또는 원격 `{kind: http, base_url, token_env, timeout}`(`boundary_contracts.clients.HttpModelRegistry`, boundary-contracts v1.2.0). `token_env`가 가리키는 환경 변수(쓰기 토큰)를 잡 실행 환경에 준다
@@ -38,7 +53,7 @@
 python3 -m venv .venv
 .venv/bin/pip install -e ../boundary-contracts -e ../turn-engine -e ../model-runtime pytest pyyaml
 # 태그로 설치(CI·이미지): .venv/bin/pip install -r requirements.txt   (requirements.lock이 확인된 전체 버전)
-.venv/bin/python -m pytest -q                      # 65건
+.venv/bin/python -m pytest -q                      # 75건
 ```
 D22 (2): 서비스가 없는 run-once 잡이라 Dockerfile 없이 `requirements.lock`으로 환경을 고정한다.
 
@@ -62,7 +77,7 @@ D22 (2): 서비스가 없는 run-once 잡이라 Dockerfile 없이 `requirements.
 2. 호스트 환경(처음 한 번): `cd ~/openit-gpu/model-lab && python3 -m venv .venv && .venv/bin/pip install vendor/wheels/*.whl pyyaml pytest -r requirements-train.txt`
 3. 시험 데이터: `.venv/bin/python scripts/make_fixture_dataset.py fixtures/store`
 4. 실행(긴 작업은 분리하고 로그를 본다. GPU 명령은 반드시 락으로 감싼다):
-   `setsid nohup flock -w 1800 ~/openit-gpu/.gpu.lock timeout 3000 .venv/bin/python -m model_lab run --config configs/gpu-dev-smoke.yaml > smoke.log 2>&1 &`
+   `setsid nohup flock -w 1800 ~/openit-gpu/.gpu.lock timeout 3000 .venv/bin/python -m model_lab run --config configs/gpu-dev-fixture-smoke.yaml > smoke.log 2>&1 &`
 5. 결과 가져오기: `rsync -a gpu-dev:openit-gpu/model-lab/runs/ runs/gpu/` 그리고 이쪽에서 게시한다(결과의 어댑터와 `run.json`, `package/*.manifest.json`, `eval/*.json`). 호스트의 레지스트리는 시험용이다.
 6. 중단했다면 같은 명령을 다시 실행한다. 학습은 `runs/<run_id>/work/<ROLE>/ckpt`에서 이어 한다.
 호스트 SSH가 두 번 실패하면 멈추고 STATUS에 적는다(반복 재시도 루프 금지). 서버는 항상 켜져 있지 않다.
