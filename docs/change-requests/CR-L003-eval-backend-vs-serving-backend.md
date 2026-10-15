@@ -1,3 +1,5 @@
+[결정 2026-10-15: 알려진 차이로 받아들임. 보고서에 평가 백엔드 필드를 남긴다. 큰 스테이션에서 vLLM 경로로 한 번 더 평가하는 일은 STATUS의 남은 일.]
+
 # CR-L003 평가 백엔드와 서빙 백엔드가 다르다 (수신: 헤드, model-runtime)
 
 - 현황: model-runtime v0.3.0에는 실제 `ConstraintBackend`가 없다(`BackendNotAvailable`). 그래서 model-lab이 transformers+peft로 만든 `hf-transformers` 백엔드(제약 디코딩 없음, `constraint_mode=none`)로 `parse_raw/generate_raw`와 `parse/generate`를 돌린다. 렌더 -> 검증 -> 재시도 -> 보호는 서빙과 같은 model-runtime 코드를 지나지만 **생성 단계는 서빙(vLLM 계획)과 다르다.**

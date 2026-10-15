@@ -10,7 +10,7 @@ import pytest
 from boundary_contracts import BoundaryError
 
 from model_lab.service.app import Service, make_server, parse_tokens, main
-from tests.doubles.http_clients import HttpModelRegistry
+from boundary_contracts.clients import HttpModelRegistry
 from tests.test_registry import make
 
 
@@ -59,7 +59,6 @@ def code_of(fn, *a, **k):
 def test_status_codes_201_200_409(server, tmp_path):
     m, ad, rep = make(tmp_path)
     w = HttpModelRegistry(server, "wt")
-    from tests.doubles import http_clients
     # 직접 POST해서 상태 코드를 본다
     import tempfile
     from pathlib import Path
@@ -116,3 +115,21 @@ def test_readyz_fails_when_root_unusable(tmp_path):
     import shutil
     shutil.rmtree(tmp_path / "srv" / ".tmp")
     assert svc.ready() is False
+
+
+def test_i3_server_conformance_with_real_client(server, tmp_path):
+    """통합 시험(서버 적합성): 실제 HttpModelRegistry로 게시(tar) -> 조회 -> 어댑터 내려받기 -> 해시 검증."""
+    from boundary_contracts import canonical
+    w, r = HttpModelRegistry(server, "wt"), HttpModelRegistry(server, "rt")
+    m, ad, rep = make(tmp_path)
+    assert w.publish(m, ad, rep) == m
+    assert w.publish(m, ad, rep) == m                                    # 같은 ID·버전·내용
+    assert r.get_manifest("pkg-a", "v1") == m and r.list_ids() == (["pkg-a"], None) and r.list_versions("pkg-a") == ["v1"]
+    out = r.open_adapter("pkg-a", "v1", dest=tmp_path / "dl")
+    assert canonical.directory_hash(out) == m["adapter_hash"]
+    assert r.get_eval_report("eval-1") == rep
+    m2, ad2, rep2 = make(tmp_path, payload=b"other")
+    assert code_of(w.publish, m2, ad2, rep2) == "CONFLICT"                # 같은 ID·버전, 다른 내용
+    m3, ad3, rep3 = make(tmp_path, pid="pkg-z", ref="eval-z", report=b"z")
+    assert code_of(r.publish, m3, ad3, rep3) == "PERMISSION_DENIED"       # 읽기 토큰의 게시
+    assert code_of(r.get_manifest, "nope", "v1") == "NOT_FOUND"

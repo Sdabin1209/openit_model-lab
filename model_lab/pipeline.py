@@ -380,7 +380,8 @@ class Run:
             ctx = {"run_id": self.run_id, "dataset": self.dataset_ref, "split": split, "seed": self.seed,
                    "adapter_hash": self.rec["stages"]["train"][role]["adapter_hash"],
                    "serving_config_hash": hashes[role], "libraries": self.libs,
-                   "backend": self.cfg["evaluation"]["backend"]["kind"]}
+                   "evaluation_backend": {"kind": self.cfg["evaluation"]["backend"]["kind"], "name": backend.name,
+                                          "version": backend.version, "constrained_decoding": False}}
             self.log(f"[{self.run_id}] {role} 평가 {len(samples)}건")
             rep = evaluate.build_report(role, session, samples, seen_sets=seen, eval_files=files,
                                         max_listed_failures=self.cfg["evaluation"].get("max_listed_failures", 20), context=ctx)
@@ -416,7 +417,9 @@ class Run:
                 serving_config=self.cfg["serving"][role], dataset_ref=self.dataset_ref, dataset_manifest=dm,
                 run_id=self.run_id, eval_report=report,
                 ext={"run_id": self.run_id, "config_hash": self.config_hash, "seed": self.seed,
-                     "base_model_hf_id": self.cfg["base_model"]["id"], "trainer": tr["trainer"],
+                     "trainer": tr["trainer"],
+                     "resumed": tr["result"].get("resumed_from_step", 0) > 0,
+                     "resumed_from_step": tr["result"].get("resumed_from_step", 0),
                      "train_data_hash": self.rec["stages"]["transform"][role]["train_file_hash"],
                      "eval_report_hash": canonical.file_hash(self.dir / "eval" / f"report-{role}.json")})
             _atomic_json(self.dir / "package" / f"{role}.manifest.json", m)

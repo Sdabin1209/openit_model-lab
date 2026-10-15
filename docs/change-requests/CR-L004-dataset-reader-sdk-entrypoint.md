@@ -1,3 +1,5 @@
+[결정 2026-10-15: I2는 같은 호스트의 파일 저장소이고 synthetic-data의 `FileDatasetStore`를 쓴다. 진입점은 그쪽 runbook. 설정은 `inputs.dataset_store.factory`에 그 팩토리를 적으면 된다.]
+
 # CR-L004 데이터셋 읽기 SDK(I2)의 설치 이름과 생성 방법 (수신: 헤드)
 
 - 현황: I2의 `DatasetStore` Protocol은 있으나 synthetic-data가 배포하는 실제 구현의 패키지 이름·생성자·인증(읽기 전용 토큰, CONVENTIONS 6절)을 모른다. model-lab은 `inputs.dataset_store.factory: "pkg.module:callable"` + `args`로 생성 함수를 설정에서 받는다. 지금은 `tests/doubles`의 대역(`tests.doubles.dataset_store:from_dir`)을 가리킨다.

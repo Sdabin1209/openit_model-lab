@@ -14,7 +14,7 @@ PIPELINE_SCHEMA_VERSION = "1.1"
 
 
 def safe_id(s: str) -> str:
-    """ID 규칙(CONVENTIONS 2절)에 맞춘다. '/'는 '--'로(HF 저장소 이름 관례)."""
+    """ID 규칙(CONVENTIONS 2절)에 맞춘 문자열(버전 이름용). base_model.id에는 쓰지 않는다."""
     return re.sub(r"[^A-Za-z0-9._:-]", "-", s.replace("/", "--"))[:128].lstrip("-._:") or "x"
 
 
@@ -44,7 +44,7 @@ def build_manifest(*, role: str, package_id: str, version: str, created_at: str,
         "role": role,
         "created_at": created_at,
         "runtime_contract_version": contract_version,
-        "base_model": {"id": safe_id(base_model["id"]), "revision": base_model["revision"]},
+        "base_model": {"id": base_model["id"], "revision": base_model["revision"]},     # 계약 v1.2.0: Hub 이름의 '/' 허용
         "adapter_hash": canonical.directory_hash(adapter_dir),
         "serving_config": serving_config,
         "serving_config_hash": model_runtime.serving_config_hash(serving_config),

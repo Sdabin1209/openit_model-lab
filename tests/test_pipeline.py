@@ -228,7 +228,7 @@ def test_eval_requires_temperature_zero(cfg):
 
 
 def test_publish_to_remote_registry_over_http(cfg, tmp_path, monkeypatch):
-    """registry.kind=http: 환경 변수의 토큰으로 원격 서버에 게시한다. 클라이언트는 대역(tests/doubles)이다."""
+    """registry.kind=http: 실제 boundary_contracts.clients.HttpModelRegistry + 환경 변수 토큰으로 우리 서버에 게시한다."""
     import threading
     from model_lab.service.app import Service, make_server
     svc = Service(tmp_path / "remote", {"r": "release-gate"}, {"w": "model-lab"}, log=lambda s: None)
@@ -236,8 +236,7 @@ def test_publish_to_remote_registry_over_http(cfg, tmp_path, monkeypatch):
     try:
         monkeypatch.setenv("TEST_REGISTRY_TOKEN", "w")
         c = copy.deepcopy(cfg)
-        c["registry"] = {"kind": "factory", "factory": "tests.doubles.http_clients:HttpModelRegistry",
-                         "args": {"base_url": f"http://127.0.0.1:{srv.server_address[1]}", "token_env": "TEST_REGISTRY_TOKEN"}}
+        c["registry"] = {"kind": "http", "base_url": f"http://127.0.0.1:{srv.server_address[1]}", "token_env": "TEST_REGISTRY_TOKEN"}
         r = mk(c); rec = r.run()
         v = rec["result"]["packages"]["LORA_A"]["version"]
         assert svc.registry.get_manifest("lora-a-parser", v)["content_hash"] == rec["result"]["packages"]["LORA_A"]["content_hash"]
@@ -247,10 +246,64 @@ def test_publish_to_remote_registry_over_http(cfg, tmp_path, monkeypatch):
         srv.shutdown()
 
 
-def test_http_kind_without_client_library_is_clear_error(cfg):
-    from model_lab.errors import PipelineError
+class FlakyRegistry:
+    """첫 n번의 publish에서 UNAVAILABLE을 낸다."""
+    def __init__(self, inner, fail_times):
+        self.inner, self.left = inner, fail_times
+    def publish(self, *a, **k):
+        if self.left > 0:
+            self.left -= 1
+            raise BoundaryError("UNAVAILABLE", "시험: 레지스트리 장애")
+        return self.inner.publish(*a, **k)
+
+
+def test_registry_outage_keeps_training_result_and_retries_only_publish(cfg, tmp_path):
+    from model_lab.registry import MemoryModelRegistry
+    inner = MemoryModelRegistry()
+    r1 = mk(cfg, registry=FlakyRegistry(inner, 1))
+    with pytest.raises(BoundaryError) as e:
+        r1.run()
+    assert e.value.code == "UNAVAILABLE" and e.value.retryable
+    assert r1.rec["stages"]["train"]["status"] == "done" and r1.rec["stages"]["package"]["status"] == "done"   # 학습·패키징 결과가 남는다
+    assert r1.rec["result"] is None and inner.list_ids() == ([], None)
+    h = r1.rec["stages"]["train"]["LORA_A"]["adapter_hash"]
+    def no_train(kind):
+        raise AssertionError("재학습하면 안 된다")
+    r2 = mk(cfg, registry=inner, trainer_factory=no_train)
+    rec = r2.run()
+    assert rec["result"]["status"] == "complete" and rec["stages"]["train"]["LORA_A"]["adapter_hash"] == h
+    assert inner.list_ids()[0] == ["lora-a-parser", "lora-b-generator"]
+
+
+def test_run_once_exit_code_3_when_remote_unreachable(cfg, tmp_path, monkeypatch, capsys):
+    import yaml
+    from model_lab.cli import main
+    monkeypatch.setenv("TEST_REGISTRY_TOKEN", "w")
+    raw = {k: v for k, v in cfg.items() if k != "_base_dir"}
+    raw["registry"] = {"kind": "http", "base_url": "http://127.0.0.1:9", "token_env": "TEST_REGISTRY_TOKEN", "timeout": 2}
+    p = tmp_path / "remote.yaml"; p.write_text(yaml.safe_dump(raw))
+    assert main(["run-once", "--config", str(p)]) == 3                  # 재시도 가능
+    assert main(["run-once", "--config", str(p)]) == 3                  # 학습은 다시 하지 않고 게시만 재시도(아래 확인)
+    out = capsys.readouterr().out
+    assert out.count("학습 시작") == 2                                    # LORA_A, LORA_B가 첫 실행에서 한 번씩만
+
+
+def test_package_records_resume_and_evaluation_backend(cfg):
+    c = copy.deepcopy(cfg)
+    r1 = mk(c, trainer_factory=lambda k: DryRunTrainer(interrupt_at_step=15))
+    with pytest.raises(Interrupted):
+        r1.run()
+    r2 = mk(c); rec = r2.run()
+    m = r2.registry.get_manifest("lora-a-parser", rec["result"]["packages"]["LORA_A"]["version"])
+    assert m["ext"]["model-lab"]["resumed"] is True and m["ext"]["model-lab"]["resumed_from_step"] == 10
+    assert m["base_model"]["id"] == "Qwen/Qwen2.5-1.5B-Instruct"            # '/' 그대로(계약 v1.2.0)
+    rep = json.loads(r2.registry.get_eval_report(m["eval_report_ref"]))
+    assert rep["context"]["evaluation_backend"]["name"] == "fake" and rep["context"]["evaluation_backend"]["constrained_decoding"] is False
+
+
+def test_http_kind_requires_token_env_var(cfg):
     c = copy.deepcopy(cfg); c["registry"] = {"kind": "http", "base_url": "http://x", "token_env": "NOPE_TOKEN_VAR"}
-    with pytest.raises((PipelineError, ConfigError)):
+    with pytest.raises(ConfigError):
         mk(c)
 
 

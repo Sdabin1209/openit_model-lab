@@ -11,15 +11,15 @@
 
 ## 서비스 형태 (D49): model-registry
 같은 I3를 HTTP로 낸다(`../boundary-contracts/HTTP.md` I3 절): `GET /v1/packages`, `/v1/packages/{id}/versions`, `/v1/packages/{id}/versions/{version}`, `.../adapter`(tar), `/v1/eval-reports/{ref}`, `POST /v1/packages`(tar: `manifest.json`, `adapter/…`, `eval_report`; 201 새로 / 200 같은 내용 / 409 다른 내용). 읽기 토큰(`MODEL_REGISTRY_READ_TOKENS`, 예: `release-gate`)과 쓰기 토큰(`MODEL_REGISTRY_WRITE_TOKENS`, 역할 `model-lab`만)을 분리한다. 읽기 토큰의 쓰기 호출은 403. 어댑터는 서버가 해시를 검증한 뒤에만 내고 클라이언트도 다시 계산한다. 상세는 `docs/runbook.md` 맨 위.
-클라이언트 SDK는 헤드의 `boundary_contracts.clients.HttpModelRegistry`(v1.1.1)를 쓴다. 이 영역의 시험은 같은 Protocol의 대역으로 한다.
+클라이언트는 `boundary_contracts.clients.HttpModelRegistry`(v1.2.0)다. `tests/test_service.py::test_i3_server_conformance_with_real_client`가 서버 적합성 시험이다(게시 tar -> 조회 -> 어댑터 내려받기 -> 해시 검증, 200/201/409/403).
 
 ## 소비
 | 대상 | 방법 | 버전 |
 | --- | --- | --- |
 | 문진 스키마 | `schema_dir`(`.../schema/schemas`) 경로. `CONTRACT_VERSION`이 데이터셋의 `runtime_contract_version`과 다르면 `UNSUPPORTED_VERSION` | 정수 1 |
-| boundary-contracts | `canonical`(모든 해시), `validator`(쓰기 전 검증), `sdk` Protocol, `BoundaryError` | v1.1.0 |
+| boundary-contracts | `canonical`(모든 해시), `validator`(쓰기 전 검증), `sdk` Protocol, `BoundaryError` | v1.2.0 |
 | turn-engine | 계보 기록(`ENGINE_VERSION`). 평가의 프로토콜 경로 바깥에서 직접 호출하지 않는다 | v0.2.0 |
-| model-runtime | `render_prompt`, `load`, `parse_raw/generate_raw/parse/generate`, `validate_serving_config`, `serving_config_hash`, `RUNTIME_VERSION` | v0.3.0 |
+| model-runtime | `render_prompt`, `load`, `parse_raw/generate_raw/parse/generate`, `validate_serving_config`, `serving_config_hash`, `RUNTIME_VERSION` | v0.4.0 |
 | I2 데이터셋 읽기 | `DatasetStore` Protocol(`get_manifest`, `list_versions`, `open_file`)만 사용. 실제 SDK 진입점은 CR-L004 | 경계 계약 1.1 |
 | I1, I4, I7 | 이 단계에서 쓰지 않음 | |
 

@@ -1,3 +1,5 @@
+[처리됨 2026-10-15: 헤드가 boundary-contracts v1.2.0에서 `base_model.id`를 넓혔다. `--` 치환을 없애고 원래 이름을 그대로 쓴다.]
+
 # CR-L002 `ModelPackageManifest.base_model.id`의 Id 패턴이 Hugging Face 저장소 이름을 막는다 (수신: 헤드)
 
 - 현황: `base_model.id`는 `Id`(`^[A-Za-z0-9][A-Za-z0-9._:-]*$`)다. 임시 기반 모델 `Qwen/Qwen2.5-1.5B-Instruct`는 `/`가 있어 통과하지 못한다.

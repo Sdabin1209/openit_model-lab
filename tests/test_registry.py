@@ -27,7 +27,7 @@ def reg(request, tmp_path):
         return FileModelRegistry(tmp_path / "reg")
     import threading
     from model_lab.service.app import Service, make_server
-    from tests.doubles.http_clients import HttpModelRegistry
+    from boundary_contracts.clients import HttpModelRegistry
     svc = Service(tmp_path / "srv", {"rt": "release-gate"}, {"wt": "model-lab"}, log=lambda s: None)
     srv = make_server(svc)
     threading.Thread(target=srv.serve_forever, daemon=True).start()
@@ -105,7 +105,7 @@ def test_validation_errors(reg, tmp_path):
     assert code(reg.publish, bad, ad, rep) == "INTEGRITY_ERROR"
     (ad / "adapter_model.bin").write_bytes(b"tampered")                        # adapter_hash 불일치
     assert code(reg.publish, m, ad, rep) == "INTEGRITY_ERROR"
-    assert code(reg.publish, m, tmp_path / "nope", rep) == "NOT_FOUND"
+    assert code(reg.publish, m, tmp_path / "nope", rep) in ("NOT_FOUND", "INVALID_RECORD")      # 원격 클라이언트는 INVALID_RECORD
 
 
 def test_not_found(reg, tmp_path):

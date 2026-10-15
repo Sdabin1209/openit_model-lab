@@ -1,6 +1,6 @@
 """평가기. 서빙과 같은 경로(model-runtime ModelSession의 *_raw와 보호 적용 parse/generate)로 돌린다.
 
-지표 값을 계산해 보고서에 담기만 한다. 통과 임계치, 합격 여부, 지표 선정은 하지 않는다(O11, 사용자 결정).
+지표 값을 계산해 보고서에 담기만 한다. 정답 예시의 is_fallback은 비교하지 않는다(코드가 채우는 값, D36). 통과 임계치, 합격 여부, 지표 선정은 하지 않는다(O11, 사용자 결정).
 코드에도 설정에도 기본 임계치가 없다. 보고서의 수치는 '계산한 값의 후보'이지 선정된 지표가 아니다.
 
 쪼개 보기(D13): 문항 세트, 본 문항/보지 못한 문항, 문항, 슬롯 유형, 단위, 범위, 의도, 잡음 유형(파서)
@@ -118,7 +118,6 @@ def evaluate_sample(role: str, session, sample: Mapping) -> dict:
         rec["raw_exact"] = isinstance(raw.output, Mapping) and raw.output.get("response_text") == want
         rec["prot_exact"] = out.get("response_text") == want
         rec["is_fallback"] = bool(out.get("is_fallback"))
-        rec["fallback_matches_expected"] = bool(out.get("is_fallback")) == bool(exp.get("is_fallback"))
         rt = out.get("response_text") or ""
         rec["response_len"] = len(rt)
     return rec
@@ -152,7 +151,6 @@ def aggregate(recs: list[dict], role: str) -> dict:
                                  "precision": tp / (tp + fp) if tp + fp else None, "recall": tp / (tp + fn) if tp + fn else None}
     else:
         a["fallback"] = cnt(lambda r: r["is_fallback"])
-        a["fallback_matches_expected"] = cnt(lambda r: r["fallback_matches_expected"])
         a["response_len_mean"] = sum(r["response_len"] for r in recs) / n
     return a
 

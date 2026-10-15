@@ -1,3 +1,5 @@
+[처리됨 2026-10-15: 클라이언트가 v1.2.0에 있다. 대역을 지우고 실제 `HttpModelRegistry`로 서버를 시험한다.]
+
 # CR-L005 HTTP 클라이언트 패키지와 서비스 이름 확인 (수신: 헤드)
 
 - `boundary_contracts.clients`(HttpModelRegistry 등)는 현재 체크아웃(v1.1.0 + 문서 커밋)에 없다. v1.1.1이 나오면 `requirements*.txt`·`requirements.lock`의 태그를 올리고, 설정의 `registry.kind: http`가 그 클래스를 쓴다. 그 전에는 `tests/doubles/http_clients.py`의 대역(같은 Protocol)으로 서버를 시험했다. 대역과 실제 클라이언트가 같은 적합성 시험(`boundary-contracts/conformance/`)을 통과하는지는 클라이언트가 나온 뒤 확인한다 [미확인].

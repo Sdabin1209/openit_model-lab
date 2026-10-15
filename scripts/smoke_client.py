@@ -3,7 +3,7 @@ import sys, tempfile
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from boundary_contracts import canonical
-from tests.doubles.http_clients import HttpModelRegistry
+from boundary_contracts.clients import HttpModelRegistry
 from tests.test_registry import make
 
 url, wt, rt = sys.argv[1:4]

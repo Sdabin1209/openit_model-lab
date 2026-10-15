@@ -77,7 +77,7 @@ def test_golden_is_fallback_is_always_true_in_examples():
     assert {p["expected"]["is_fallback"] for p in gen} == {True}
     session = _session_for(PAIRS)
     rep = build_report("LORA_B", session, [sample_of(p) for p in gen], seen_sets={("qs", "1")}, eval_files=[])
-    assert rep["overall"]["fallback"] == 0 and rep["overall"]["fallback_matches_expected"] == 0
+    assert rep["overall"]["fallback"] == 0 and "fallback_matches_expected" not in rep["overall"]    # 비교 대상이 아니다
 
 
 def test_protection_path_on_golden_inputs():
