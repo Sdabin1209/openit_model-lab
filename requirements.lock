@@ -1,0 +1,16 @@
+# 확인된 버전(CPU 개발 환경 pip freeze). 경계 라이브러리는 태그로 고정(D22).
+attrs==26.1.0
+iniconfig==2.3.1
+jsonschema==4.26.0
+jsonschema-specifications==2025.9.1
+packaging==26.3
+pluggy==1.6.0
+Pygments==2.21.0
+pytest==9.1.1
+PyYAML==6.0.3
+referencing==0.37.0
+rpds-py==2026.9.1
+typing_extensions==4.16.0
+boundary-contracts @ git+ssh://git@github.com/Sdabin1209/openit_boundary-contracts.git@v1.1.0
+turn-engine @ git+ssh://git@github.com/Sdabin1209/openit_turn-engine.git@v0.2.0
+model-runtime @ git+ssh://git@github.com/Sdabin1209/openit_model-runtime.git@v0.3.0

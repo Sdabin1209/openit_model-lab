@@ -19,3 +19,5 @@ training:
   gradient_checkpointing: true
   checkpoint_every_steps: 25
   log_every_steps: 5
+  deterministic: true
+  attn_implementation: eager            # sdpa 커널은 같은 시드에서도 어댑터가 달라졌다(determinism_probe 확인). eager는 비트 단위로 같았다.

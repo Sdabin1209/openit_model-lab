@@ -56,6 +56,8 @@ _TRAINING = {
         "gradient_checkpointing": {"type": "boolean"},
         "checkpoint_every_steps": {"type": "integer", "minimum": 1},
         "log_every_steps": {"type": "integer", "minimum": 1},
+        "deterministic": {"type": "boolean"},
+        "attn_implementation": {"enum": ["eager", "sdpa", "flash_attention_2"]},
         "dtype": {"enum": ["float16", "bfloat16", "float32"]},
     },
 }

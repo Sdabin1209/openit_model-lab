@@ -56,6 +56,8 @@ def load_base(torch, transformers, base_model: dict, training: dict, *, for_trai
         else:
             kw["quantization_config"] = transformers.BitsAndBytesConfig(load_in_8bit=True)
     gpus = training.get("gpu_count", 1)
+    if training.get("attn_implementation"):
+        kw["attn_implementation"] = training["attn_implementation"]
     kw["device_map"] = "auto" if gpus > 1 else {"": 0}
     tok = transformers.AutoTokenizer.from_pretrained(base_model["id"], revision=rev if rev else None)
     if tok.pad_token is None:
@@ -64,14 +66,17 @@ def load_base(torch, transformers, base_model: dict, training: dict, *, for_trai
     return tok, model
 
 
-def resolved_revision(base_model: dict) -> str:
-    """실제로 쓴 기반 모델의 커밋(로컬 캐시에서)."""
-    try:
-        from huggingface_hub import HfApi, snapshot_download
-        p = Path(snapshot_download(base_model["id"], revision=base_model.get("revision") or None, local_files_only=True))
-        return p.name
-    except Exception:
-        return base_model.get("revision", "unknown")
+def resolved_revision(model, base_model: dict) -> str:
+    """실제로 쓴 기반 모델의 커밋. transformers가 설정에 남긴 _commit_hash를 쓴다(없으면 요청한 revision)."""
+    cfg = getattr(model, "config", None)
+    h = getattr(cfg, "_commit_hash", None)
+    if not h:
+        try:   # 로컬 캐시 스냅샷 경로의 마지막 요소가 커밋이다
+            from huggingface_hub import snapshot_download
+            h = Path(snapshot_download(base_model["id"], revision=base_model.get("revision") or "main", local_files_only=True)).name
+        except Exception:
+            h = None
+    return h or base_model.get("revision", "unknown")
 
 
 class HFLoraTrainer:
@@ -82,6 +87,12 @@ class HFLoraTrainer:
         t = req.training
         if not torch.cuda.is_available():
             raise TrainerUnavailable("CUDA GPU가 없다")
+        if t.get("deterministic", True):
+            # 같은 시드 -> 같은 어댑터에 가깝게(완전한 비트 일치는 하드웨어·커널에 따라 보장되지 않는다)
+            os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
+            torch.use_deterministic_algorithms(True, warn_only=True)
+            torch.backends.cudnn.deterministic = True
+            torch.backends.cudnn.benchmark = False
         frac = t.get("gpu_memory_fraction")
         if frac:
             for i in range(t.get("gpu_count", 1)):
@@ -98,6 +109,7 @@ class HFLoraTrainer:
         cfg = peft.LoraConfig(r=lc.get("r", 16), lora_alpha=lc.get("alpha", 32), lora_dropout=lc.get("dropout", 0.05),
                               target_modules=lc.get("target_modules", ["q_proj", "k_proj", "v_proj", "o_proj"]),
                               task_type="CAUSAL_LM")
+        rev_used = resolved_revision(model, req.base_model)
         model = peft.get_peft_model(model, cfg)
 
         max_len = t.get("max_seq_len", 1024)
@@ -180,7 +192,7 @@ class HFLoraTrainer:
         if readme.exists():
             readme.unlink()
         return {"steps": total, "resumed_from_step": resumed, "samples_used": len(data), "samples_skipped_too_long": skipped,
-                "base_model_revision": resolved_revision(req.base_model), "library_versions": lib_versions(),
+                "base_model_revision": rev_used, "library_versions": lib_versions(),
                 "metrics": {"last_step_loss": last_loss, "peak_cuda_mem_mb": int(torch.cuda.max_memory_allocated() / 2**20)}}
 
 
