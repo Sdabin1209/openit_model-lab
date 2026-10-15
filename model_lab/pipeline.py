@@ -68,8 +68,8 @@ def make_registry(cfg: dict):
     if spec["kind"] == "file":
         return FileModelRegistry(resolved_path(cfg, spec.get("path", "registry")))
     if spec["kind"] == "http":
-        if "base_url" not in spec:
-            raise ConfigError("registry.kind=http에는 base_url이 필요하다")
+        if "base_url" not in spec and "base_url_env" not in spec:
+            raise ConfigError("registry.kind=http에는 base_url 또는 base_url_env가 필요하다")
         return factories.build_http("model_registry", spec)
     if "factory" not in spec:
         raise ConfigError("registry.kind=factory에는 factory가 필요하다")

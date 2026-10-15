@@ -1,0 +1,24 @@
+# gpu-dev에서 한 바퀴 돌리고 같은 호스트의 model-registry 서버에 HTTP로 게시한다. 서버 주소·토큰은 환경 변수로만 받는다.
+# 준비: python scripts/make_fixture_dataset.py fixtures/store  (golden에서 시험용 데이터셋 저장소를 만든다)
+config_version: 1
+profile: ../profiles/gpu-dev-12g.yaml
+run: {name: gpu-dev-http-publish, seed: 1234, runs_dir: ../runs-http}
+inputs:
+  schema_dir: ../vendor/survey-schema/schemas
+  dataset: {id: fx-golden}
+  dataset_store: {factory: "tests.doubles.dataset_store:from_dir", args: {root: fixtures/store}}
+training: {max_train_samples: 24, max_steps: 4, checkpoint_every_steps: 2, log_every_steps: 1}
+roles:
+  LORA_A: {package_id: lora-a-parser}
+  LORA_B: {package_id: lora-b-generator}
+serving:
+  LORA_A: &serving
+    prompt_template_version: prompt-2
+    decoding: {constraint_mode: none, temperature: 0, seed: 1000, max_tokens: 256}
+    max_attempts: 1
+    constraint: {backend: hf-transformers, backend_version: "1", supported_features: [], relax_policy_version: relax-1}
+    output_contract: 1
+    protection_policy_version: protect-1
+  LORA_B: *serving
+evaluation: {backend: {kind: hf}, split: EVAL, limit_samples: 4}
+registry: {kind: http, base_url_env: MODEL_REGISTRY_URL, token_env: MODEL_REGISTRY_WRITE_TOKEN, timeout: 120}   # 같은 호스트의 model-registry 서버(임시 포트)

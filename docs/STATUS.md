@@ -1,5 +1,15 @@
 # STATUS (2026-10-15)
 
+## 2차 갱신 (헤드 결정 반영)
+- boundary-contracts v1.2.0, model-runtime v0.4.0으로 올림(requirements, 라벨). base_model.id는 원래 이름(`Qwen/Qwen2.5-1.5B-Instruct`)과 해석된 커밋 해시.
+- 서버 적합성 시험: 실제 `HttpModelRegistry`로 게시(tar) -> 조회 -> 어댑터 내려받기 -> 해시 검증, 200/201/409/403 (`tests/test_service.py`). 시험 65건 통과(CPU와 GPU 호스트 모두).
+- 게시 장애(`UNAVAILABLE`)는 학습·평가·패키징 결과를 남기고 게시만 재시도함을 시험으로 확인(종료 코드 3).
+- GPU 한 바퀴(gpu-dev): 호스트에서 model-registry 서버를 임시 포트로 띄우고 `registry.kind: http`로 게시, 클라이언트로 두 패키지를 조회·어댑터 해시 검증까지 통과, 같은 명령 재실행은 `skip`. 서버는 내렸다.
+- 정답 예시 `is_fallback`은 비교하지 않음. 패키지 `ext."model-lab"`에 `resumed`·`resumed_from_step`, 보고서 `context.evaluation_backend`.
+- 남은 일 추가: 큰 스테이션에서 같은 vLLM 경로(model-runtime 0.4.0 백엔드)로 한 번 더 평가한다(CR-L003). 실제 I2는 synthetic-data의 `FileDatasetStore` 팩토리로 설정한다(CR-L004).
+- 아래 1차 기록 중 "재개 결정성", "클라이언트 없음", "v0.3.0 고정"은 이 갱신으로 처리·대체되었다(재개 해시 차이는 D51로 받아들임).
+
+
 ## 한 일
 - 설계·경계·런북·변경 이력, 변경 요청 CR-L001~L005.
 - 파이프라인 전체(설정 -> I2 -> 변환 -> 학습 -> 평가 -> 패키징 -> I3 게시), `run`/`run-once`/`status`, 체크포인트 재개, run 기록.

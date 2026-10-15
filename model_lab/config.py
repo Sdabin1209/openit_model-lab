@@ -124,7 +124,7 @@ CONFIG_SCHEMA: dict[str, Any] = {
         "registry": {
             "type": "object", "additionalProperties": False, "required": ["kind"],
             "properties": {"kind": {"enum": ["file", "http", "factory"]}, "path": {"type": "string"},
-                           "base_url": {"type": "string"}, "token_env": {"type": "string"},
+                           "base_url": {"type": "string"}, "base_url_env": {"type": "string"}, "token_env": {"type": "string"},
                            "timeout": {"type": "number", "exclusiveMinimum": 0},
                            "factory": {"type": "string", "pattern": r"^[\w.]+:\w+$"}, "args": {"type": "object"}},
         },
