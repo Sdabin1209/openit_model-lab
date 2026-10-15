@@ -19,7 +19,7 @@ from typing import Callable
 import model_runtime
 from boundary_contracts import BoundaryError, canonical
 
-from . import datasets, evaluate, factories, packager, regression, schemas
+from . import datasets, evaluate, factories, metrics, packager, regression, schemas
 from .config import ROLE_TO_FILE_ROLE, ROLES, config_hash, resolved_path, role_training
 from .errors import ConfigError, PipelineError
 from .registry import FileModelRegistry
@@ -419,13 +419,18 @@ class Run:
                    "evaluation_backend": {"kind": self.cfg["evaluation"]["backend"]["kind"], "name": backend.name,
                                           "version": backend.version, "constrained_decoding": False}}
             self.log(f"[{self.run_id}] {role} 평가 {len(samples)}건")
-            rep = evaluate.build_report(role, session, samples, seen_sets=seen, eval_files=files,
-                                        max_listed_failures=self.cfg["evaluation"].get("max_listed_failures", 20), context=ctx)
+            rep, pairs = evaluate.build_report(role, session, samples, seen_sets=seen, eval_files=files, return_records=True,
+                                               max_listed_failures=self.cfg["evaluation"].get("max_listed_failures", 20), context=ctx)
+            rrecs = None
             if self._regression_enabled():
-                rep["regression"] = regression.section(role, session, self._regression_set(),
+                rset = self._regression_set()
+                rpairs = regression.evaluate_set(role, session, rset)
+                rrecs = [r for _, r in rpairs]
+                rep["regression"] = regression.section(role, session, rset, recs=rpairs,
                                                        max_listed=self.cfg["evaluation"].get("max_listed_failures", 20))
             else:
                 rep["regression"] = {"enabled": False}
+            rep["evaluation_report_metrics"], rep["evaluation_report_notes"] = metrics.build_metrics(role, pairs, seen, regression_recs=rrecs)
             out = self.dir / "eval" / f"report-{role}.json"
             out.parent.mkdir(parents=True, exist_ok=True)
             out.write_bytes(evaluate.report_bytes(rep))
@@ -448,7 +453,7 @@ class Run:
         created = st.get("created_at") or self.clock()      # 처음 정한 값을 고정한다(재실행해도 같은 매니페스트)
         version = packager.safe_id(f"{self.dataset_version}-{self.run_key[7:15]}")
         for role in ROLES:
-            report = (self.dir / "eval" / f"report-{role}.json").read_bytes()
+            detail = json.loads((self.dir / "eval" / f"report-{role}.json").read_text(encoding="utf-8"))
             tr = self.rec["stages"]["train"][role]
             base = {"id": self.cfg["base_model"]["id"],
                     "revision": tr["result"].get("base_model_revision") or self.cfg["base_model"].get("revision", "unspecified")}
@@ -456,14 +461,22 @@ class Run:
                 role=role, package_id=self.cfg["roles"][role]["package_id"], version=version, created_at=created,
                 contract_version=self.contract_version, base_model=base, adapter_dir=self.dir / "adapters" / role,
                 serving_config=self.cfg["serving"][role], dataset_ref=self.dataset_ref, dataset_manifest=dm,
-                run_id=self.run_id, eval_report=report,
+                run_id=self.run_id,
                 ext={"run_id": self.run_id, "config_hash": self.config_hash, "seed": self.seed,
                      "trainer": tr["trainer"],
                      "resumed": tr["result"].get("resumed_from_step", 0) > 0,
                      "resumed_from_step": tr["result"].get("resumed_from_step", 0),
                      "train_data_hash": self.rec["stages"]["transform"][role]["train_file_hash"],
-                     "eval_report_hash": canonical.file_hash(self.dir / "eval" / f"report-{role}.json")})
+                     "eval_detail_hash": canonical.file_hash(self.dir / "eval" / f"report-{role}.json")})
             _atomic_json(self.dir / "package" / f"{role}.manifest.json", m)
+            # 게시하는 평가 리포트 = EvaluationReport(지표 체계, 합격 판정·임계치 없음). 자세한 쪼개 보기는 ext에 둔다.
+            ev = metrics.evaluation_report(
+                role=role, report_id=m["eval_report_ref"], created_at=created,
+                package={"id": m["package_id"], "version": m["version"], "content_hash": m["content_hash"]},
+                dataset=self.dataset_ref, question_sets=m["lineage"]["question_sets"],
+                backend=detail["context"]["evaluation_backend"], decoding=self.cfg["serving"][role]["decoding"],
+                metrics=detail.pop("evaluation_report_metrics"), notes=detail.pop("evaluation_report_notes"), detail=detail)
+            (self.dir / "package" / f"{role}.evaluation-report.json").write_bytes(canonical.canonicalize(ev))
             st[role] = {"status": "done", "package_id": m["package_id"], "version": version, "content_hash": m["content_hash"],
                         "adapter_hash": m["adapter_hash"]}
         st["created_at"] = created
@@ -476,7 +489,7 @@ class Run:
         pk = {}
         for role in ROLES:
             m = json.loads((self.dir / "package" / f"{role}.manifest.json").read_text(encoding="utf-8"))
-            report = (self.dir / "eval" / f"report-{role}.json").read_bytes()
+            report = (self.dir / "package" / f"{role}.evaluation-report.json").read_bytes()
             got = self.registry.publish(m, self.dir / "adapters" / role, report)   # 멱등: 같은 내용이면 기존 것
             pk[role] = {"package_id": got["package_id"], "version": got["version"], "content_hash": got["content_hash"]}
             self.log(f"[{self.run_id}] 게시 {got['package_id']}@{got['version']}")

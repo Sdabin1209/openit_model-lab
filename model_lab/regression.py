@@ -56,13 +56,17 @@ def build_set(store, schema_dir: Path, *, limit: int | None = None, max_listed: 
         if kind is None:
             skipped["kind_unknown"].append(cid); continue
         role = KIND_ROLE[kind]
-        try:
-            trace = store.get_trace(c["deidentified_trace_ref"])
-        except BoundaryError as e:
-            if e.code == "NOT_FOUND":
-                skipped["trace_not_found"].append(cid); continue
-            raise                      # UNAVAILABLE 등은 중단(재시도)
-        inp = trace.get(_TRACE_KEY[role]) if isinstance(trace, dict) else None
+        src = "reviewed_input"
+        inp = c.get("reviewed_input")      # 검토자가 개인정보를 뺀 문장으로 고쳐 쓴 입력을 우선한다(D55)
+        if not isinstance(inp, dict):
+            src = "trace"
+            try:
+                trace = store.get_trace(c["deidentified_trace_ref"])
+            except BoundaryError as e:
+                if e.code == "NOT_FOUND":
+                    skipped["trace_not_found"].append(cid); continue
+                raise                  # UNAVAILABLE 등은 중단(재시도)
+            inp = trace.get(_TRACE_KEY[role]) if isinstance(trace, dict) else None
         if not isinstance(inp, dict):
             skipped["trace_input_missing"].append(cid); continue
         if list(survey_validator(schema_dir, _IN[role]).iter_errors(inp)):
@@ -70,21 +74,25 @@ def build_set(store, schema_dir: Path, *, limit: int | None = None, max_listed: 
         if list(survey_validator(schema_dir, _OUT[role]).iter_errors(c["expected"])):
             skipped["expected_invalid"].append(cid); continue
         samples[role].append({"sample_id": cid, "input": inp, "expected": c["expected"], "failure_type": c["failure_type"],
-                              "source_release_id": c["source_release_id"]})
+                              "source_release_id": c["source_release_id"], "input_source": src})
     return {"samples": samples, "cases_total": len(cases),
             "skipped": {k: {"count": len(v), "case_ids": v[:max_listed]} for k, v in sorted(skipped.items())}}
 
 
-def section(role: str, session, rset: dict, *, max_listed: int = 20) -> dict:
+def evaluate_set(role: str, session, rset: dict) -> list:
+    return [(s, evaluate_sample(role, session, s)) for s in rset["samples"][role]]
+
+
+def section(role: str, session, rset: dict, *, max_listed: int = 20, recs: list | None = None) -> dict:
     """보고서의 `regression` 절."""
     ss = rset["samples"][role]
-    recs = [(s, evaluate_sample(role, session, s)) for s in ss]
+    recs = recs if recs is not None else evaluate_set(role, session, rset)
     by_type: dict = collections.defaultdict(list)
     for s, r in recs:
         by_type[s["failure_type"]].append(r)
     fails = [{"sample_id": s["sample_id"], "failure_type": s["failure_type"], "raw_valid": r["raw_valid"], "outcome": r["outcome"]}
              for s, r in recs if not r["prot_exact"]]
-    return {"enabled": True, "cases_total": rset["cases_total"], "used_for_role": len(ss), "skipped": rset["skipped"],
+    return {"enabled": True, "cases_total": rset["cases_total"], "used_for_role": len(ss), "input_sources": dict(collections.Counter(s["input_source"] for s in ss)), "skipped": rset["skipped"],
             "aggregate": aggregate([r for _, r in recs], role),
             "by_failure_type": {k: aggregate(v, role) for k, v in sorted(by_type.items())},
             "not_matching": {"count": len(fails), "listed": fails[:max_listed]},

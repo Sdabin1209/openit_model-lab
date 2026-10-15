@@ -108,6 +108,7 @@ def evaluate_sample(role: str, session, sample: Mapping) -> dict:
         rec["raw_exact"] = raw.output is not None and _same(raw.output, exp)
         rec["prot_exact"] = _same(out, exp)
         e = collections.Counter(_item_sig(i) for i in (_items(exp) or []))
+        _parser_extra(rec, exp, out)
         for key, o in (("raw", raw.output), ("prot", out)):
             oi = _items(o)
             g = collections.Counter(_item_sig(i) for i in (oi or []))
@@ -120,7 +121,77 @@ def evaluate_sample(role: str, session, sample: Mapping) -> dict:
         rec["is_fallback"] = bool(out.get("is_fallback"))
         rt = out.get("response_text") or ""
         rec["response_len"] = len(rt)
+        _generator_extra(rec, inp, raw, rt)
     return rec
+
+
+def _tsig(t) -> str | None:
+    return None if not t else canonical.canonicalize(t).decode()
+
+
+def _parser_extra(rec: dict, exp: Mapping, out: Mapping) -> None:
+    """EvaluationReport 지표(METRICS.md)용 항목 단위 값. 보호 후(서빙되는) 출력과 정답을 맞춘다."""
+    E = sorted(_items(exp) or [], key=lambda i: i.get("item_no", 0))
+    O = [dict(i) for i in (_items(out) or [])]
+    used = [False] * len(O)
+    t_tot = t_hit = v_tot = v_hit = i_hit = 0
+    for e in E:
+        et = _tsig(e.get("target"))
+        j = next((k for k, o in enumerate(O) if not used[k] and _tsig(o.get("target")) == et
+                  and (et is not None or o.get("intent") == e.get("intent"))), None)
+        if j is not None:
+            used[j] = True
+        if et is not None:
+            t_tot += 1
+            t_hit += j is not None
+        hit_intent = j is not None and O[j].get("intent") == e.get("intent")
+        i_hit += hit_intent
+        if e.get("intent") == "ANSWERED_INTENT" and e.get("value") is not None:
+            v_tot += 1
+            v_hit += j is not None and O[j].get("value") == e.get("value")
+    rec.update(exp_risk=any(i.get("intent") == "RISK_SIGNAL" for i in E),
+               out_risk=any(i.get("intent") == "RISK_SIGNAL" for i in O),
+               target_total=t_tot, target_hit=t_hit, value_total=v_tot, value_hit=v_hit,
+               intent_total=len(E), intent_hit=i_hit, exp_items=len(E), out_items=len(O))
+
+
+_NUM = __import__("re").compile(r"\d+")
+
+
+def _flat_strings(o) -> list[str]:
+    if isinstance(o, str):
+        return [o]
+    if isinstance(o, Mapping):
+        return [x for v in o.values() for x in _flat_strings(v)]
+    if isinstance(o, (list, tuple)):
+        return [x for v in o for x in _flat_strings(v)]
+    return [str(o)] if isinstance(o, (int, float)) and not isinstance(o, bool) else []
+
+
+def _val_text(v) -> str | None:
+    if isinstance(v, str):
+        return v
+    if isinstance(v, Mapping):
+        return v.get("label") or v.get("code")
+    return None
+
+
+def _generator_extra(rec: dict, inp: Mapping, raw, text: str) -> None:
+    d = inp.get("directive", {})
+    sents = [f["sentence"] for f in d.get("sentence_materials", {}).get("fixed_sentences", []) if f.get("key") == "RISK_NOTICE"]
+    if sents:
+        rec["risk_notice_total"] = 1
+        rec["risk_notice_verbatim"] = all(x in text for x in sents)
+    mats = [t for t in (_val_text(sv.get("value")) for sv in d.get("say_values", [])) if t]
+    mats += [t for t in (_val_text(n.get("value")) for n in d.get("notices", [])) if t]
+    if mats:
+        rec["slot_total"] = 1
+        rec["slot_covered"] = all(m in text for m in mats)
+    # 재료에 없는 숫자: 보호 전 모델 출력 기준(보호의 대체 문장은 재료만 읽으므로 항상 근거가 있다)
+    if isinstance(raw.output, Mapping) and isinstance(raw.output.get("response_text"), str):
+        allowed = set(_NUM.findall(" ".join(_flat_strings(d))))
+        rec["ungrounded_checked"] = 1
+        rec["ungrounded"] = any(n not in allowed for n in _NUM.findall(raw.output["response_text"]))
 
 
 def aggregate(recs: list[dict], role: str) -> dict:
@@ -156,7 +227,7 @@ def aggregate(recs: list[dict], role: str) -> dict:
 
 
 def build_report(role: str, session, samples: list[dict], *, seen_sets: set, eval_files: list[dict],
-                 max_listed_failures: int = 20, context: Mapping | None = None) -> dict:
+                 max_listed_failures: int = 20, context: Mapping | None = None, return_records: bool = False):
     recs: list[tuple[dict, dict]] = []
     for s in samples:
         recs.append((s, evaluate_sample(role, session, s)))
@@ -184,7 +255,7 @@ def build_report(role: str, session, samples: list[dict], *, seen_sets: set, eva
         "slices": {dim: {v: aggregate(rs, role) for v, rs in sorted(vals.items())} for dim, vals in sorted(dims.items())},
         "failures": {"count": len(failures), "listed": failures[:max_listed_failures]},
     }
-    return report
+    return (report, recs) if return_records else report
 
 
 def report_bytes(report: Mapping) -> bytes:

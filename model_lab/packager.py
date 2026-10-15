@@ -10,7 +10,7 @@ from boundary_contracts import canonical, validator
 from .datasets import file_question_sets, split_files, qs_key
 from .config import ROLE_TO_FILE_ROLE
 
-PIPELINE_SCHEMA_VERSION = "1.1"
+from boundary_contracts import PIPELINE_SCHEMA_VERSION
 
 
 def safe_id(s: str) -> str:
@@ -28,14 +28,15 @@ def training_question_sets(dataset_manifest: dict, role: str) -> list[dict]:
     return [refs[k] for k in sorted(refs)]
 
 
-def eval_report_ref(report: bytes) -> str:
-    """내용 주소 방식 ID: 같은 보고서는 같은 ref."""
-    return "eval-" + canonical.sha256_hash(report.hex())[7:39]
+def eval_report_ref(package_id: str, version: str) -> str:
+    """패키지마다 정해지는 ID. 보고서가 패키지의 content_hash를 담고 매니페스트가 이 ref를 담으므로
+    보고서 내용에서 ref를 정하면 순환한다."""
+    return safe_id(f"eval-{package_id}.{version}")
 
 
 def build_manifest(*, role: str, package_id: str, version: str, created_at: str, contract_version: int,
                    base_model: dict, adapter_dir: Path, serving_config: dict, dataset_ref: dict,
-                   dataset_manifest: dict, run_id: str, eval_report: bytes, ext: dict) -> dict:
+                   dataset_manifest: dict, run_id: str, ext: dict) -> dict:
     model_runtime.validate_serving_config(serving_config)
     m = {
         "pipeline_schema_version": PIPELINE_SCHEMA_VERSION,
@@ -55,7 +56,7 @@ def build_manifest(*, role: str, package_id: str, version: str, created_at: str,
             "model_runtime_version": model_runtime.RUNTIME_VERSION,
             "question_sets": training_question_sets(dataset_manifest, role),
         },
-        "eval_report_ref": eval_report_ref(eval_report),
+        "eval_report_ref": eval_report_ref(package_id, version),
         "ext": {"model-lab": ext},
     }
     m["content_hash"] = canonical.content_hash(m)

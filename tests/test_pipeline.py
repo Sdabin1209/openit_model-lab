@@ -298,7 +298,7 @@ def test_package_records_resume_and_evaluation_backend(cfg):
     assert m["ext"]["model-lab"]["resumed"] is True and m["ext"]["model-lab"]["resumed_from_step"] == 10
     assert m["base_model"]["id"] == "Qwen/Qwen2.5-1.5B-Instruct"            # '/' 그대로(계약 v1.2.0)
     rep = json.loads(r2.registry.get_eval_report(m["eval_report_ref"]))
-    assert rep["context"]["evaluation_backend"]["name"] == "fake" and rep["context"]["evaluation_backend"]["constrained_decoding"] is False
+    assert rep["evaluation_backend"]["name"] == "fake" and rep["evaluation_backend"]["constrained_decoding"] is False
 
 
 def test_http_kind_requires_token_env_var(cfg):

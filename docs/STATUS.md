@@ -1,5 +1,10 @@
 # STATUS (2026-10-15)
 
+## 4차 갱신 (D53, GPU 실행 안 함)
+- boundary-contracts v1.3.0으로 올림. 평가 결과를 역할별 `EvaluationReport`로 방출해 기존 `publish`의 eval_report로 올린다(METRICS.md 이름, 슬라이스 SEEN_UNSEEN·QUESTION_TYPE·UNIT 등, SAFETY 지표 포함, 임계치 없음). 못 구하는 지표는 생략하고 notes에 적었다(금지 표현률, 지연). 회귀 평가는 `reviewed_input` 우선. 시험 80건 통과, 이미지 스모크 통과(라벨 v1.3.0).
+- 확인하지 못한 것: 실제 release-gate가 이 보고서를 읽는지(게이트 쪽 통합), GPU 호스트에서 v1.3.0 환경 재시험(이번엔 GPU 실행 안 함), 실제 모델 출력에서의 지표 값(시험은 오라클 모델).
+- 해석 제안(CR-L006): `regression_fixed/broken`의 정의, `ungrounded_number_rate`·`slot_coverage`의 계산 방법.
+
 ## 3차 갱신 (D52, GPU 실행 안 함)
 - 데이터셋 파일 저장소 독립 읽기 구현 `model_lab.file_dataset_store`(I2 레이아웃, Protocol, 해시 재확인). 시험용 gpu-dev 설정은 `gpu-dev-fixture-*.yaml`로 이름을 바꿨고 실제 설정은 `configs/gpu-dev.yaml`.
 - 회귀 평가(I7, 실제 `HttpFailureStore` + 작은 서버 대역으로 시험). 개발의 데이터 이동·SSH 역터널 절차는 runbook(운영 네트워크 경계는 가정).

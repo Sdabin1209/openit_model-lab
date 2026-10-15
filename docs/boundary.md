@@ -6,7 +6,7 @@
 모델 레지스트리(불변 패키지). I3 `ModelRegistry`. 쓰기는 이 영역만 한다. 구현: `model_lab.registry.FileModelRegistry`(디스크), `MemoryModelRegistry`(메모리). 둘 다 `boundary_contracts.sdk.ModelRegistry` Protocol을 만족하고 `tests/test_registry.py`의 같은 적합성 시험을 통과한다(오류 코드·멱등·해시 검증 포함).
 
 ## 제공 (I3)
-`publish`, `get_manifest`, `list_ids`, `list_versions`(오래된 것부터), `open_adapter`(해시 검증), `get_eval_report`. 생산 계약: `ModelPackageManifest`(역할마다 하나, 서빙 설정은 역할별). 평가 리포트는 `eval_report_ref`로 가져오는 JSON 바이트이고 형식은 이 영역이 정한다(`docs/design.md` 6절). 게이트는 해석하지 않는다.
+`publish`, `get_manifest`, `list_ids`, `list_versions`(오래된 것부터), `open_adapter`(해시 검증), `get_eval_report`. 생산 계약: `ModelPackageManifest`(역할마다 하나, 서빙 설정은 역할별). 평가 리포트는 `eval_report_ref`(`eval-<package_id>.<version>`)로 가져오는 바이트이며 `EvaluationReport`(boundary-contracts v1.3.0, 지표 체계, 합격 판정·임계치 없음)다(`docs/design.md` 6-1). 이전의 자세한 보고서는 `ext."model-lab".detail`에 있다.
 읽기 전용 SDK를 따로 만들지 않았다: 소비자(release-gate)는 같은 Protocol의 읽기 메서드를 쓴다. 읽기 토큰·원격 구현은 게이트와 배포 방식이 정해진 뒤 [미정].
 
 ## 서비스 형태 (D49): model-registry
@@ -17,7 +17,7 @@
 | 대상 | 방법 | 버전 |
 | --- | --- | --- |
 | 문진 스키마 | `schema_dir`(`.../schema/schemas`) 경로. `CONTRACT_VERSION`이 데이터셋의 `runtime_contract_version`과 다르면 `UNSUPPORTED_VERSION` | 정수 1 |
-| boundary-contracts | `canonical`(모든 해시), `validator`(쓰기 전 검증), `sdk` Protocol, `BoundaryError` | v1.2.0 |
+| boundary-contracts | `canonical`(모든 해시), `validator`(쓰기 전 검증), `sdk` Protocol, `BoundaryError` | v1.3.0 |
 | turn-engine | 계보 기록(`ENGINE_VERSION`). 평가의 프로토콜 경로 바깥에서 직접 호출하지 않는다 | v0.2.0 |
 | model-runtime | `render_prompt`, `load`, `parse_raw/generate_raw/parse/generate`, `validate_serving_config`, `serving_config_hash`, `RUNTIME_VERSION` | v0.4.0 |
 | I2 데이터셋 읽기 | `DatasetStore` Protocol(`get_manifest`, `list_versions`, `open_file`)만 사용. 실제 SDK 진입점은 CR-L004 | 경계 계약 1.1 |
