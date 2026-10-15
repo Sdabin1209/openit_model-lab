@@ -31,25 +31,49 @@ def hf_cache_dir() -> Path:
     return Path(os.environ.get("HF_HOME", Path.home() / ".cache" / "huggingface")) / "hub"
 
 
-def free_gb(path: Path) -> float:
-    import shutil
-    p = path
-    while not p.exists() and p != p.parent:
-        p = p.parent
-    return shutil.disk_usage(p).free / 2**30
+def _tree_bytes(path: Path) -> int:
+    """심볼릭 링크를 따라가지 않고 파일 크기를 합한다(du와 같은 방식, 공유 blob 구조에서 이중 계산을 피한다)."""
+    total = 0
+    if not path.exists():
+        return 0
+    for p in path.rglob("*"):
+        try:
+            if p.is_file() and not p.is_symlink():
+                total += p.stat().st_size
+        except OSError:
+            pass
+    return total
 
 
-def disk_guard(cand: dict, min_free_gb: float) -> None:
-    """모델을 내려받기 전에 남은 용량을 확인한다. 후보의 예상 크기(approx_gb)와 여유(min_free_gb)를 더한 만큼 없으면 멈춘다.
-    이미 캐시에 있는 후보는 내려받지 않으므로 건너뛴다. 용량 정리는 scripts/clean_model_cache.sh(수동)."""
-    cache = hf_cache_dir() / ("models--" + cand["id"].replace("/", "--"))
-    if cache.exists() and not list(cache.rglob("*.incomplete")):
-        return
-    need = float(cand.get("approx_gb", 20)) + float(min_free_gb)
-    have = free_gb(hf_cache_dir())
-    if have < need:
-        raise SystemExit(f"디스크 부족: {cand['id']}를 내려받으려면 약 {need:.0f}GB가 필요한데 {have:.0f}GB만 남았다. "
-                         "scripts/clean_model_cache.sh로 정리 후보를 확인하라(자동 삭제하지 않는다).")
+def cache_gb() -> float:
+    """HF 캐시의 실제 디스크 사용량(GB). huggingface_hub.scan_cache_dir()를 쓰고 없으면 파일 크기 합."""
+    d = hf_cache_dir()
+    try:
+        from huggingface_hub import scan_cache_dir
+        return scan_cache_dir(d).size_on_disk / 2**30
+    except Exception:
+        return _tree_bytes(d) / 2**30
+
+
+def work_gb() -> float:
+    """~/openit-gpu(작업 폴더 전체: 가상환경, runs, 데이터)의 크기(GB)."""
+    return _tree_bytes(Path.home() / "openit-gpu") / 2**30
+
+
+def model_cached(cand: dict) -> bool:
+    d = hf_cache_dir() / ("models--" + cand["id"].replace("/", "--"))
+    return d.exists() and not list(d.rglob("*.incomplete")) and any((d / "snapshots").glob("*")) if d.exists() else False
+
+
+def footprint_guard(cand: dict, max_footprint_gb: float) -> None:
+    """내려받기 전에 우리 작업의 사용량 예산을 확인한다: (HF 캐시 + ~/openit-gpu + 후보 예상 크기)가 예산을 넘으면 멈춘다.
+    WSL의 df는 가상 디스크 크기만 보여 주고 호스트 드라이브의 실제 여유를 알려 주지 않으므로 df를 쓰지 않는다.
+    이미 완전히 받은 후보는 캐시 크기에 들어 있으므로 예상 크기를 더하지 않는다. 자동 삭제는 하지 않는다."""
+    add = 0.0 if model_cached(cand) else float(cand.get("approx_gb", 20))
+    cache, work = cache_gb(), work_gb()
+    if cache + work + add > float(max_footprint_gb):
+        raise SystemExit(f"사용량 예산 초과: HF 캐시 {cache:.1f}GB + 작업 폴더 {work:.1f}GB + {cand['id']} 예상 {add:.0f}GB > 예산 {max_footprint_gb}GB. "
+                         "scripts/clean_model_cache.py로 정리 후보를 확인하라(자동 삭제하지 않는다).")
 
 
 def pick_samples(n: int) -> list[dict]:
@@ -144,7 +168,7 @@ def main() -> int:
     for cand in cfg["candidates"]:
         if a.only and cand["name"] != a.only:
             continue
-        disk_guard(cand, cfg.get("min_free_gb", 20))      # 부족하면 이 후보 전에 멈춘다(후보 하나의 실패로 삼키지 않는다)
+        footprint_guard(cand, cfg.get("max_footprint_gb", 20))      # 예산을 넘으면 이 후보 전에 멈춘다(후보 하나의 실패로 삼키지 않는다)
         try:
             r = run_candidate(cand, cfg, samples, Path(a.schema_dir), a.backend, out)
         except Exception as e:   # 후보 하나의 실패(메모리 부족 등)가 나머지를 막지 않는다. 사유만 남긴다(원문 없음)

@@ -36,23 +36,73 @@ def test_sample_selection_is_deterministic():
     assert [s["sample_id"] for s in m.pick_samples(50)] == [s["sample_id"] for s in m.pick_samples(50)]
 
 
-def test_disk_guard_stops_before_download(tmp_path, monkeypatch):
+def make_cache(hub, repo, size, *, incomplete=False):
+    """HF 캐시 배치(blobs, snapshots 링크, refs)를 만든다."""
+    d = hub / ("models--" + repo.replace("/", "--"))
+    (d / "blobs").mkdir(parents=True); (d / "refs").mkdir(); (d / "snapshots" / ("a" * 40)).mkdir(parents=True)
+    (d / "blobs" / "b1").write_bytes(b"x" * size)
+    (d / "snapshots" / ("a" * 40) / "w.bin").symlink_to(d / "blobs" / "b1")
+    (d / "refs" / "main").write_text("a" * 40)
+    if incomplete:
+        (d / "blobs" / "b2.incomplete").write_bytes(b"y" * 10)
+    return d
+
+
+def load_script():
     import importlib
-    import pytest
     sys.path.insert(0, str(ROOT / "scripts"))
-    m = importlib.import_module("compare_base_models")
-    monkeypatch.setenv("HF_HOME", str(tmp_path / "hf"))
-    with pytest.raises(SystemExit, match="디스크 부족"):
-        m.disk_guard({"id": "x/huge", "approx_gb": 10**9}, 20)                 # 남은 용량보다 큰 후보
-    m.disk_guard({"id": "x/small", "approx_gb": 0.001}, 0)                      # 충분하면 통과
-    done = tmp_path / "hf/hub/models--x--cached/blobs"; done.mkdir(parents=True)
-    m.disk_guard({"id": "x/cached", "approx_gb": 10**9}, 20)                    # 이미 받은(미완성 조각 없음) 후보는 건너뛴다
-    (done / "a.incomplete").write_text("")
+    return importlib.import_module("compare_base_models")
+
+
+def test_footprint_guard_uses_budget_not_df(tmp_path, monkeypatch):
+    import pytest
+    m = load_script()
+    monkeypatch.setenv("HF_HOME", str(tmp_path / "hf")); monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    (tmp_path / "home/openit-gpu").mkdir(parents=True)
+    (tmp_path / "home/openit-gpu/f").write_bytes(b"z" * (1 << 20))
+    monkeypatch.setattr(m, "free_gb", lambda *_: 10**6, raising=False)                  # df가 얼마를 보여 주든 쓰지 않는다
+    m.footprint_guard({"id": "x/a", "approx_gb": 5}, 20)                                  # 예산 안: 통과
+    with pytest.raises(SystemExit, match="사용량 예산 초과"):
+        m.footprint_guard({"id": "x/a", "approx_gb": 25}, 20)                             # 후보 예상 크기가 예산을 넘음
+    big = 3 * 2**30
+    make_cache(tmp_path / "hf/hub", "x/old", 1 << 20)
+    (tmp_path / "hf/hub/models--x--old/blobs/b1").write_bytes(b"x" * 1024)             # 작은 캐시
+    m.footprint_guard({"id": "x/b", "approx_gb": 19.9}, 20)
     with pytest.raises(SystemExit):
-        m.disk_guard({"id": "x/cached", "approx_gb": 10**9}, 20)                # 미완성이면 다시 받아야 하므로 검사한다
+        m.footprint_guard({"id": "x/b", "approx_gb": 20}, 20)                             # 캐시+작업 폴더가 더해져 초과
+
+
+def test_footprint_guard_counts_cache_and_skips_completed_model(tmp_path, monkeypatch):
+    import pytest
+    m = load_script()
+    monkeypatch.setenv("HF_HOME", str(tmp_path / "hf")); monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    (tmp_path / "home/openit-gpu").mkdir(parents=True)
+    make_cache(tmp_path / "hf/hub", "x/done", 2 * 10**6)
+    assert m.model_cached({"id": "x/done"}) and not m.model_cached({"id": "x/other"})
+    m.footprint_guard({"id": "x/done", "approx_gb": 10**6}, 20)                           # 이미 받은 모델은 예상 크기를 더하지 않는다
+    make_cache(tmp_path / "hf/hub", "x/part", 10, incomplete=True)
+    assert not m.model_cached({"id": "x/part"})
+    with pytest.raises(SystemExit):
+        m.footprint_guard({"id": "x/part", "approx_gb": 10**6}, 20)                       # 미완성이면 다시 받아야 한다
+
+
+def test_clean_model_cache_dry_run_then_delete_via_hub_api(tmp_path, capsys):
+    pytest = __import__("pytest"); pytest.importorskip("huggingface_hub")
+    sys.path.insert(0, str(ROOT / "scripts"))
+    import importlib
+    c = importlib.import_module("clean_model_cache")
+    hub = tmp_path / "hub"
+    d = make_cache(hub, "x/gone", 4096); make_cache(hub, "x/keep", 2048)
+    assert c.main([], hub) == 0 and c.main(["x/gone"], hub) == 0
+    assert d.exists()                                                                       # dry-run은 지우지 않는다
+    assert c.main(["x/gone", "--yes"], hub) == 0
+    from huggingface_hub import scan_cache_dir
+    left = {r.repo_id for r in scan_cache_dir(hub).repos}
+    assert left == {"x/keep"} and not list(d.rglob("b1"))                                  # 지정한 모델의 blob만 지운다
+    assert c.main(["x/nope"], hub) == 1
 
 
 def test_candidate_configs_have_size_estimates():
     for f in ("base-model-candidates.yaml", "base-model-candidates-fewshot.yaml"):
         cfg = yaml.safe_load((ROOT / "configs/compare" / f).read_text())
-        assert cfg["min_free_gb"] > 0 and all(c["approx_gb"] > 0 for c in cfg["candidates"])
+        assert cfg["max_footprint_gb"] == 20 and "min_free_gb" not in cfg and all(c["approx_gb"] > 0 for c in cfg["candidates"])
