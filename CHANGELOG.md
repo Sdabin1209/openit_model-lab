@@ -1,5 +1,12 @@
 # 변경 이력
 
+## 0.2.0 (제안, 이전 중; 태그 없음)
+- boundary-contracts v2.0.0(D74, D75). v1 레코드는 읽지 않는다.
+- 변환기: 학습 서버 messages <-> ActionExtractionSample/ResponseSample(`transform.py`), 검증 스크립트 `scripts/check_server_dataset.py`.
+- 패키징: `ModelPackageManifest.system_prompt`(어댑터 디렉터리 안 파일, adapter_hash에 포함), 설정 `roles.<역할>.system_prompt_file`(필수), `prompts/`. 레지스트리가 프롬프트 파일을 확인한다.
+- 데이터셋 파일 역할 LORA_A/LORA_B, 샘플 검증은 v2 샘플 스키마.
+- 미이전: 파이프라인의 학습 데이터 변환·학습·평가·회귀(model-runtime 새 태그 대기). 자세한 내용은 docs/STATUS.md 9차.
+
 ## 0.1.0 (2026-10-15)
 - 용량 보호를 df 대신 사용량 예산(max_footprint_gb)으로 교체, 캐시 정리를 huggingface_hub 삭제 전략으로(scripts/clean_model_cache.py).
 - D61: 기반 모델 비교 중단(참고 자료로 보존). 내려받기 전 디스크 확인(disk_guard)과 모델 캐시 정리 스크립트(기본 dry-run) 추가.

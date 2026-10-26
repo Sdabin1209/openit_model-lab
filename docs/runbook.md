@@ -74,7 +74,7 @@ D22 (2): 서비스가 없는 run-once 잡이라 Dockerfile 없이 `requirements.
 1. 코드 보내기(비밀 값 없음, 호스트에서 GitHub 접속 없음):
    `rsync -a --exclude .venv --exclude .git --exclude runs --exclude fixtures ./ gpu-dev:openit-gpu/model-lab/`
    호스트에는 이웃 폴더가 없다. 태그에서 만든 wheel과 문진 스키마 사본을 `vendor/`(gitignore)에 두고 보낸다:
-   `pip wheel --no-deps -w vendor/wheels "git+file://<경로>/boundary-contracts@v1.3.0"` (turn-engine@v0.2.0, model-runtime@v0.4.0도 같이), `vendor/survey-schema/{schemas,CONTRACT_VERSION}`.
+   `pip wheel --no-deps -w vendor/wheels "git+file://<경로>/boundary-contracts@v2.0.0"` (turn-engine@v0.2.0, model-runtime@v0.4.0도 같이), `vendor/survey-schema/{schemas,CONTRACT_VERSION}`.
 2. 호스트 환경(처음 한 번): `cd ~/openit-gpu/model-lab && python3 -m venv .venv && .venv/bin/pip install vendor/wheels/*.whl pyyaml pytest -r requirements-train.txt`
 3. 시험 데이터: `.venv/bin/python scripts/make_fixture_dataset.py fixtures/store`
 4. 실행(긴 작업은 분리하고 로그를 본다. GPU 명령은 반드시 락으로 감싼다):
@@ -100,3 +100,8 @@ D22 (2): 서비스가 없는 run-once 잡이라 Dockerfile 없이 `requirements.
 | `CONFLICT`(게시) | 같은 package_id·version에 다른 어댑터. 학습 비결정성 때문에 run 디렉터리를 지우고 다시 학습하면 생긴다. 기존 run 디렉터리를 재사용한다 |
 | `TrainerUnavailable` | torch/CUDA 없음. `requirements-train.txt`와 GPU 확인 |
 | `UnsupportedServingConfig` | `serving.*.constraint`가 평가 백엔드(`hf-transformers`/`fake`)와 다르다 |
+
+
+## 학습 서버 데이터셋 확인과 시스템 프롬프트 (2.0.0)
+- 서버 데이터는 읽기만 한다(`ssh openit cat ~/taehyeon/data/dataset_10_14/lora_{a,b}_{train,val,test}.jsonl`). 받은 파일은 `runs/_server_ds/`(gitignore)에 두고 `.venv/bin/python scripts/check_server_dataset.py runs/_server_ds`로 모든 줄의 계약 검증과 글자 단위 왕복을 확인한다.
+- `prompts/lora_{a,b}.system.txt`는 서버 데이터의 system 메시지를 바이트 그대로 둔 것이다. 데이터가 바뀌면 `tests/test_packager_v2.py::test_repo_prompts_are_the_ones_in_the_server_dataset_rows`가 고정 샘플 줄과의 불일치를 알려 주지만 새 데이터 전체와의 비교는 `read_server_file`로 직접 한다(시스템 프롬프트가 한 종이 아니면 중단한다).

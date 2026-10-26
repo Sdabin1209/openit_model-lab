@@ -1,12 +1,12 @@
 # model-lab 경계
 
-상태: 구현됨(0.1.0). 정본은 `../boundary-contracts`의 `INTERFACES.md`·`CONVENTIONS.md`다.
+상태: 구현됨(0.1.0). 2.0.0 이전 중(헤드 지시서 `head/docs/migration-2.0.0.md`): 계약 v2.0.0 의존, 변환기·패키징(system_prompt)까지 반영. 파이프라인의 평가·학습 단계는 model-runtime 새 태그를 기다린다(`docs/STATUS.md` 9차). 정본은 `../boundary-contracts`의 `INTERFACES.md`·`CONVENTIONS.md`다.
 
 ## 소유 저장소
 모델 레지스트리(불변 패키지). I3 `ModelRegistry`. 쓰기는 이 영역만 한다. 구현: `model_lab.registry.FileModelRegistry`(디스크), `MemoryModelRegistry`(메모리). 둘 다 `boundary_contracts.sdk.ModelRegistry` Protocol을 만족하고 `tests/test_registry.py`의 같은 적합성 시험을 통과한다(오류 코드·멱등·해시 검증 포함).
 
 ## 제공 (I3)
-`publish`, `get_manifest`, `list_ids`, `list_versions`(오래된 것부터), `open_adapter`(해시 검증), `get_eval_report`. 생산 계약: `ModelPackageManifest`(역할마다 하나, 서빙 설정은 역할별). 평가 리포트는 `eval_report_ref`(`eval-<package_id>.<version>`)로 가져오는 바이트이며 `EvaluationReport`(boundary-contracts v1.3.0, 지표 체계, 합격 판정·임계치 없음)다(`docs/design.md` 6-1). 이전의 자세한 보고서는 `ext."model-lab".detail`에 있다.
+`publish`, `get_manifest`, `list_ids`, `list_versions`(오래된 것부터), `open_adapter`(해시 검증), `get_eval_report`. 생산 계약: `ModelPackageManifest`(역할마다 하나, 서빙 설정은 역할별). 2.0.0부터 `system_prompt{path, sha256}`가 필수이고 파일은 어댑터 디렉터리 안에 있다(`adapter_hash`에 포함, D75). `publish`는 파일이 있고 해시가 맞는지 확인한다(아니면 `INTEGRITY_ERROR`). 프롬프트의 출처는 설정의 `roles.<역할>.system_prompt_file`이다[제안, CR-L007]. 평가 리포트는 `eval_report_ref`(`eval-<package_id>.<version>`)로 가져오는 바이트이며 `EvaluationReport`(boundary-contracts v1.3.0, 지표 체계, 합격 판정·임계치 없음)다(`docs/design.md` 6-1). 이전의 자세한 보고서는 `ext."model-lab".detail`에 있다.
 읽기 전용 SDK를 따로 만들지 않았다: 소비자(release-gate)는 같은 Protocol의 읽기 메서드를 쓴다. 읽기 토큰·원격 구현은 게이트와 배포 방식이 정해진 뒤 [미정].
 
 ## 서비스 형태 (D49): model-registry
@@ -17,7 +17,7 @@
 | 대상 | 방법 | 버전 |
 | --- | --- | --- |
 | 문진 스키마 | `schema_dir`(`.../schema/schemas`) 경로. `CONTRACT_VERSION`이 데이터셋의 `runtime_contract_version`과 다르면 `UNSUPPORTED_VERSION` | 정수 1 |
-| boundary-contracts | `canonical`(모든 해시), `validator`(쓰기 전 검증), `sdk` Protocol, `BoundaryError` | v1.3.0 |
+| boundary-contracts | `canonical`(모든 해시), `validator`(쓰기 전 검증), `sdk` Protocol, `BoundaryError`. 데이터셋 샘플은 `ActionExtractionSample`(LORA_A)·`ResponseSample`(LORA_B) | v2.0.0 |
 | turn-engine | 계보 기록(`ENGINE_VERSION`). 평가의 프로토콜 경로 바깥에서 직접 호출하지 않는다 | v0.2.0 |
 | model-runtime | `render_prompt`, `load`, `parse_raw/generate_raw/parse/generate`, `validate_serving_config`, `serving_config_hash`, `RUNTIME_VERSION` | v0.4.0 |
 | I2 데이터셋 읽기 | `DatasetStore` Protocol(`get_manifest`, `list_versions`, `open_file`)만 사용. 실제 SDK 진입점은 CR-L004 | 경계 계약 1.1 |

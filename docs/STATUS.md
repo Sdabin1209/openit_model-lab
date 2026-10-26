@@ -1,4 +1,27 @@
-# STATUS (2026-10-15)
+# STATUS (2026-10-27)
+
+## 9차 갱신: boundary-contracts 2.0.0 이전 (D74, D75) — 일부 완료, 나머지는 model-runtime 새 태그 대기
+지시서: `head/docs/migration-2.0.0.md`. 브랜치 `migrate-contracts-2.0.0`(push·태그 안 함).
+
+**한 것 [확인]**
+- 의존을 boundary-contracts `v2.0.0` 태그로(requirements*.txt/lock, Dockerfile의 `BC_SPEC`·라벨). 이미지 스모크 통과(`scripts/smoke_registry.sh`: healthz/readyz, 비root, 라벨 v2.0.0, 게시·조회). 스모크는 `requirements-service.txt`의 태그에 맞는 wheel을 고르도록 고쳤다.
+- 학습 서버 코드와 이 리포의 관계(아래)를 읽어 확인했다.
+- 변환기 `transform.py` 2.0.0 절: 서버 `messages` <-> `ActionExtractionSample`/`ResponseSample`. 서버 줄 10,264개 전부 검증 통과·글자 단위 왕복 일치(`scripts/check_server_dataset.py`, 서버 데이터는 읽기 전용으로 받아 `runs/_server_ds/`에 복사해 시험, 커밋 안 함).
+- 패키징: `packager.install_system_prompt` + `build_manifest(system_prompt=...)`로 `ModelPackageManifest.system_prompt` 채움. 프롬프트는 어댑터 디렉터리 안에 들어가 `adapter_hash`에 포함. 레지스트리(I3 구현)가 파일 존재·해시를 확인(`INTEGRITY_ERROR`). 설정에 `roles.<역할>.system_prompt_file`(필수), 리포 `prompts/`에 서버 데이터의 프롬프트를 그대로 둠.
+- `datasets.py`/`config.ROLE_TO_FILE_ROLE`: 파일 역할 `LORA_A`/`LORA_B`, 샘플 검증은 `ActionExtractionSample`/`ResponseSample`(문진 스키마 참조 없음). `metrics.py`의 보고서 버전 문자열을 계약 상수로.
+
+**학습 서버 코드와의 관계 [확인: `~/taehyeon/train_lora_a.py`, `~/myungchan/train_lora_b.py` 읽기만]**
+- A·B 학습은 서버의 별도 코드로 이미 이뤄진다. 두 파일은 기본값 5개(데이터 경로, prefix, 모델, 출력 폴더, eval_steps)만 다르고 나머지는 같다(diff 확인). TRL SFTTrainer + PEFT, 기본 `Qwen/Qwen3-4B`, LoRA r=16, alpha=16, dropout 0, 모든 선형층(q,k,v,o,gate,up,down), bf16 전정밀(양자화 없음), lr 2e-4, epochs 3, batch 2 x accum 4, max_len 4096, seed 42, eval_steps마다 검증 손실·체크포인트, 최저 검증 손실 체크포인트로 어댑터 저장.
+- 입력 형식: `{prefix}_{train,val,test}.jsonl`의 `messages`(system, user, assistant)를 채팅 템플릿(`enable_thinking=False`)으로 만들고 **assistant 토큰에만** 손실. 시스템 프롬프트는 데이터 줄 안에 있다.
+- 이 리포의 학습기(`trainers/hf.py`)와는 다르다: 이쪽은 `prompt`/`completion` 문자열 쌍을 따로 토큰화하고(채팅 템플릿 없음), 4비트 양자화·gpu-dev 프로파일(Qwen2.5-1.5B, q/k/v/o만)을 쓴다. 따라서 **지금 이 리포의 학습기로는 서버 학습과 같은 어댑터를 만들 수 없다.** 어느 쪽을 정본으로 할지(서버 코드를 설정으로 감싸 이 리포가 호출 / 이 리포 학습기를 채팅 템플릿으로 고침 / 서버에서 학습하고 이 리포는 평가·패키징·게시만)는 [미정, 헤드·사용자 결정]. 나는 구현하지 않았다.
+- 서버의 `lora_a_*`와 `lora_b_*`는 시나리오가 같고(5,077개 공유) 분할 사이에 걸치지 않는다 [확인].
+
+**못 한 것·막힌 것 [확인]**
+- 파이프라인 단계(변환 -> 학습 -> 평가)와 그 시험은 v1 그대로다. 막힌 이유: 평가와 학습 데이터 변환이 model-runtime(`render_prompt`, `*_raw`, 보호)에 걸려 있는데 v2용 새 태그(v0.6.0 제안)가 아직 없다(원격 태그는 v0.5.3까지 확인했다. 그 안이 v2 기준인지는 다른 리포를 읽지 못해 확인하지 못했다). turn-engine도 v0.2.0뿐이다. 시험 fixture(`tests/doubles/fixtures.py`)도 v1 golden 기반이라 DatasetManifest 위반으로 파이프라인 시험이 모두 선 채로 멈춘다.
+- 평가·회귀의 v1 용어(`risk_signal_*`, `intent_accuracy` 등) 정리: 하지 않았다(평가기가 v1 출력 형식에 묶여 있어 model-runtime 태그와 함께).
+- `trainers/hf.py`의 채팅 템플릿 학습, `to_chat_example`을 파이프라인에 연결하는 일: 위 [미정]이 풀린 뒤.
+
+**환경** `.venv`의 turn-engine·model-runtime이 로컬 경로 editable 설치로 남아 있어(다른 세션이 고치는 작업 트리) 태그 v0.2.0·v0.4.0 설치로 바꿨다. boundary-contracts는 `@v2.0.0` 태그 설치.
 
 ## 8차 갱신: 용량 보호를 사용량 예산으로 교체
 - WSL `df`는 호스트 여유를 알려 주지 않으므로(가상 디스크 크기, vhdx는 지워도 줄지 않음) `min_free_gb`/`df` 점검을 없애고 `max_footprint_gb`(HF 캐시 + ~/openit-gpu + 후보 예상 크기) 예산으로 바꿨다. 정리 도구는 `scripts/clean_model_cache.py`(`huggingface_hub` 삭제 전략, 기본 dry-run). 호스트의 비교용 캐시는 헤드가 사용자 위임으로 지웠다고 알려 와 1.5B(2.9GB)만 남은 것으로 본다(이번 세션에서 직접 확인한 것은 `scan_cache_dir`로 읽은 1.5B 2.9GB와 `~/openit-gpu` 15GB다).
