@@ -1,4 +1,5 @@
 """기반 모델 비교 스크립트의 경로(가짜 백엔드): 표본 선택, EvaluationReport 방출, 후보별 실패 격리."""
+import hashlib
 import json
 import subprocess
 import sys
@@ -13,6 +14,7 @@ from tests.conftest import ROOT, SCHEMA_DIR
 def run(tmp_path, cands, extra=()):
     cfg = yaml.safe_load((ROOT / "configs/compare/base-model-candidates.yaml").read_text())
     cfg["candidates"] = cands
+    cfg["fewshot"] = 0
     cp = tmp_path / "c.yaml"; cp.write_text(yaml.safe_dump(cfg))
     r = subprocess.run([sys.executable, str(ROOT / "scripts/compare_base_models.py"), "--config", str(cp), "--schema-dir", str(SCHEMA_DIR),
                         "--out", str(tmp_path / "out"), "--backend", "fake", *extra], capture_output=True, text=True, cwd=ROOT)
@@ -20,12 +22,12 @@ def run(tmp_path, cands, extra=()):
     return json.loads((tmp_path / "out/summary.json").read_text())
 
 
-def test_fake_run_emits_valid_reports_and_includes_all_risk_cases(tmp_path):
+def test_fake_run_emits_valid_reports(tmp_path):
     s = run(tmp_path, [{"name": "a", "id": "x/a"}, {"name": "b", "id": "x/b"}])
     assert [x["name"] for x in s] == ["a", "b"] and s[0]["samples"] == 50
     rep = json.loads((tmp_path / "out/a.evaluation-report.json").read_text())
     validator("EvaluationReport").validate(rep)
-    assert rep["metrics"] and next(m for m in rep["metrics"] if m["name"] == "risk_signal_recall")["n"] == 9    # golden의 RISK_SIGNAL 사례 전부
+    assert rep["metrics"] and next(m for m in rep["metrics"] if m["name"] == "action_acc")["n"] == 50
     assert "threshold" not in json.dumps(rep).lower()
 
 
@@ -38,11 +40,12 @@ def test_sample_selection_is_deterministic():
 
 def make_cache(hub, repo, size, *, incomplete=False):
     """HF 캐시 배치(blobs, snapshots 링크, refs)를 만든다."""
+    commit = (hashlib.sha1(repo.encode()).hexdigest())[:40]      # 모델마다 다른 커밋(같으면 delete_revisions가 어느 모델을 지울지 정해지지 않는다)
     d = hub / ("models--" + repo.replace("/", "--"))
-    (d / "blobs").mkdir(parents=True); (d / "refs").mkdir(); (d / "snapshots" / ("a" * 40)).mkdir(parents=True)
+    (d / "blobs").mkdir(parents=True); (d / "refs").mkdir(); (d / "snapshots" / commit).mkdir(parents=True)
     (d / "blobs" / "b1").write_bytes(b"x" * size)
-    (d / "snapshots" / ("a" * 40) / "w.bin").symlink_to(d / "blobs" / "b1")
-    (d / "refs" / "main").write_text("a" * 40)
+    (d / "snapshots" / commit / "w.bin").symlink_to(d / "blobs" / "b1")
+    (d / "refs" / "main").write_text(commit)
     if incomplete:
         (d / "blobs" / "b2.incomplete").write_bytes(b"y" * 10)
     return d

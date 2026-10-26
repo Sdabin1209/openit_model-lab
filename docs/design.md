@@ -16,7 +16,7 @@
 | --- | --- |
 | `config.py` | YAML/JSON 설정 읽기, 프로파일 병합, 형식 검증(알 수 없는 키 거부), `config_hash` |
 | `datasets.py`, `schemas.py` | I2로 읽기, 파일 해시·DatasetManifest·샘플(ParserSample/GeneratorSample + 문진 스키마 input/expected) 검증, 보지 못한 문항 세트 판정, 평가 누수 검사 |
-| `transform.py` | 샘플 -> (`render_prompt` 프롬프트, 완성 JSON) |
+| `transform.py` | 샘플 -> (`render_prompt` 프롬프트, 정답 글자). 서버 messages <-> 샘플 변환기 포함 |
 | `trainers/` | `Trainer` 인터페이스, `hf`(transformers+peft LoRA), `dry-run`(CPU 시험용) |
 | `backends/` | 평가용 `ConstraintBackend`: `hf`(어댑터를 붙인 transformers), `fake-oracle`(CPU 시험용) |
 | `evaluate.py` | 서빙과 같은 경로로 평가하고 보고서(쪼개 보기, 보지 못한 문항 세트 따로)를 만든다 |
@@ -62,30 +62,35 @@ publish:  {enabled}
 
 ## 5. 학습 데이터 변환 [확인: 브리프, I9]
 
-- 프롬프트는 `model_runtime.render_prompt(role, input, serving_config=…, schema_dir=…)`다. 서빙과 같은 함수·같은 `serving_config`.
-- 학습 목표(completion): 파서는 `ParserOutput` 전체의 JCS JSON, 생성기는 `{"response_text": …}`뿐이다. `is_fallback`은 코드가 채우므로 목표에 넣지 않는다(D36).
+- 프롬프트는 `model_runtime.render_prompt(role, input, serving_config=…, system_prompt=…, schema_dir=…)`(v0.6.0, prompt-3)다. 서빙과 같은 함수·같은 `serving_config`·설정의 `roles.<역할>.system_prompt_file`.
+- 학습 목표(completion, 2.0.0): LoRA-A는 `ActionExtraction`의 키 정렬 JSON, LoRA-B는 응답 문장 그대로(JSON 아님). 서버 학습 데이터의 assistant 글자와 같다. 시스템 프롬프트는 학습이 끝나면 어댑터 디렉터리에 넣고(adapter_hash에 포함) 평가와 패키징이 그 파일을 쓴다.
+- [미해결] 서빙 프롬프트의 user 글자(JCS, 공백 없음)와 서버 학습 데이터의 user 글자(공백 있음, state 순서 보존)가 다르다. 이 파이프라인으로 학습하면 서빙과 일치하지만 서버에서 학습한 어댑터와는 다르다(CR-L008).
 - 학습 파일에는 TRAIN만, 검증 파일에는 VALIDATION만 들어간다. EVAL 샘플은 변환 단계에서 따로 저장하고, 학습·검증과 `scenario_id`·`sample_id`를 공유하면 단계가 중단된다(I2도 확인하지만 다시 본다, 브리프 4절).
 - 같은 프롬프트에 다른 정답이 있는 학습 샘플 수를 `conflicting_train_prompts`로 기록한다(중단하지 않는다, CR-L001).
 - 문항 정의에 의존하는 표현을 만들지 않는다: 입력(`awaiting_questions` 등)이 프롬프트에 그대로 들어가고 모델은 그것을 읽는다. 문항별 토큰·ID를 따로 학습하지 않는다(D32). 이 설계가 보지 못한 문항에 일반화하는지는 평가의 `unseen_question_sets` 구역으로 본다.
 
 ## 6. 평가 [확인: 구현·시험]
 
-- 모델 세션은 `model_runtime.load(...)`로 만든다(역할 둘 모두). 샘플마다 `parse_raw`/`generate_raw`(보호 전)와 `parse`/`generate`(보호 후), `last_call_info`를 기록한다. 발화·출력 원문은 보고서에 넣지 않는다(샘플 ID와 오류 이름만).
-- 보고서 구조(역할마다 JSON, `eval_report_ref`로 레지스트리에 저장; `report_version: 1`):
+- 모델 세션은 `model_runtime.load(...)`로 만든다(역할 둘 모두). LoRA-A는 샘플마다 `extract_raw`(보호가 없다, D75: 형식 실패 = 서빙의 503 OUTPUT_INVALID), LoRA-B는 `respond_raw`(보호 전)와 `respond`(보호 후, 대체 문장 `is_fallback`), `last_call_info`를 기록한다. 발화·출력 원문은 보고서에 넣지 않는다(샘플 ID와 오류 이름만).
+- 보고서 구조(역할마다 JSON, `eval_report_ref`로 레지스트리에 저장; `report_version: 2`):
   - `notice`: 임계치·합격 기준이 없다는 안내(O11)
   - `context`: run_id, 데이터셋 ref, adapter_hash, serving_config_hash, 라이브러리 버전, 평가 백엔드
   - `eval_files`: 평가 파일별 문항 세트와 `unseen`(매니페스트의 `files[].question_sets` 기준)
   - `overall`, `seen_question_sets`, **`unseen_question_sets`**(문항 세트 목록과 집계; D32)
   - `slices`: 차원별 집계
   - `failures`: 건수와 일부 목록
-- 집계가 담는 계산값(후보이며 선정된 지표가 아니다): `n`, `raw_valid`(보호 전 형식·규칙 유효), `raw_exact`·`prot_exact`(정답과 완전 일치), `outcomes`(ok/repaired/fallback), `attempts` 분포, `protections` 건수, `rates`; 파서는 항목 단위 `tp/fp/fn`·정밀도·재현율(보호 전·후), 생성기는 `fallback` 건수와 응답 길이 평균.
-- 쪼개 보기(D13): 파서 = `question_set`, `seen`, `question_id`, `slot_kind`(unit/choice/yes_no/free), `unit`, `range`(`단위:하한-상한`), `intent`, `noise_type`. 생성기 = `question_set`, `seen`, `question_id`, `action`, `has_utterance`. 슬롯 유형·단위·범위는 샘플 입력의 `awaiting_questions`에서 정답 대상 슬롯을 찾아 얻는다. 문항에 별도의 "유형" 필드는 문진 스키마에 없어 `slot_kind`로 대신했다. [제안]
-- 본/보지 못한 문항: 샘플의 `question_set`이 학습·검증 파일의 문항 세트 합집합(파일별 `question_sets`, 없으면 매니페스트 전체)에 없으면 보지 못한 문항이다.
+- 집계가 담는 계산값(후보이며 선정된 지표가 아니다): `n`, `raw_valid`(형식 유효), `prot_exact`(정답과 완전 일치), `outcomes`(A: ok/invalid, B: ok/fallback), `attempts` 분포, `protections` 건수, `rates`; A는 학습 서버 score_a_v2.py와 같은 계수(`counts`)와 비율, B는 `fallback` 건수, 응답 길이 평균, 문장 규칙 위반 건수(`rule_violations`).
+- 쪼개 보기(D13): LoRA-A = `question_set`, `seen`, `action`(정답), `reason`(정답), `question_id`(입력 문항). LoRA-B = `question_set`, `seen`, `action`, `reason`, `next_type`. 문항에 별도의 "유형" 필드는 문진 스키마에 없어 `slot_kind`로 대신했다. [제안]
+- 본/보지 못한 문항: 샘플의 `question_set`(서버 데이터에는 없어 파이프라인이 파일의 문항 세트가 하나일 때 채운다. 여럿이면 '미상')이 학습·검증 파일의 문항 세트 합집합(파일별 `question_sets`, 없으면 매니페스트 전체)에 없으면 보지 못한 문항이다.
 - 평가 백엔드는 설정으로 고른다(`hf` = transformers+peft, `fake-oracle` = 정답을 그대로 내는 CPU 시험용). 제약 디코딩 백엔드는 model-runtime에 아직 없다(CR-L003).
 - 회귀 평가(I7): `evaluation.regression`으로 켜고 끈다. 확정된(CONFIRMED) 정답 있는 FailureCase의 비식별 trace 입력으로 후보를 평가하고 보고서 `regression` 절에 값을 담는다(건너뛴 사례와 사유 포함, 임계치 없음). 턴 시뮬레이터는 만들지 않았다.
 
-### 6-1. EvaluationReport (boundary-contracts v1.3.0, D53) [확인: `tests/test_evaluation_report.py`]
-레지스트리에 `eval_report`로 올라가는 바이트는 역할마다 `EvaluationReport`(JCS JSON, 스키마 검증 후)다. release-gate는 기존 `get_eval_report(eval_report_ref)`로 읽는다(경계 변경 없음). 지표는 `metrics.py`가 `boundary-contracts/METRICS.md`(제안)의 이름으로 계산한다: 파서 `risk_signal_recall`·`risk_signal_false_alarm`(SAFETY), `item_precision`·`item_recall`·`target_accuracy`·`value_exact_match`·`intent_accuracy`(ACCURACY), `schema_valid_raw`·`protection_intervened`(count)·`fallback_rate`(PROTECTION); 생성기 `risk_notice_verbatim_rate`·`ungrounded_number_rate`(SAFETY), `slot_coverage`, 보호 지표; 공통 `coverage_seen_unseen_gap`(COVERAGE), `regression_fixed`·`regression_broken`(REGRESSION, 회귀 평가를 켠 경우). 슬라이스: `SEEN_UNSEEN`, `QUESTION_SET`, `QUESTION_TYPE`(슬롯 유형), `UNIT`, `RANGE`, `INTENT`, `NOISE`(파서), 생성기는 `SEEN_UNSEEN`, `QUESTION_SET`, `ACTION`. **계산하지 못하는 지표는 n=0으로 두지 않고 생략하고 `notes`에 이유를 적는다**(`forbidden_expression_rate`: 금지 표현 목록 없음, `length_p95_ms`: 지연 미측정, 해당 표본이 없는 지표). 합격 판정·임계치 필드는 없다. 이전의 자세한 보고서(차원별 집계, 실패 목록, 회귀 절)는 `ext."model-lab".detail`에 그대로 둔다. `eval_report_ref`는 `eval-<package_id>.<version>`이다: 보고서가 패키지의 `content_hash`를 담고 매니페스트가 이 ref를 담으므로 보고서 내용에서 ref를 정하면 순환한다. 회귀 평가는 사례의 `reviewed_input`이 있으면 그것을 우선 쓰고 없을 때만 비식별 trace의 입력을 쓴다(`regression.input_sources`에 건수).
+### 6-1. EvaluationReport (boundary-contracts v2.0.0, D53) [확인: `tests/test_evaluation_report.py`, `tests/test_evaluate_v2.py`]
+레지스트리에 `eval_report`로 올라가는 바이트는 역할마다 `EvaluationReport`(JCS JSON, 스키마 검증 후)다. 스키마는 계약 그대로다. 지표 이름:
+- LoRA-A(학습 서버 `score_a_v2.py`와 같은 이름과 규칙): `action_acc`, `action_reason_acc`, `next_item_acc`, `key_found_rate`, `cell_acc`(value·status·save 모두 일치), `value_acc`, `status_acc`, `save_acc`, `precision_acc`, `db_row_match_rate`, `targets_acc`, `note_presence_acc`, `exact_match_rate`, `oos_precision/recall/f1`, `extra_keys`·`dup_keys`·`targets_extra_rows`(count), PROTECTION `schema_ok_rate`·`output_invalid`(count). 형식 실패 행도 분모에 들어간다.
+- LoRA-B: ACCURACY `ends_ok_rate`(끝맺음), `asks_next_rate`(다음 질문), `sentence_count_violation_rate`, `exact_match_rate`; SAFETY `forbidden_expression_rate`(금지 표현), `ungrounded_number_rate`(새 숫자); PROTECTION `json_leak_rate`, `fallback_rate`, `schema_valid_raw`, `protection_intervened`(count). 문장 규칙 구현은 `text_rules.py`(학습 서버 `eval_lora_b_v2.py`의 항목을 이 리포 방식으로).
+- 공통: `coverage_seen_unseen_gap`, `regression_fixed/broken`. v1의 `risk_signal_*`, `item_*`, `intent_accuracy`, `slot_coverage`, `risk_notice_verbatim_rate`는 없앴다(v2 출력에 대응이 없다. 위험 신호의 v2 표현은 미정).
+슬라이스: `SEEN_UNSEEN`, `QUESTION_SET`, `ACTION`, `REASON`, `NEXT_TYPE`(B). 합격 판정·임계치는 없다. `METRICS.md`(계약, 제안)는 아직 v1 기준이라 이 이름과 어긋난다(헤드·학습 담당 몫).
 
 ## 7. 패키징 [확인]
 

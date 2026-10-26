@@ -1,6 +1,23 @@
 # STATUS (2026-10-27)
 
-## 9차 갱신: boundary-contracts 2.0.0 이전 (D74, D75) — 일부 완료, 나머지는 model-runtime 새 태그 대기
+## 10차 갱신: 파이프라인을 model-runtime v0.6.0 / turn-engine v0.3.0으로 이전 (D74, D75)
+브랜치 `migrate-contracts-2.0.0`(push·태그 안 함).
+
+**한 것 [확인: `pytest` 113건 통과]**
+- `.venv`와 `requirements.txt/lock`: model-runtime `v0.6.0`, turn-engine `v0.3.0`(boundary-contracts `v2.0.0`). 설정의 서빙 값은 prompt-3 / protect-2.
+- 변환: `transform.to_example`이 `render_prompt(system_prompt=…)`로 prompt를, 서버 assistant 글자와 같은 completion을 만든다. 학습 직후 시스템 프롬프트를 어댑터 디렉터리에 넣는다.
+- 평가: A는 `extract_raw`(보호 없음), B는 `respond_raw`·`respond`. A 지표 이름·규칙은 `score_a_v2.py`, B는 끝맺음·다음 질문·새 숫자·금지 표현·문장 수(`text_rules.py`). EvaluationReport 스키마는 계약 그대로. 상세 보고서 `report_version: 2`.
+- 회귀: v2 `FailureCase`(LORA_A/LORA_B, 객체/문자열 expected)와 입력 검증.
+- 시험: 합성 v2 fixture, 30건 실패(+ v0.6.0 설치 뒤 추가로 깨진 golden·transform·비교 스크립트 5건) 모두 해소. 이전 커밋에서 `pipeline.py`에 중복으로 들어간 코드 조각(두 번째 `stage_train` 등)을 제거했다.
+- 간헐 실패하던 `test_clean_model_cache_dry_run_then_delete_via_hub_api`를 고쳤다(시험 재료가 두 모델에 같은 커밋 해시를 써서 어느 모델이 지워질지 정해지지 않았다).
+- 두 번째 환경: 새 venv에 `requirements.txt`로 설치해 `pytest` 112 통과·1 건너뜀(huggingface_hub 없음). 같은 PC이고 이웃 `../survey-service/schema`를 읽으므로 독립된 머신 확인은 아니다 [미확인: GPU 호스트, Docker 이미지 스모크는 이번에 돌리지 않음(서비스 이미지는 바뀌지 않음)].
+
+**하지 않은 것·미정 [CR-L008]**
+- 학습기(`trainers/hf.py`) 손대지 않음(정본 결정 대기). 서빙(JCS)과 서버 학습 데이터의 user 글자 불일치, 위험 신호의 v2 표현, 회귀 trace 입력 키(추정), METRICS.md 갱신, `validate_extraction` 지표화(제안).
+- 실제 모델·GPU 평가는 하지 않았다(오라클 모델 시험). 지표 값은 의미가 없다.
+- `tests/golden/`(v1 정적 예시)는 더 이 리포 시험이 쓰지 않는다. 삭제 여부는 헤드 확인.
+
+## 9차 갱신: boundary-contracts 2.0.0 이전 (D74, D75) — (10차에서 파이프라인 이전 완료)
 지시서: `head/docs/migration-2.0.0.md`. 브랜치 `migrate-contracts-2.0.0`(push·태그 안 함).
 
 **한 것 [확인]**

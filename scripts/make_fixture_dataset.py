@@ -1,4 +1,4 @@
-"""golden에서 시험용 데이터셋 저장소를 만든다: python scripts/make_fixture_dataset.py <출력 디렉터리> [dataset_id] [version] [max_cases]"""
+"""합성 v2 샘플로 시험용 데이터셋 저장소를 만든다: python scripts/make_fixture_dataset.py <출력 디렉터리> [dataset_id] [version] [max_cases]"""
 import sys
 from pathlib import Path
 

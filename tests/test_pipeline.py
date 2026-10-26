@@ -125,15 +125,17 @@ def test_leak_between_eval_and_train_stops_pipeline(cfg, tmp_path):
     root = tmp_path / "leak"
     build_dataset(root, "fx-golden", "v1")
     p = root / "fx-golden" / "v1"
-    tr = [json.loads(x) for x in (p / "parser-train.jsonl").read_text().splitlines()]
-    ev_lines = (p / "parser-eval.jsonl").read_text().splitlines()
+    m = json.loads((p / "manifest.json").read_text())
+    trf = next(f["path"] for f in m["files"] if f["role"] == "LORA_A" and f["split"] == "TRAIN")
+    evf = next(f["path"] for f in m["files"] if f["role"] == "LORA_A" and f["split"] == "EVAL")
+    tr = [json.loads(x) for x in (p / trf).read_text().splitlines()]
+    ev_lines = (p / evf).read_text().splitlines()
     e0 = json.loads(ev_lines[0]); e0["scenario_id"] = tr[0]["scenario_id"]       # 시나리오를 공유하게 만든다
     ev_lines[0] = json.dumps(e0, ensure_ascii=False, sort_keys=True)
-    (p / "parser-eval.jsonl").write_text("\n".join(ev_lines) + "\n")
-    m = json.loads((p / "manifest.json").read_text())
+    (p / evf).write_text("\n".join(ev_lines) + "\n")
     for f in m["files"]:
-        if f["path"] == "parser-eval.jsonl":
-            f["content_hash"] = canonical.file_hash(p / "parser-eval.jsonl")
+        if f["path"] == evf:
+            f["content_hash"] = canonical.file_hash(p / evf)
     m["content_hash"] = canonical.content_hash(m)
     (p / "manifest.json").write_text(json.dumps(m))
     c = copy.deepcopy(cfg); c["inputs"]["dataset_store"]["args"]["root"] = str(root)
@@ -143,7 +145,8 @@ def test_leak_between_eval_and_train_stops_pipeline(cfg, tmp_path):
 
 def test_corrupt_dataset_file_is_integrity_error(cfg, tmp_path, fixture_store):
     root = tmp_path / "bad"; shutil.copytree(fixture_store, root)
-    with open(root / "fx-golden/v1/parser-train.jsonl", "ab") as f:
+    trf = next(f["path"] for f in json.loads((root / "fx-golden/v1/manifest.json").read_text())["files"] if f["role"] == "LORA_A" and f["split"] == "TRAIN")
+    with open(root / "fx-golden/v1" / trf, "ab") as f:
         f.write(b"\n")
     c = copy.deepcopy(cfg); c["inputs"]["dataset_store"]["args"]["root"] = str(root)
     with pytest.raises(BoundaryError) as e:
@@ -164,10 +167,10 @@ def test_report_structure_and_unseen_reported_separately(cfg):
     assert rep["unseen_question_sets"]["question_sets"] == ["qs-unseen@1"]
     assert rep["unseen_question_sets"]["aggregate"]["n"] > 0 and rep["seen_question_sets"]["n"] > 0
     assert rep["overall"]["n"] == rep["seen_question_sets"]["n"] + rep["unseen_question_sets"]["aggregate"]["n"]
-    assert {"slot_kind", "unit", "range", "question_id", "intent", "seen", "question_set"} <= set(rep["slices"])
-    assert rep["eval_files"][0]["unseen"] is True
+    assert {"action", "reason", "question_id", "seen", "question_set"} <= set(rep["slices"])
+    assert any(f["unseen"] for f in rep["eval_files"]) and any(not f["unseen"] for f in rep["eval_files"])
     repb = json.loads((r.dir / "eval/report-LORA_B.json").read_text())
-    assert {"action", "question_set", "seen"} <= set(repb["slices"])
+    assert {"action", "reason", "next_type", "question_set", "seen"} <= set(repb["slices"])
 
 
 def test_report_has_no_thresholds(cfg):
@@ -189,7 +192,9 @@ def test_corrupt_outputs_go_through_protection_and_are_reported(cfg):
     r = mk(c); r.run()
     rep = json.loads((r.dir / "eval/report-LORA_A.json").read_text())
     o = rep["overall"]
-    assert o["raw_valid"] < o["n"] and o["outcomes"].get("fallback", 0) > 0 and o["attempts"].get("3", 0) > 0
+    # LoRA-A는 보호가 없다(D75): 깨진 출력은 형식 실패(invalid)로 남고 대체 출력은 없다
+    assert o["raw_valid"] < o["n"] and o["outcomes"].get("invalid", 0) > 0 and "fallback" not in o["outcomes"] and o["attempts"].get("3", 0) > 0
+    assert o["rates"]["schema_ok_rate"] < 1.0 and o["protections"] == {}
     assert rep["failures"]["count"] > 0
     repb = json.loads((r.dir / "eval/report-LORA_B.json").read_text())
     assert repb["overall"]["fallback"] > 0                 # is_fallback은 코드가 채운다

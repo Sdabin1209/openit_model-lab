@@ -24,7 +24,7 @@ from .config import ROLE_TO_FILE_ROLE, ROLES, config_hash, resolved_path, role_t
 from .errors import ConfigError, PipelineError
 from .registry import FileModelRegistry
 from .trainers import TrainRequest, make_trainer
-from .transform import to_example
+from .transform import render_output, to_example
 
 STAGES = ("load_dataset", "transform", "train", "evaluate", "package", "publish")
 
@@ -184,7 +184,7 @@ class Run:
     def _manifest(self) -> dict:
         return json.loads((self.dir / "dataset" / "manifest.json").read_text(encoding="utf-8"))
 
-    # 2. 학습 데이터 변환(render_prompt)
+    # 2. 학습 데이터 변환(render_prompt, 시스템 프롬프트는 설정의 파일)
     def stage_transform(self) -> None:
         if self._done("transform"):
             return
@@ -196,11 +196,16 @@ class Run:
             out.mkdir(parents=True, exist_ok=True)
             serving = self.cfg["serving"][role]
             model_runtime.validate_serving_config(serving)
+            sysp = system_prompt_text(self.cfg, role)
             tv_samples, splits = [], {}
             for split in ("TRAIN", "VALIDATION", "EVAL"):
                 samples = []
                 for f in datasets.split_files(dm, fr, split):
-                    samples += list(datasets.read_samples(base / f["path"], fr, self.schema_dir))
+                    fq = datasets.file_question_sets(dm, f)
+                    for smp in datasets.read_samples(base / f["path"], fr, self.schema_dir):
+                        if "question_set" not in smp and len(fq) == 1:   # 서버 데이터처럼 샘플에 없으면 파일의 문항 세트(하나일 때)로 채운다(평가 쪼개기용)
+                            smp = {**smp, "question_set": fq[0]}
+                        samples.append(smp)
                 splits[split] = samples
             datasets.check_no_leak(splits["TRAIN"] + splits["VALIDATION"], splits["EVAL"] + [])
             if not splits["TRAIN"]:
@@ -209,7 +214,7 @@ class Run:
             for split, name in (("TRAIN", "train"), ("VALIDATION", "val")):
                 with open(out / f"{name}.jsonl", "w", encoding="utf-8") as fh:
                     for s in splits[split]:   # 학습·검증에는 해당 분할만 들어간다. EVAL은 여기에 쓰지 않는다.
-                        ex = to_example(role, s, serving, self.schema_dir)
+                        ex = to_example(role, s, serving, sysp, self.schema_dir)
                         if name == "train":
                             labels.setdefault(ex["prompt"], set()).add(ex["completion"])
                         fh.write(json.dumps(ex, ensure_ascii=False, sort_keys=True) + "\n")
@@ -239,6 +244,8 @@ class Run:
             self.log(f"[{self.run_id}] {role} 학습 시작({trainer.name})")
             self._mark("train", role, status="running", started_at=self.clock())
             res = trainer.train(req)
+            # 시스템 프롬프트는 어댑터와 짝이다(D75). 어댑터 디렉터리에 넣은 뒤 해시를 계산하므로 평가·패키징이 같은 해시를 본다.
+            packager.install_system_prompt(adapter, system_prompt_text(self.cfg, role))
             self._mark("train", role, status="done", adapter_hash=canonical.directory_hash(adapter),
                        trainer=trainer.name, result=res, finished_at=self.clock())
         self.rec["stages"]["train"]["status"] = "done"
@@ -273,7 +280,8 @@ class Run:
             extra = self._regression_set()["samples"][role] if self._regression_enabled() else []
             for s in self._eval_samples(role) + extra:
                 mapping[model_runtime.render_prompt(role, s["input"], serving_config=self.cfg["serving"][role],
-                                                    schema_dir=self.schema_dir)] = evaluate_completion(role, s)
+                                                    system_prompt=system_prompt_text(self.cfg, role),
+                                                    schema_dir=self.schema_dir)] = render_output(role, s["expected"])
         feats = self.cfg["serving"]["LORA_A"]["constraint"]["supported_features"]
         return oracle_backend(mapping, corrupt_every=ev.get("corrupt_every", 0), supported_features=feats)
 
@@ -291,115 +299,9 @@ class Run:
         adapters = {r: self.dir / "adapters" / r for r in ROLES}
         hashes = {r: model_runtime.serving_config_hash(self.cfg["serving"][r]) for r in ROLES}
         backend = self._backend(adapters, dm)
+        prompts = {r: {"path": packager.SYSTEM_PROMPT_FILE, "sha256": canonical.file_hash(adapters[r] / packager.SYSTEM_PROMPT_FILE)} for r in ROLES}
         session = model_runtime.load(adapters, {r: self.cfg["serving"][r] for r in ROLES}, schema_dir=self.schema_dir,
-                                     expected_serving_config_hashes=hashes, backend=backend)
-        split = self.cfg["evaluation"].get("split", "EVAL")
-        for role in ROLES:   # 평가는 온도 0(결정적)에서 한다(D48). 온도 > 0의 재현성은 약속되지 않는다.
-            if self.cfg["serving"][role]["decoding"]["temperature"] != 0:
-                raise PipelineError(f"{role}: 평가는 serving_config의 온도 0에서만 한다")
-        for role in ROLES:
-            fr = ROLE_TO_FILE_ROLE[role]
-            out = self.dir / "data" / role
-            out.mkdir(parents=True, exist_ok=True)
-            serving = self.cfg["serving"][role]
-            model_runtime.validate_serving_config(serving)
-            tv_samples, splits = [], {}
-            for split in ("TRAIN", "VALIDATION", "EVAL"):
-                samples = []
-                for f in datasets.split_files(dm, fr, split):
-                    samples += list(datasets.read_samples(base / f["path"], fr, self.schema_dir))
-                splits[split] = samples
-            datasets.check_no_leak(splits["TRAIN"] + splits["VALIDATION"], splits["EVAL"] + [])
-            if not splits["TRAIN"]:
-                raise PipelineError(f"{role}: 학습 샘플이 없다")
-            labels: dict = {}
-            for split, name in (("TRAIN", "train"), ("VALIDATION", "val")):
-                with open(out / f"{name}.jsonl", "w", encoding="utf-8") as fh:
-                    for s in splits[split]:   # 학습·검증에는 해당 분할만 들어간다. EVAL은 여기에 쓰지 않는다.
-                        ex = to_example(role, s, serving, self.schema_dir)
-                        if name == "train":
-                            labels.setdefault(ex["prompt"], set()).add(ex["completion"])
-                        fh.write(json.dumps(ex, ensure_ascii=False, sort_keys=True) + "\n")
-            conflicts = sum(1 for v in labels.values() if len(v) > 1)   # 같은 입력에 다른 정답(데이터셋 품질 정보, 중단하지 않는다)
-            for split in ("EVAL", "VALIDATION"):
-                with open(out / f"{split.lower()}_samples.jsonl", "w", encoding="utf-8") as fh:
-                    for s in splits[split]:
-                        fh.write(json.dumps(s, ensure_ascii=False, sort_keys=True) + "\n")
-            self._mark("transform", role, status="done", train=len(splits["TRAIN"]), validation=len(splits["VALIDATION"]),
-                       eval=len(splits["EVAL"]), conflicting_train_prompts=conflicts, train_file_hash=canonical.file_hash(out / "train.jsonl"))
-        self.rec["stages"]["transform"]["status"] = "done"
-        self._save()
-
-    # 3. 학습
-    def stage_train(self) -> None:
-        for role in ROLES:
-            adapter = self.dir / "adapters" / role
-            info = self.rec["stages"].get("train", {}).get(role, {})
-            if info.get("status") == "done" and adapter.is_dir() and canonical.directory_hash(adapter) == info["adapter_hash"]:
-                continue
-            tr = role_training(self.cfg, role)
-            trainer = self.trainer_factory(tr.get("trainer", "hf"))
-            base = {"id": self.cfg["base_model"]["id"], "revision": self.cfg["base_model"].get("revision", "unspecified")}
-            d = self.dir / "data" / role
-            req = TrainRequest(role=role, base_model=base, training=tr, seed=self.seed, train_path=d / "train.jsonl",
-                               val_path=d / "val.jsonl", adapter_dir=adapter, work_dir=self.dir / "work" / role)
-            self.log(f"[{self.run_id}] {role} 학습 시작({trainer.name})")
-            self._mark("train", role, status="running", started_at=self.clock())
-            res = trainer.train(req)
-            self._mark("train", role, status="done", adapter_hash=canonical.directory_hash(adapter),
-                       trainer=trainer.name, result=res, finished_at=self.clock())
-        self.rec["stages"]["train"]["status"] = "done"
-        self._save()
-
-    # 4. 평가
-    def _regression_enabled(self) -> bool:
-        return bool(self.cfg["evaluation"].get("regression", {}).get("enabled"))
-
-    def _regression_set(self) -> dict:
-        if self._rset is None:
-            store = self._failure_store
-            if store is None:
-                if "failure_store" not in self.cfg["inputs"]:
-                    raise ConfigError("evaluation.regression.enabled에는 inputs.failure_store가 필요하다")
-                store = factories.build(self.cfg["inputs"]["failure_store"])
-            self._rset = regression.build_set(store, self.schema_dir, limit=self.cfg["evaluation"]["regression"].get("limit_cases"),
-                                              max_listed=self.cfg["evaluation"].get("max_listed_failures", 20))
-            self.log(f"[{self.run_id}] 회귀 집합 {self.cfg['evaluation']['regression'].get('label', '')} "
-                     f"사례 {self._rset['cases_total']}건, 건너뜀 { {k: v['count'] for k, v in self._rset['skipped'].items()} }")
-        return self._rset
-
-    def _backend(self, adapters: dict, dm: dict):
-        ev = self.cfg["evaluation"]["backend"]
-        if ev["kind"] == "hf":
-            from .backends.hf import HFAdapterBackend
-            base = {"id": self.cfg["base_model"]["id"], "revision": self.cfg["base_model"].get("revision")}
-            return HFAdapterBackend(base, adapters, role_training(self.cfg, "LORA_A"))
-        from .backends.fake import oracle_backend
-        mapping = {}
-        for role in ROLES:
-            extra = self._regression_set()["samples"][role] if self._regression_enabled() else []
-            for s in self._eval_samples(role) + extra:
-                mapping[model_runtime.render_prompt(role, s["input"], serving_config=self.cfg["serving"][role],
-                                                    schema_dir=self.schema_dir)] = evaluate_completion(role, s)
-        feats = self.cfg["serving"]["LORA_A"]["constraint"]["supported_features"]
-        return oracle_backend(mapping, corrupt_every=ev.get("corrupt_every", 0), supported_features=feats)
-
-    def _eval_samples(self, role: str) -> list[dict]:
-        split = self.cfg["evaluation"].get("split", "EVAL")
-        p = self.dir / "data" / role / f"{split.lower()}_samples.jsonl"
-        rows = [json.loads(x) for x in p.read_text(encoding="utf-8").splitlines() if x.strip()]
-        lim = self.cfg["evaluation"].get("limit_samples")
-        return rows[:lim] if lim else rows
-
-    def stage_evaluate(self) -> None:
-        if self._done("evaluate") and all((self.dir / "eval" / f"report-{r}.json").exists() for r in ROLES):
-            return
-        dm = self._manifest()
-        adapters = {r: self.dir / "adapters" / r for r in ROLES}
-        hashes = {r: model_runtime.serving_config_hash(self.cfg["serving"][r]) for r in ROLES}
-        backend = self._backend(adapters, dm)
-        session = model_runtime.load(adapters, {r: self.cfg["serving"][r] for r in ROLES}, schema_dir=self.schema_dir,
-                                     expected_serving_config_hashes=hashes, backend=backend)
+                                     expected_serving_config_hashes=hashes, system_prompts=prompts, backend=backend)
         split = self.cfg["evaluation"].get("split", "EVAL")
         for role in ROLES:   # 평가는 온도 0(결정적)에서 한다(D48). 온도 > 0의 재현성은 약속되지 않는다.
             if self.cfg["serving"][role]["decoding"]["temperature"] != 0:
@@ -496,11 +398,6 @@ class Run:
             self.log(f"[{self.run_id}] 게시 {got['package_id']}@{got['version']}")
         st.update(status="done", packages=pk, at=self.clock())
         self._save()
-
-
-def evaluate_completion(role: str, sample: dict) -> str:
-    from .transform import completion_of
-    return completion_of(role, sample["expected"])
 
 
 def run_once(cfg: dict, **kw) -> dict:

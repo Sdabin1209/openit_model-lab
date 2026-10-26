@@ -5,18 +5,18 @@ import shutil
 from pathlib import Path
 
 import pytest
-from boundary_contracts import BoundaryError, canonical
+from boundary_contracts import PIPELINE_SCHEMA_VERSION, BoundaryError, canonical
 from boundary_contracts.sdk import DatasetStore
 
 from model_lab.file_dataset_store import FileDatasetReader, file_dataset_store
 from model_lab.pipeline import Run, run_once
 from tests.conftest import FIXED, SCHEMA_DIR
 from tests.doubles.failure_server import FailureServer
-from tests.doubles.fixtures import load_pairs
+from tests.doubles.fixtures import load_samples
 
 
 def case(cid, expected, **kw):
-    c = {"pipeline_schema_version": "1.2", "case_id": cid, "version": 1, "created_at": "2026-10-15T00:00:00Z",
+    c = {"pipeline_schema_version": PIPELINE_SCHEMA_VERSION, "case_id": cid, "version": 1, "created_at": "2026-10-15T00:00:00Z",
          "source_release_id": "rel-1", "runtime_contract_version": 1, "deidentified": True, "deidentified_trace_ref": f"tr-{cid}",
          "failure_type": "ft-a", "detection_method": "HUMAN", "review_status": "CONFIRMED"}
     if expected is not None:
@@ -27,17 +27,18 @@ def case(cid, expected, **kw):
 
 @pytest.fixture
 def failure_world():
-    P = [p for p in load_pairs(30) if p["role"] == "PARSER"]
-    G = [p for p in load_pairs(30) if p["role"] == "GENERATOR"]
-    cases = [case("c-parser", P[0]["expected"], expected_kind="PARSER", failure_type="ft-a"),
-             case("c-gen-noKind", G[0]["expected"], failure_type="ft-b"),                      # expected_kind 없음: 형태로 판별
+    P = load_samples("LORA_A")
+    G = load_samples("LORA_B")
+    cases = [case("c-parser", P[0]["expected"], expected_kind="LORA_A", failure_type="ft-a"),
+             case("c-gen-noKind", G[0]["expected"], failure_type="ft-b"),                      # expected_kind 없음: 형태(문자열)로 판별
              case("c-pending", P[1]["expected"], review_status="PENDING"),
-             case("c-noinput", P[2]["expected"], expected_kind="PARSER"),
-             case("c-notrace", P[3]["expected"], expected_kind="PARSER"),
+             case("c-noinput", P[2]["expected"], expected_kind="LORA_A"),
+             case("c-notrace", P[3]["expected"], expected_kind="LORA_A"),
              case("c-noexpected", None),
-             case("c-weird", {"foo": 1})]
-    traces = {"tr-c-parser": {"parser_input": P[0]["input"]}, "tr-c-gen-noKind": {"generator_input": G[0]["input"]},
-              "tr-c-pending": {"parser_input": P[1]["input"]}, "tr-c-noinput": {"parser_input": None}, "tr-c-weird": {}}
+             case("c-weird", {"foo": 1}, expected_kind="LORA_A")]      # 정답이 ActionExtraction을 지키지 않음
+    # trace 안의 입력 키 이름은 추정이다(regression._TRACE_KEYS, 미정)
+    traces = {"tr-c-parser": {"extract_input": P[0]["input"]}, "tr-c-gen-noKind": {"response_input": G[0]["input"]},
+              "tr-c-pending": {"extract_input": P[1]["input"]}, "tr-c-noinput": {"extract_input": None}, "tr-c-weird": {"extract_input": P[4]["input"]}}
     fs = FailureServer(cases, traces)
     yield fs
     fs.stop()
@@ -59,7 +60,7 @@ def test_regression_section_in_report(cfg, failure_world, monkeypatch):
     rb = json.loads((r.dir / "eval/report-LORA_B.json").read_text())["regression"]
     assert ra["enabled"] and ra["cases_total"] == 5 and ra["used_for_role"] == 1 and rb["used_for_role"] == 1     # CONFIRMED + expected 있는 것만
     assert ra["skipped"]["trace_input_missing"]["count"] == 1 and ra["skipped"]["trace_not_found"]["count"] == 1
-    assert ra["skipped"]["kind_unknown"]["count"] == 1
+    assert ra["skipped"]["expected_invalid"]["count"] == 1
     assert ra["aggregate"]["prot_exact"] == 1 and ra["aggregate"]["raw_valid"] == 1                       # 오라클 모델이라 일치
     assert set(ra["by_failure_type"]) == {"ft-a"} and set(rb["by_failure_type"]) == {"ft-b"}
     assert "threshold" not in json.dumps(ra).lower().replace("임계치", "")

@@ -1,24 +1,25 @@
 """회귀 평가(I7). 확정된(CONFIRMED) 실패 사례 중 정답(expected)이 있는 것을 회귀 집합으로 만든다.
 
-- 비식별된 것만 쓴다(FailureCase.deidentified는 스키마가 true로 고정, 클라이언트가 검증). trace는 `get_trace`의 비식별 trace이고
-  구조 정보만 쓴다: 입력은 parser_input/generator_input이다. 없거나 입력 계약을 통과하지 못하면 건너뛰고 사유를 센다.
-- 종류(`expected_kind`)가 없으면 expected의 형태로 판별한다(`items` 목록 = 파서, `response_text` = 생성기).
-- 임계치는 정하지 않는다. 일치 수 등 계산한 값만 보고서에 담는다(O11).
-"""
+2.0.0(D74): 종류는 `expected_kind`(LORA_A / LORA_B). 없으면 expected의 형태로 판별한다(객체 = LORA_A, 문자열 = LORA_B).
+입력은 `reviewed_input`(검토자가 고친 입력)을 우선하고(D55), 없으면 비식별 trace에서 읽는다. 입력은 LORA_A면 ActionExtractionInput,
+LORA_B면 ResponseRequest로, 정답은 ActionExtraction / ResponseText로 검증한다. 통과하지 못하면 건너뛰고 사유를 센다.
+임계치는 정하지 않는다. 일치 수 등 계산한 값만 보고서에 담는다(O11).
+
+[미정] 비식별 trace 안의 모델 입력 키 이름. v1은 parser_input/generator_input이었고 v2의 키는 survey-service가 정한다(지시서: extract_* 등).
+아래 _TRACE_KEYS는 추정이며 확정되면 바꾼다. 맞는 키가 없으면 trace_input_missing으로 건너뛰므로 reviewed_input 사례는 영향이 없다."""
 from __future__ import annotations
 
 import collections
 from pathlib import Path
 
-from boundary_contracts import BoundaryError
+from boundary_contracts import BoundaryError, validator
 
 from .evaluate import aggregate, evaluate_sample
-from .schemas import survey_validator
 
-KIND_ROLE = {"PARSER": "LORA_A", "GENERATOR": "LORA_B"}
-_IN = {"LORA_A": "UtteranceParserInput", "LORA_B": "ResponseGeneratorInput"}
-_OUT = {"LORA_A": "ParserOutput", "LORA_B": "GeneratorOutput"}
-_TRACE_KEY = {"LORA_A": "parser_input", "LORA_B": "generator_input"}
+KIND_ROLE = {"LORA_A": "LORA_A", "LORA_B": "LORA_B"}
+_IN = {"LORA_A": "ActionExtractionInput", "LORA_B": "ResponseRequest"}
+_OUT = {"LORA_A": "ActionExtraction", "LORA_B": "ResponseText"}
+_TRACE_KEYS = {"LORA_A": ("extract_input",), "LORA_B": ("response_input", "respond_input")}   # 추정(미정)
 
 
 def kind_of(case: dict) -> str | None:
@@ -27,10 +28,9 @@ def kind_of(case: dict) -> str | None:
         return k
     e = case.get("expected")
     if isinstance(e, dict):
-        if isinstance(e.get("items"), list):
-            return "PARSER"
-        if "response_text" in e:
-            return "GENERATOR"
+        return "LORA_A"
+    if isinstance(e, str):
+        return "LORA_B"
     return None     # 모르는 값은 알 수 없음
 
 
@@ -45,7 +45,7 @@ def list_confirmed(store, *, limit: int | None = None) -> list[dict]:
     return out[:limit] if limit else out
 
 
-def build_set(store, schema_dir: Path, *, limit: int | None = None, max_listed: int = 20) -> dict:
+def build_set(store, schema_dir: Path | None, *, limit: int | None = None, max_listed: int = 20) -> dict:
     """{"samples": {role: [...]}, "skipped": {reason: {"count", "case_ids"}}, "cases_total": n}"""
     cases = list_confirmed(store, limit=limit)
     samples: dict[str, list] = {"LORA_A": [], "LORA_B": []}
@@ -66,12 +66,12 @@ def build_set(store, schema_dir: Path, *, limit: int | None = None, max_listed: 
                 if e.code == "NOT_FOUND":
                     skipped["trace_not_found"].append(cid); continue
                 raise                  # UNAVAILABLE 등은 중단(재시도)
-            inp = trace.get(_TRACE_KEY[role]) if isinstance(trace, dict) else None
+            inp = next((trace[k] for k in _TRACE_KEYS[role] if isinstance(trace, dict) and isinstance(trace.get(k), dict)), None)
         if not isinstance(inp, dict):
             skipped["trace_input_missing"].append(cid); continue
-        if list(survey_validator(schema_dir, _IN[role]).iter_errors(inp)):
+        if list(validator(_IN[role]).iter_errors(inp)):
             skipped["input_invalid"].append(cid); continue
-        if list(survey_validator(schema_dir, _OUT[role]).iter_errors(c["expected"])):
+        if list(validator(_OUT[role]).iter_errors(c["expected"])):
             skipped["expected_invalid"].append(cid); continue
         samples[role].append({"sample_id": cid, "input": inp, "expected": c["expected"], "failure_type": c["failure_type"],
                               "source_release_id": c["source_release_id"], "input_source": src})

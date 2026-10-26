@@ -1,8 +1,11 @@
 """학습 데이터 변환.
 
-2.0.0(D74): 학습 서버의 messages 형식 <-> ActionExtractionSample/ResponseSample 변환기는 아래 "2.0.0" 절에 있다.
-위쪽의 `completion_of`, `to_example`은 v1(model-runtime render_prompt, ParserOutput 기준)이며 폐기 예정이다.
-파이프라인(pipeline.py)이 model-runtime 새 태그(v0.6.0 제안)로 옮겨 갈 때 `to_chat_example`로 바꾼다. 아직 바꾸지 않았다."""
+2.0.0(D74): 파이프라인은 `to_example`(model-runtime v0.6.0 render_prompt 기준 prompt/completion)을 쓴다. 학습 서버의 messages 형식 <->
+ActionExtractionSample/ResponseSample 변환기는 아래 "2.0.0" 절에 있다. `to_chat_example`(messages)은 학습기 정본이 정해지면 쓴다(미정).
+
+주의(미해결): 서빙의 render_prompt는 입력 JSON을 JCS(공백 없음, 키 정렬)로 쓰고, 서버 학습 데이터의 user 글자는 공백이 있고 state 순서를
+보존한다(`render_input`). 이 파이프라인으로 학습한 어댑터는 서빙과 같은 글자로 학습되지만, 서버에서 학습한 어댑터는 다르다.
+CR-L007 4번, docs/change-requests/CR-L008."""
 from __future__ import annotations
 
 import json
@@ -14,19 +17,12 @@ from boundary_contracts import PIPELINE_SCHEMA_VERSION, canonical, validator
 from .errors import PipelineError
 
 
-def completion_of(role: str, expected: Mapping) -> str:
-    """정답 출력 -> 모델이 내야 하는 문자열(결정적인 JCS JSON)."""
-    if role == "LORA_B":
-        obj = {"response_text": expected["response_text"]}
-    else:
-        obj = dict(expected)
-    return canonical.canonicalize(obj).decode("utf-8")
-
-
-def to_example(role: str, sample: Mapping, serving_config: Mapping, schema_dir: Path) -> dict:
-    import model_runtime        # v1 경로에서만 쓴다(폐기 예정)
-    prompt = model_runtime.render_prompt(role, sample["input"], serving_config=serving_config, schema_dir=schema_dir)
-    return {"sample_id": sample["sample_id"], "prompt": prompt, "completion": completion_of(role, sample["expected"])}
+def to_example(role: str, sample: Mapping, serving_config: Mapping, system_prompt: str, schema_dir: Path) -> dict:
+    """학습 예시 {sample_id, prompt, completion}. prompt는 서빙과 같은 render_prompt, completion은 서버 학습 데이터의 assistant 글자와 같다."""
+    import model_runtime
+    prompt = model_runtime.render_prompt(role, sample["input"], serving_config=serving_config, system_prompt=system_prompt,
+                                         schema_dir=schema_dir)
+    return {"sample_id": sample["sample_id"], "prompt": prompt, "completion": render_output(role, sample["expected"])}
 
 
 # ---------------------------------------------------------------------------------------------------------------

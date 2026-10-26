@@ -12,5 +12,5 @@ referencing==0.37.0
 rpds-py==2026.9.1
 typing_extensions==4.16.0
 boundary-contracts @ git+ssh://git@github.com/Sdabin1209/openit_boundary-contracts.git@v2.0.0
-turn-engine @ git+ssh://git@github.com/Sdabin1209/openit_turn-engine.git@v0.2.0
-model-runtime @ git+ssh://git@github.com/Sdabin1209/openit_model-runtime.git@v0.4.0
+turn-engine @ git+ssh://git@github.com/Sdabin1209/openit_turn-engine.git@v0.3.0
+model-runtime @ git+ssh://git@github.com/Sdabin1209/openit_model-runtime.git@v0.6.0

@@ -24,7 +24,7 @@
 | 입력 | 팩토리 | 인자 |
 | --- | --- | --- |
 | 데이터셋(I2, 실제) | `model_lab.file_dataset_store:file_dataset_store` | `root` 또는 `root_env: <환경 변수>`: synthetic-data가 낸 `<root>/<dataset_id>/<version>/{manifest.json, meta.json, files/…}`의 루트. 이 리포지토리의 독립 읽기 구현(`DatasetStore` Protocol, 읽기 전용, 매니페스트·파일 해시 재확인) |
-| 데이터셋(I2, 시험용) | `tests.doubles.dataset_store:from_dir` | golden으로 만든 가짜 데이터. `configs/gpu-dev-fixture-*.yaml`이 쓴다 |
+| 데이터셋(I2, 시험용) | `tests.doubles.dataset_store:from_dir` | 합성 v2 샘플로 만든 가짜 데이터. `configs/gpu-dev-fixture-*.yaml`이 쓴다 |
 | 실패 사례(I7) | `boundary_contracts.clients:HttpFailureStore` | `base_url`/`base_url_env`, `token`/`token_env` |
 | 문항(I1, 자리만) | `boundary_contracts.clients:HttpQuestionReader` | 같은 방식 |
 실제 실행 설정 예: `configs/gpu-dev.yaml`(환경 변수 `DATASET_ROOT`, `MODEL_REGISTRY_URL`, `MODEL_REGISTRY_WRITE_TOKEN`, `FAILURE_STORE_URL`, `FAILURE_STORE_TOKEN`). `configs/gpu-dev-fixture-*.yaml`과 `configs/dryrun.yaml`은 시험용이다.
@@ -59,7 +59,7 @@ D22 (2): 서비스가 없는 run-once 잡이라 Dockerfile 없이 `requirements.
 
 ## CPU로 파이프라인 끝까지 (모델 없이)
 ```
-.venv/bin/python scripts/make_fixture_dataset.py fixtures/store      # golden으로 시험용 데이터셋 저장소(I2 대역)를 만든다
+.venv/bin/python scripts/make_fixture_dataset.py fixtures/store      # 합성 v2 샘플로 시험용 데이터셋 저장소(I2 대역)를 만든다
 .venv/bin/python -m model_lab run --config configs/dryrun.yaml       # 학습(dry-run) -> 평가(fake-oracle) -> 패키징 -> 게시
 .venv/bin/python -m model_lab run-once --config configs/dryrun.yaml  # 두 번째부터 skip
 .venv/bin/python -m model_lab status --config configs/dryrun.yaml

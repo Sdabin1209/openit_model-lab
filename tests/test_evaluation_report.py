@@ -1,4 +1,4 @@
-"""EvaluationReport(v1.3.0) 방출: 스키마, 지표 이름·그룹, 슬라이스, 생략 규칙, 게시, 회귀 reviewed_input 우선."""
+"""EvaluationReport(v2.0.0) 방출: 스키마, 지표 이름·그룹, 슬라이스, 생략 규칙, 게시, 회귀 reviewed_input 우선."""
 import copy
 import json
 
@@ -8,7 +8,7 @@ from boundary_contracts import canonical, validator
 from model_lab.pipeline import Run
 from tests.conftest import FIXED
 from tests.test_regression import case, failure_world, reg_cfg  # noqa: F401  (픽스처 재사용)
-from tests.doubles.fixtures import load_pairs
+from tests.doubles.fixtures import load_samples
 
 
 def published(r, rec, role):
@@ -40,47 +40,56 @@ def metric(rep, name, kind="ALL", value=None):
 def test_metric_names_groups_and_slices(cfg):
     r = Run(cfg, clock=FIXED, log=lambda s: None); rec = r.run()
     _, a = published(r, rec, "LORA_A"); _, b = published(r, rec, "LORA_B")
-    safety_a = {x["name"] for x in a["metrics"] if x["group"] == "SAFETY"}
-    assert {"risk_signal_recall", "risk_signal_false_alarm"} <= safety_a
-    assert {"item_precision", "item_recall", "target_accuracy", "intent_accuracy"} <= {x["name"] for x in a["metrics"] if x["group"] == "ACCURACY"}
-    assert metric(a, "item_precision")["value"] == 1.0 and metric(a, "schema_valid_raw")["value"] == 1.0     # 오라클 모델
-    assert metric(a, "risk_signal_recall")["value"] == 1.0
+    names_a = {x["name"] for x in a["metrics"]}
+    # 학습 서버 score_a_v2.py와 같은 이름
+    assert {"schema_ok_rate", "action_acc", "action_reason_acc", "next_item_acc", "cell_acc", "value_acc", "status_acc", "save_acc",
+            "db_row_match_rate", "targets_acc", "exact_match_rate", "oos_f1", "key_found_rate", "precision_acc"} <= names_a
+    assert not {"risk_signal_recall", "intent_accuracy", "item_precision"} & names_a                   # v1 지표는 없다
+    for n in ("action_acc", "next_item_acc", "cell_acc", "exact_match_rate", "schema_ok_rate"):
+        assert metric(a, n)["value"] == 1.0                                                            # 오라클 모델
+    assert metric(a, "action_acc")["group"] == "ACCURACY" and metric(a, "schema_ok_rate")["group"] == "PROTECTION"
+    assert metric(a, "extra_keys")["value"] == 0 and metric(a, "extra_keys")["higher_is_better"] is False
     kinds = {x["slice"]["kind"] for x in a["metrics"] if "slice" in x}
-    assert {"SEEN_UNSEEN", "QUESTION_TYPE", "UNIT", "RANGE", "QUESTION_SET", "INTENT"} <= kinds
-    assert metric(a, "item_recall", "SEEN_UNSEEN", "unseen")["n"] > 0 and metric(a, "item_recall", "SEEN_UNSEEN", "seen")["n"] > 0
+    assert {"SEEN_UNSEEN", "QUESTION_SET", "ACTION", "REASON"} <= kinds
+    assert metric(a, "action_acc", "SEEN_UNSEEN", "unseen")["n"] > 0 and metric(a, "action_acc", "SEEN_UNSEEN", "seen")["n"] > 0
+    assert metric(a, "action_acc", "ACTION", "REDIRECT")["n"] > 0
     assert metric(a, "coverage_seen_unseen_gap")["group"] == "COVERAGE"
-    # 생성기: 금지 표현·지연은 계산할 수 없어 생략하고 notes에 이유가 있다
+    # 생성기: 끝맺음·다음 질문·새 숫자·금지 표현·문장 수
     names_b = {x["name"] for x in b["metrics"]}
-    assert "forbidden_expression_rate" not in names_b and "length_p95_ms" not in names_b
-    assert any("forbidden_expression_rate" in n for n in b["notes"]) and any("length_p95_ms" in n for n in b["notes"])
-    assert {"risk_notice_verbatim_rate", "ungrounded_number_rate", "slot_coverage"} <= names_b
-    assert metric(b, "risk_notice_verbatim_rate")["value"] == 1.0
+    assert {"ends_ok_rate", "asks_next_rate", "ungrounded_number_rate", "forbidden_expression_rate", "sentence_count_violation_rate",
+            "json_leak_rate", "fallback_rate", "schema_valid_raw", "exact_match_rate"} <= names_b
+    assert metric(b, "forbidden_expression_rate")["group"] == "SAFETY" and metric(b, "exact_match_rate")["value"] == 1.0
+    assert metric(b, "ends_ok_rate")["value"] == 1.0 and metric(b, "fallback_rate")["value"] == 0
+    assert "length_p95_ms" not in names_b and any("length_p95_ms" in n for n in b["notes"])
     assert not any(x["name"].startswith("regression_") for x in a["metrics"])
     assert any("regression_fixed" in n for n in a["notes"])
+    assert any("risk_signal" in n for n in a["notes"])
 
 
 def test_protection_metrics_move_with_corrupt_outputs(cfg):
     c = copy.deepcopy(cfg); c["evaluation"]["backend"]["corrupt_every"] = 4
     r = Run(c, clock=FIXED, log=lambda s: None); rec = r.run()
-    _, a = published(r, rec, "LORA_A")
-    assert metric(a, "schema_valid_raw")["value"] < 1.0 and metric(a, "protection_intervened")["value"] > 0
-    assert metric(a, "protection_intervened")["unit"] == "count" and metric(a, "fallback_rate")["higher_is_better"] is False
+    _, a = published(r, rec, "LORA_A"); _, b = published(r, rec, "LORA_B")
+    assert metric(a, "schema_ok_rate")["value"] < 1.0 and metric(a, "output_invalid")["value"] > 0
+    assert metric(a, "output_invalid")["unit"] == "count" and metric(a, "action_acc")["value"] < 1.0   # 형식 실패 행은 틀린 것으로 센다
+    assert metric(b, "fallback_rate")["value"] > 0 and metric(b, "fallback_rate")["higher_is_better"] is False
+    assert metric(b, "protection_intervened")["unit"] == "count"
 
 
 def test_regression_metrics_and_reviewed_input_first(cfg, failure_world, monkeypatch):
-    # c-parser의 trace에는 마스킹된 입력이 없고 reviewed_input만 있다 -> reviewed_input을 쓴다
-    P = [p for p in load_pairs(30) if p["role"] == "PARSER"]
+    # c-parser의 trace에는 입력 계약을 어기는 입력이 있고 reviewed_input만 맞다 -> reviewed_input을 쓴다
+    P = load_samples("LORA_A")
     for c in failure_world.cases:
         if c["case_id"] == "c-parser":
             c["reviewed_input"] = P[0]["input"]
-    failure_world.traces["tr-c-parser"] = {"parser_input": {"utterance": "깨진 입력"}}      # 쓰면 입력 계약 위반으로 건너뛰게 된다
+    failure_world.traces["tr-c-parser"] = {"extract_input": {"user_utterance": "깨진 입력"}}      # 쓰면 입력 계약 위반으로 건너뛰게 된다
     c = reg_cfg(cfg, failure_world, monkeypatch)
     r = Run(c, clock=FIXED, log=lambda s: None); rec = r.run()
     _, a = published(r, rec, "LORA_A")
     fixed, broken = metric(a, "regression_fixed"), metric(a, "regression_broken")
     assert fixed["group"] == "REGRESSION" and fixed["n"] == 1 and fixed["value"] == 1 and broken["value"] == 0
     detail = a["ext"]["model-lab"]["detail"]["regression"]
-    assert detail["input_sources"] == {"reviewed_input": 1} and detail["skipped"]["input_invalid"]["count"] == 0 if "input_invalid" in detail["skipped"] else True
+    assert detail["input_sources"] == {"reviewed_input": 1} and "input_invalid" not in detail["skipped"]
 
 
 def test_evaluation_report_is_reproducible(cfg, tmp_path):

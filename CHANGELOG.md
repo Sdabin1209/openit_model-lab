@@ -5,7 +5,13 @@
 - 변환기: 학습 서버 messages <-> ActionExtractionSample/ResponseSample(`transform.py`), 검증 스크립트 `scripts/check_server_dataset.py`.
 - 패키징: `ModelPackageManifest.system_prompt`(어댑터 디렉터리 안 파일, adapter_hash에 포함), 설정 `roles.<역할>.system_prompt_file`(필수), `prompts/`. 레지스트리가 프롬프트 파일을 확인한다.
 - 데이터셋 파일 역할 LORA_A/LORA_B, 샘플 검증은 v2 샘플 스키마.
-- 미이전: 파이프라인의 학습 데이터 변환·학습·평가·회귀(model-runtime 새 태그 대기). 자세한 내용은 docs/STATUS.md 9차.
+- model-runtime v0.6.0, turn-engine v0.3.0(태그)로 올림. 서빙 설정 prompt-3 / protect-2.
+- 파이프라인: 학습 데이터 변환은 v0.6.0 `render_prompt`(시스템 프롬프트 포함), 학습 직후 시스템 프롬프트를 어댑터 디렉터리에 넣는다(adapter_hash 포함), 평가는 `extract_raw`(A, 보호 없음) / `respond_raw`·`respond`(B). 샘플에 문항 세트가 없으면 파일의 문항 세트(하나일 때)로 채움.
+- 평가·지표: A는 score_a_v2.py 이름과 규칙, B는 끝맺음·다음 질문·새 숫자·금지 표현·문장 수(`text_rules.py`). v1 지표(risk_signal_* 등) 삭제. 상세 보고서 `report_version: 2`.
+- 회귀: `expected_kind` LORA_A/LORA_B, 입력은 ActionExtractionInput / ResponseRequest로 검증. trace 입력 키는 추정(미정).
+- 시험: 합성 v2 fixture(tests/doubles/fixtures.py), v1 golden 시험 제거, 기반 모델 비교 스크립트를 v2로 이식(few-shot 제외). 간헐 실패하던 캐시 정리 시험 수정.
+- 정리: 이전 커밋에서 pipeline.py에 중복된 코드 조각 제거.
+- 미이전: 학습기(`trainers/hf.py`, 정본 결정 대기), 서빙-학습 user 글자 불일치(CR-L008).
 
 ## 0.1.0 (2026-10-15)
 - 용량 보호를 df 대신 사용량 예산(max_footprint_gb)으로 교체, 캐시 정리를 huggingface_hub 삭제 전략으로(scripts/clean_model_cache.py).

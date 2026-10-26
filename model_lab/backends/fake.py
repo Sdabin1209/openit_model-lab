@@ -1,7 +1,8 @@
 """평가 경로 시험용 백엔드. 평가 샘플의 정답을 프롬프트로 찾아 그대로 내는 '오라클'이다.
 
 모델을 쓰지 않으므로 모델 품질과 무관하다. 평가기·보호·보고서 경로를 CPU에서 끝까지 돌려 보는 용도다.
-corrupt_every=N이면 프롬프트 해시가 N의 배수인 샘플마다 (재시도해도) 깨진 출력을 내어 재시도와 출력 보호 경로를 지나가게 한다."""
+corrupt_every=N이면 프롬프트 해시가 N의 배수인 샘플마다 (재시도해도) 깨진 출력을 내어 재시도 경로를 지나가게 한다.
+LoRA-A는 JSON이 아닌 출력(형식 실패, 서빙에서는 OUTPUT_INVALID), LoRA-B는 빈 문장(서빙에서는 대체 문장)이다."""
 from __future__ import annotations
 
 import hashlib
@@ -15,8 +16,8 @@ def oracle_backend(prompt_to_completion: Mapping[str, str], *, corrupt_every: in
     def respond(req: GenerationRequest) -> str:
         # 프롬프트 해시로 정한다: 같은 샘플은 재시도해도 계속 깨져 보호 경로까지 간다(결정적).
         if corrupt_every and int(hashlib.sha256(req.prompt.encode()).hexdigest(), 16) % corrupt_every == 0:
-            return "{깨진 출력"
-        return prompt_to_completion.get(req.prompt, "{}")
+            return "{깨진 출력" if req.role == "LORA_A" else ""     # B는 빈 문장만 형식 위반(protect-2 J1)이다
+        return prompt_to_completion.get(req.prompt, "{}" if req.role == "LORA_A" else "")
 
     b = FakeBackend(respond, supported_features=supported_features)
     return b
