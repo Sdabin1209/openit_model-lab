@@ -10,8 +10,8 @@ inputs:
   dataset_store: {factory: "model_lab.file_dataset_store:file_dataset_store", args: {root_env: DATASET_ROOT}}
   failure_store: {factory: "boundary_contracts.clients:HttpFailureStore", args: {base_url_env: FAILURE_STORE_URL, token_env: FAILURE_STORE_TOKEN}}
 roles:
-  LORA_A: {package_id: lora-a-parser}
-  LORA_B: {package_id: lora-b-generator}
+  LORA_A: {package_id: lora-a-parser, system_prompt_file: ../prompts/lora_a.system.txt}
+  LORA_B: {package_id: lora-b-generator, system_prompt_file: ../prompts/lora_b.system.txt}
 serving:
   LORA_A: &serving
     prompt_template_version: prompt-2

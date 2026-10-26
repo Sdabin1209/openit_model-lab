@@ -9,8 +9,8 @@ inputs:
 base_model: {id: Qwen/Qwen2.5-1.5B-Instruct, revision: dry-run}
 training: {trainer: dry-run, epochs: 1, per_device_batch_size: 2, grad_accum_steps: 2, checkpoint_every_steps: 10}
 roles:
-  LORA_A: {package_id: lora-a-parser}
-  LORA_B: {package_id: lora-b-generator}
+  LORA_A: {package_id: lora-a-parser, system_prompt_file: ../prompts/lora_a.system.txt}
+  LORA_B: {package_id: lora-b-generator, system_prompt_file: ../prompts/lora_b.system.txt}
 serving:
   LORA_A: &serving
     prompt_template_version: prompt-2

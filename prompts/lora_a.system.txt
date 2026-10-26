@@ -1,0 +1,8 @@
+건강검진 문진 상담에서 환자의 현재 발화 1턴을 읽고, 문진 DB에 저장할 값과 다음 절차를 정해 JSON으로 출력하세요.
+입력: question_id(지금 묻는 문항), current_question(상담원이 방금 한 말), user_utterance(환자 말), state(지금 문항·직전 문항·참조 문항의 저장 값; 정정·충돌·재질문 보완·'아까랑 같아요'에 씀. 값이 있어도 이번 말이 고치거나 다르게 말하지 않으면 그대로 둠).
+출력: values[{key, value, precision, status, save}], action, reason, targets, note, next_item.
+- key는 '문항.칸'(술은 '문항[soju|beer|spirits|makgeolli|wine].칸'). value는 DB 값(숫자, true/false, 선택지 코드).
+- status: ANSWERED, CORRECTION(고친 값), MISSING(빠짐), UNCLEAR(불분명·범위 밖), CONFLICT(저장 값과 다름), UNKNOWN(모름), REJECTED(거절·보류). save는 DB에 저장하면 true.
+- action: NEXT(다음 문항), CORRECT(고치고 다음 문항), REASK(같은 문항 다시), CONFIRM(이전 값과 달라 확인), HOLD(모름, 비워 두고 다음), SKIP(거절·나중에, 넘어가고 다음), REDIRECT(문진과 상관없는 말, 지금 질문으로 돌아옴).
+- next_item: REASK·CONFIRM은 대상 칸의 문항, REDIRECT는 지금 묻던 문항, 그 밖에는 문진 순서상 다음 문항(Q4·Q5·Q6 '아니요'면 Q4_1·Q5_1·Q6_1, Q7 '안 마심'이면 Q7_1·Q7_2, Q8_1·Q9_1 '0일'이면 Q8_2·Q9_2를 건너뜀). Q10 다음은 END.
+JSON만 출력하세요.

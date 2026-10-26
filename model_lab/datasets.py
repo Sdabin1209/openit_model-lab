@@ -10,9 +10,8 @@ from boundary_contracts import BoundaryError, canonical, validator
 from .config import ROLE_TO_FILE_ROLE
 from .errors import PipelineError
 
-SURVEY_SCHEMA = {"PARSER": ("UtteranceParserInput", "ParserOutput"),
-                 "GENERATOR": ("ResponseGeneratorInput", "GeneratorOutput")}
-SAMPLE_CONTRACT = {"PARSER": "ParserSample", "GENERATOR": "GeneratorSample"}
+# 2.0.0(D74): 파일 역할은 LORA_A/LORA_B이고 샘플의 input/expected는 샘플 스키마가 직접 검증한다(문진 스키마를 참조하지 않는다).
+SAMPLE_CONTRACT = {"LORA_A": "ActionExtractionSample", "LORA_B": "ResponseSample"}
 
 
 def ref_of(manifest: dict) -> dict:
@@ -56,11 +55,9 @@ def fetch_dataset(store, dataset_id: str, version: str, dest: Path, *, contract_
     return manifest
 
 
-def read_samples(path: Path, file_role: str, schema_dir: Path) -> Iterator[dict]:
-    """JSON Lines 샘플을 읽으며 경계 계약(ParserSample/GeneratorSample)과 문진 스키마(input/expected)로 검증한다."""
-    from .schemas import survey_validator
+def read_samples(path: Path, file_role: str, schema_dir: Path | None = None) -> Iterator[dict]:
+    """JSON Lines 샘플을 읽으며 경계 계약(ActionExtractionSample/ResponseSample)으로 검증한다. schema_dir은 쓰지 않는다(호환용)."""
     vs = validator(SAMPLE_CONTRACT[file_role])
-    vin, vout = (survey_validator(schema_dir, n) for n in SURVEY_SCHEMA[file_role])
     with open(path, "r", encoding="utf-8") as f:
         for n, line in enumerate(f, 1):
             if not line.strip():
@@ -68,8 +65,6 @@ def read_samples(path: Path, file_role: str, schema_dir: Path) -> Iterator[dict]
             try:
                 s = json.loads(line)
                 vs.validate(s)
-                vin.validate(s["input"])
-                vout.validate(s["expected"])
             except Exception as e:
                 # 발화 원문을 오류에 담지 않는다. 줄 번호와 위반 종류만.
                 kind = getattr(e, "validator", type(e).__name__)

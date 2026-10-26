@@ -10,8 +10,8 @@ inputs:
   dataset_store: {factory: "tests.doubles.dataset_store:from_dir", args: {root: fixtures/store}}
 training: {max_train_samples: 80, max_steps: 10, checkpoint_every_steps: 2, log_every_steps: 1}
 roles:
-  LORA_A: {package_id: lora-a-parser}
-  LORA_B: {package_id: lora-b-generator}
+  LORA_A: {package_id: lora-a-parser, system_prompt_file: ../prompts/lora_a.system.txt}
+  LORA_B: {package_id: lora-b-generator, system_prompt_file: ../prompts/lora_b.system.txt}
 serving:
   LORA_A: &serving
     prompt_template_version: prompt-2

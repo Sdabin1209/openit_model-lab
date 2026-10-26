@@ -7,7 +7,9 @@ TAG="model-lab-registry:smoke-$$"
 NAME="model-lab-registry-smoke-$$"
 trap 'docker rm -f "$NAME" >/dev/null 2>&1 || true; docker volume rm "$NAME-data" >/dev/null 2>&1 || true; docker rmi "$TAG" >/dev/null 2>&1 || true' EXIT
 mkdir -p vendor/wheels
-WHL=$(ls vendor/wheels/boundary_contracts-*.whl | head -1)
+# requirements-service.txt가 고정한 태그(vX.Y.Z)의 wheel을 쓴다(다른 버전 wheel이 같이 있어도 섞이지 않는다).
+BC_VER=$(sed -n 's/.*openit_boundary-contracts.git@v\([0-9.]*\).*/\1/p' requirements-service.txt | head -1)
+WHL=$(ls vendor/wheels/boundary_contracts-"$BC_VER"-*.whl | head -1)
 docker build -q --build-context wheels=vendor/wheels --build-arg "BC_SPEC=/wheels/$(basename "$WHL")" \
   --build-arg "REVISION=$(git rev-parse --short HEAD 2>/dev/null || echo unknown)" -t "$TAG" .
 docker volume create "$NAME-data" >/dev/null

@@ -20,7 +20,7 @@ import model_runtime
 from boundary_contracts import BoundaryError, canonical
 
 from . import datasets, evaluate, factories, metrics, packager, regression, schemas
-from .config import ROLE_TO_FILE_ROLE, ROLES, config_hash, resolved_path, role_training
+from .config import ROLE_TO_FILE_ROLE, ROLES, config_hash, resolved_path, role_training, system_prompt_text
 from .errors import ConfigError, PipelineError
 from .registry import FileModelRegistry
 from .trainers import TrainRequest, make_trainer
@@ -457,8 +457,9 @@ class Run:
             tr = self.rec["stages"]["train"][role]
             base = {"id": self.cfg["base_model"]["id"],
                     "revision": tr["result"].get("base_model_revision") or self.cfg["base_model"].get("revision", "unspecified")}
+            sp = packager.install_system_prompt(self.dir / "adapters" / role, system_prompt_text(self.cfg, role))
             m = packager.build_manifest(
-                role=role, package_id=self.cfg["roles"][role]["package_id"], version=version, created_at=created,
+                role=role, system_prompt=sp, package_id=self.cfg["roles"][role]["package_id"], version=version, created_at=created,
                 contract_version=self.contract_version, base_model=base, adapter_dir=self.dir / "adapters" / role,
                 serving_config=self.cfg["serving"][role], dataset_ref=self.dataset_ref, dataset_manifest=dm,
                 run_id=self.run_id,

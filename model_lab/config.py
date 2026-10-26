@@ -17,7 +17,7 @@ from boundary_contracts import canonical
 from .errors import ConfigError
 
 ROLES = ("LORA_A", "LORA_B")
-ROLE_TO_FILE_ROLE = {"LORA_A": "PARSER", "LORA_B": "GENERATOR"}
+ROLE_TO_FILE_ROLE = {"LORA_A": "LORA_A", "LORA_B": "LORA_B"}      # DatasetManifest.files[].role (2.0.0, D74)
 CONFIG_VERSION = 1
 
 _ID = {"type": "string", "pattern": r"^[A-Za-z0-9][A-Za-z0-9._:-]*$", "maxLength": 128}
@@ -106,8 +106,10 @@ CONFIG_SCHEMA: dict[str, Any] = {
         "roles": {
             "type": "object", "additionalProperties": False, "minProperties": 1,
             "properties": {r: {
-                "type": "object", "additionalProperties": False, "required": ["package_id"],
-                "properties": {"package_id": _ID, "training": _TRAINING}} for r in ROLES},
+                "type": "object", "additionalProperties": False, "required": ["package_id", "system_prompt_file"],
+                # system_prompt_file: 학습에 쓴 시스템 프롬프트 파일(설정 파일 기준 상대 경로). 패키징이 어댑터 디렉터리에 넣는다(D75).
+                "properties": {"package_id": _ID, "system_prompt_file": {"type": "string", "minLength": 1},
+                               "training": _TRAINING}} for r in ROLES},
         },
         "serving": {"type": "object", "additionalProperties": False, "properties": {r: _SERVING for r in ROLES}},
         "evaluation": {
@@ -190,6 +192,18 @@ def load_config(path: str | Path) -> dict:
 def resolved_path(cfg: dict, value: str) -> Path:
     p = Path(value)
     return p if p.is_absolute() else (Path(cfg["_base_dir"]) / p).resolve()
+
+
+def system_prompt_text(cfg: dict, role: str) -> str:
+    """역할의 시스템 프롬프트(UTF-8 파일 내용 그대로, 줄바꿈을 고치지 않는다)."""
+    p = resolved_path(cfg, cfg["roles"][role]["system_prompt_file"])
+    try:
+        text = p.read_bytes().decode("utf-8")
+    except (OSError, UnicodeDecodeError):
+        raise ConfigError(f"{role}: system_prompt_file을 읽을 수 없다: {p.name}") from None
+    if not text.strip():
+        raise ConfigError(f"{role}: system_prompt_file이 비어 있다: {p.name}")
+    return text
 
 
 def role_training(cfg: dict, role: str) -> dict:
