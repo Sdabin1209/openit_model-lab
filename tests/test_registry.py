@@ -40,13 +40,15 @@ def make(tmp_path, pid="pkg-a", ver="v1", payload=b"w", report=b"report-1", ref=
     (ad / "sub").mkdir(parents=True, exist_ok=True)
     (ad / "adapter_model.bin").write_bytes(payload)
     (ad / "sub" / "c.json").write_text("{}")
+    (ad / "system_prompt.txt").write_bytes(b"system prompt for " + pid.encode())
     sc = {"prompt_template_version": "prompt-2", "decoding": {"constraint_mode": "none", "temperature": 0, "seed": 1, "max_tokens": 8},
           "max_attempts": 3, "constraint": {"backend": "x", "backend_version": "1", "supported_features": [], "relax_policy_version": "relax-1"},
           "output_contract": 1, "protection_policy_version": "protect-1"}
     h = "sha256:" + "a" * 64
-    m = {"pipeline_schema_version": "1.1", "package_id": pid, "version": ver, "role": "LORA_A", "created_at": "2026-10-15T00:00:00Z",
+    m = {"pipeline_schema_version": "2.0", "package_id": pid, "version": ver, "role": "LORA_A", "created_at": "2026-10-15T00:00:00Z",
          "runtime_contract_version": 1, "base_model": {"id": "base", "revision": "r"}, "adapter_hash": canonical.directory_hash(ad),
          "serving_config": sc, "serving_config_hash": canonical.sha256_hash(sc),
+         "system_prompt": {"path": "system_prompt.txt", "sha256": canonical.file_hash(ad / "system_prompt.txt")},
          "lineage": {"dataset": {"id": "d", "version": "1", "content_hash": h}, "training_run_id": "run-1",
                      "turn_engine_version": "0.2.0", "model_runtime_version": "0.3.0"},
          "eval_report_ref": ref}
@@ -157,3 +159,18 @@ def test_file_registry_survives_reopen(tmp_path):
     r.publish(m, ad, rep)
     r2 = FileModelRegistry(tmp_path / "reg")
     assert r2.get_manifest("pkg-a", "v1") == m and r2.list_ids() == (["pkg-a"], None)
+
+
+def test_system_prompt_is_part_of_package_and_checked(reg, tmp_path):
+    """D75: 시스템 프롬프트는 패키지의 일부다. 매니페스트에 없거나, 파일이 없거나, 해시가 다르면 게시할 수 없다."""
+    m, ad, rep = make(tmp_path)
+    no_ref = copy.deepcopy(m); del no_ref["system_prompt"]
+    no_ref["content_hash"] = canonical.content_hash(no_ref)
+    assert code(reg.publish, no_ref, ad, rep) == "INVALID_RECORD"                        # 필수 필드
+    wrong = copy.deepcopy(m); wrong["system_prompt"]["sha256"] = "sha256:" + "0" * 64    # 파일 해시와 다름
+    wrong["content_hash"] = canonical.content_hash(wrong)
+    assert code(reg.publish, wrong, ad, rep) == "INTEGRITY_ERROR"
+    missing = copy.deepcopy(m); missing["system_prompt"]["path"] = "nope.txt"            # 어댑터 안에 없는 파일
+    missing["content_hash"] = canonical.content_hash(missing)
+    assert code(reg.publish, missing, ad, rep) == "INTEGRITY_ERROR"
+    assert reg.publish(m, ad, rep) == m                                                  # 올바른 것은 게시된다

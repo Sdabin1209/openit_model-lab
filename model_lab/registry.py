@@ -1,7 +1,7 @@
 """I3 ModelRegistry(이 영역이 소유). 파일 구현과 메모리 구현이 같은 규칙 코드를 쓴다.
 
 규칙(CONVENTIONS 3~5절, INTERFACES I3):
-- 쓰기 전에 ModelPackageManifest 스키마·content_hash·adapter_hash를 확인한다. 어긋나면 INVALID_RECORD/INTEGRITY_ERROR.
+- 쓰기 전에 ModelPackageManifest 스키마·content_hash·adapter_hash·시스템 프롬프트 파일(D75)을 확인한다. 어긋나면 INVALID_RECORD/INTEGRITY_ERROR.
 - 같은 (package_id, version)과 같은 content_hash면 기존 것을 돌려준다. 다르면 CONFLICT. 불변이다.
 - list_ids는 처음 게시된 순서, list_versions는 오래된 것부터다. 새 항목은 뒤에 붙는다.
 - open_adapter는 풀고 나서 해시를 다시 계산한다. 다르면 INTEGRITY_ERROR.
@@ -39,6 +39,14 @@ def _copy_tree(src: Path, dst: Path) -> None:
         elif p.is_file():
             (dst / rel).parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(p, dst / rel)
+
+
+def verify_system_prompt(adapter_dir: Path, ref: dict) -> None:
+    """어댑터 디렉터리 안에 시스템 프롬프트 파일이 있고 해시가 sha256과 같아야 한다(D75, 어기면 INTEGRITY_ERROR)."""
+    root = Path(adapter_dir).resolve()
+    f = (root / ref["path"]).resolve()
+    if root not in f.parents or not f.is_file() or canonical.file_hash(f) != ref["sha256"]:
+        raise BoundaryError("INTEGRITY_ERROR", "시스템 프롬프트 파일이 없거나 system_prompt.sha256과 다르다")
 
 
 class _Core:
@@ -81,6 +89,7 @@ class _Core:
             raise BoundaryError("NOT_FOUND", "adapter_dir가 없다")
         if canonical.directory_hash(adapter_dir) != manifest["adapter_hash"]:
             raise BoundaryError("INTEGRITY_ERROR", "adapter_dir의 해시가 adapter_hash와 다르다")
+        verify_system_prompt(adapter_dir, manifest["system_prompt"])
         with self._lock():
             existing = self._s_get_manifest(pid, ver)
             if existing is not None:

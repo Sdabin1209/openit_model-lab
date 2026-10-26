@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from typing import Callable, Mapping
 
-from boundary_contracts import canonical, validator
+from boundary_contracts import PIPELINE_SCHEMA_VERSION, canonical, validator
 
 from .datasets import qs_key
 from .evaluate import sample_dims
@@ -107,7 +107,7 @@ def build_metrics(role: str, pairs: list[tuple[dict, dict]], seen_sets: set, *, 
 
 def evaluation_report(*, role: str, report_id: str, created_at: str, package: Mapping, dataset: Mapping, question_sets: list,
                       backend: Mapping, decoding: Mapping, metrics: list, notes: list, detail: Mapping) -> dict:
-    r = {"pipeline_schema_version": "1.3", "report_id": report_id, "created_at": created_at, "role": role,
+    r = {"pipeline_schema_version": PIPELINE_SCHEMA_VERSION, "report_id": report_id, "created_at": created_at, "role": role,
          "package": dict(package), "dataset": dict(dataset), "question_sets": list(question_sets),
          "evaluation_backend": {"name": backend["name"], "version": backend["version"],
                                 "constrained_decoding": bool(backend.get("constrained_decoding", False))},
