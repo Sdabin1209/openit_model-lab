@@ -191,7 +191,7 @@ def test_repeated_bad_tokens_are_throttled_but_valid_tokens_always_pass(tmp_path
 # ---------- ML-3 SIGTERM ----------
 def test_sigterm_stops_cleanly_and_removes_tmp(tmp_path):
     env_ = {**os.environ, "MODEL_REGISTRY_ROOT": str(tmp_path / "data"), "MODEL_REGISTRY_PORT": "0", "MODEL_REGISTRY_HOST": "127.0.0.1",
-            "MODEL_REGISTRY_READ_TOKENS": "rg=readtok", "MODEL_REGISTRY_WRITE_TOKENS": "model-lab=writetok", "PYTHONPATH": str(ROOT)}
+            "MODEL_REGISTRY_READ_TOKENS": "rg=" + "9f2c4e1ab7d03856" * 2, "MODEL_REGISTRY_WRITE_TOKENS": "model-lab=" + "5d8e1c7a0b3f2946" * 2, "PYTHONPATH": str(ROOT)}
     for k in ("MODEL_REGISTRY_READ_TOKENS_FILE", "MODEL_REGISTRY_WRITE_TOKENS_FILE"):
         env_.pop(k, None)
     p = subprocess.Popen([sys.executable, "-m", "model_lab.service"], env=env_, cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
@@ -290,7 +290,7 @@ def test_train_record_that_does_not_match_is_rejected(setup, mut, msg):  # noqa:
 # ---------- ML-2 재점검: 유휴 keep-alive 연결이 있어도 빨리 끝난다 ----------
 def test_sigterm_with_idle_keepalive_connection_exits_fast(tmp_path):
     env_ = {**os.environ, "MODEL_REGISTRY_ROOT": str(tmp_path / "data"), "MODEL_REGISTRY_PORT": "0", "MODEL_REGISTRY_HOST": "127.0.0.1",
-            "MODEL_REGISTRY_READ_TOKENS": "rg=readtok", "MODEL_REGISTRY_WRITE_TOKENS": "model-lab=writetok", "PYTHONPATH": str(ROOT),
+            "MODEL_REGISTRY_READ_TOKENS": "rg=" + "9f2c4e1ab7d03856" * 2, "MODEL_REGISTRY_WRITE_TOKENS": "model-lab=" + "5d8e1c7a0b3f2946" * 2, "PYTHONPATH": str(ROOT),
             "MODEL_REGISTRY_SOCKET_TIMEOUT": "30"}
     for k in ("MODEL_REGISTRY_READ_TOKENS_FILE", "MODEL_REGISTRY_WRITE_TOKENS_FILE"):
         env_.pop(k, None)
@@ -337,3 +337,60 @@ def test_drain_lets_in_flight_request_finish_with_connection_close(tmp_path):
     t.join(5)
     assert out == {"status": 200, "conn": "close"} and 0.5 < time.time() - t0 < 4
     srv.shutdown()
+
+
+# ---------- 3차 점검: 토큰 강도, 연결 재사용 상태 ----------
+def test_start_refuses_short_or_monotone_tokens_without_echoing_them(tmp_path, capsys):
+    from model_lab.service.app import main
+    root = str(tmp_path / "r")
+    for bad in ("short", "x" * 40, "ab" * 3):
+        assert main({"MODEL_REGISTRY_WRITE_TOKENS": f"model-lab={bad}", "MODEL_REGISTRY_ROOT": root}) == 2
+        err = capsys.readouterr().err
+        assert "토큰" in err and bad not in err
+    # 읽기 토큰도 같은 요건이다
+    assert main({"MODEL_REGISTRY_READ_TOKENS": "rg=short", "MODEL_REGISTRY_WRITE_TOKENS": "model-lab=" + "5d8e1c7a0b3f2946" * 2, "MODEL_REGISTRY_ROOT": root}) == 2
+
+
+def test_start_accepts_strong_tokens_and_dev_can_lower_the_minimum(tmp_path, monkeypatch):
+    import model_lab.service.app as app
+    monkeypatch.setattr(app, "make_server", lambda svc, host, port: (_ for _ in ()).throw(KeyboardInterrupt()))
+    base = {"MODEL_REGISTRY_ROOT": str(tmp_path / "r")}
+    with pytest.raises(KeyboardInterrupt):
+        app.main({**base, "MODEL_REGISTRY_WRITE_TOKENS": "model-lab=" + os.urandom(16).hex()})            # 32자 16진수(128비트)
+    assert app.main({**base, "MODEL_REGISTRY_WRITE_TOKENS": "model-lab=devtoken12"}) == 2
+    with pytest.raises(KeyboardInterrupt):
+        app.main({**base, "MODEL_REGISTRY_WRITE_TOKENS": "model-lab=devtoken12", "MODEL_REGISTRY_MIN_TOKEN_LEN": "8"})
+
+
+def test_per_request_state_is_reset_on_a_reused_connection(tmp_path):
+    """같은 keep-alive 연결에서 앞 요청이 본문을 읽었어도(_consumed) 다음 거절이 본문을 버리고 실제 오류를 돌려준다."""
+    svc, srv, url = start(tmp_path)
+    host, port = "127.0.0.1", srv.server_address[1]
+    try:
+        m, ad, rep = make(tmp_path)
+        with tempfile.TemporaryDirectory() as td:
+            td = Path(td)
+            (td / "m").write_text(json.dumps(m)); (td / "r").write_bytes(rep)
+            tarutil.pack({"manifest.json": td / "m", "eval_report": td / "r", **tarutil.tree_files(ad, "adapter/")}, td / "b.tar")
+            good = (td / "b.tar").read_bytes()
+        def req(tok, body):
+            return (b"POST /v1/packages HTTP/1.1\r\nHost: x\r\nAuthorization: Bearer " + tok + b"\r\nContent-Length: "
+                    + str(len(body)).encode() + b"\r\n\r\n" + body)
+        def read_resp(s):
+            buf = b""
+            while b"\r\n\r\n" not in buf:
+                buf += s.recv(65536)
+            head, _, rest = buf.partition(b"\r\n\r\n")
+            n = int([l for l in head.split(b"\r\n") if l.lower().startswith(b"content-length")][0].split(b":")[1])
+            while len(rest) < n:
+                rest += s.recv(65536)
+            return head
+        for _ in range(5):
+            s = socket.create_connection((host, port)); s.settimeout(5)
+            s.sendall(req(b"wt", good))
+            assert b" 20" in read_resp(s).split(b"\r\n")[0]                       # 200 또는 201: 이 요청이 본문을 읽었다
+            s.sendall(req(b"rt", b"x" * (900 * 1024)))                                # 같은 연결: 읽기 토큰의 쓰기 시도
+            assert b" 403 " in read_resp(s).split(b"\r\n")[0]
+            s.close()
+    finally:
+        srv.shutdown()

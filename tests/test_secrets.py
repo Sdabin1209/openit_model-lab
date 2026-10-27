@@ -11,7 +11,7 @@ from model_lab.errors import ConfigError
 from model_lab.factories import resolve_args
 from model_lab.service.app import Service, main, make_server
 
-RT, WT = "READ-SECRET-VALUE-123", "WRITE-SECRET-VALUE-456"
+RT, WT = "READ-SECRET-VALUE-123-q8Zk2mXv9LpW", "WRITE-SECRET-VALUE-456-r7Yj3nTb5HcD"
 
 
 def test_service_main_reads_tokens_from_files_and_prefers_them(tmp_path, monkeypatch, capsys):

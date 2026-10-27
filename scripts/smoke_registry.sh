@@ -15,7 +15,9 @@ docker build -q --build-context wheels=vendor/wheels --build-arg "BC_SPEC=/wheel
 docker volume create "$NAME-data" >/dev/null
 # 토큰은 환경 변수가 아니라 파일로 준다(D84, NAME_FILE). 컨테이너 사용자(uid 10001)가 읽도록 0644, 끝나면 지운다.
 SECRETS=$(mktemp -d); trap 'rm -rf "$SECRETS"; docker rm -f "$NAME" >/dev/null 2>&1 || true; docker volume rm "$NAME-data" >/dev/null 2>&1 || true; docker rmi "$TAG" >/dev/null 2>&1 || true' EXIT
-printf 'release-gate=read-secret\n' > "$SECRETS/read"; printf 'model-lab=write-secret\n' > "$SECRETS/write"; chmod 755 "$SECRETS"; chmod 644 "$SECRETS"/*
+# 서비스는 짧은 토큰이면 시작을 거부한다(32자 이상). 스모크용 무작위 토큰을 만든다(이 값은 시험 전용이고 끝나면 버려진다)
+RT=$(od -An -N24 -tx1 /dev/urandom | tr -d ' \n'); WT=$(od -An -N24 -tx1 /dev/urandom | tr -d ' \n')
+printf 'release-gate=%s\n' "$RT" > "$SECRETS/read"; printf 'model-lab=%s\n' "$WT" > "$SECRETS/write"; chmod 755 "$SECRETS"; chmod 644 "$SECRETS"/*
 docker run -d --name "$NAME" -p 127.0.0.1::8080 -v "$NAME-data":/data \
   -v "$SECRETS":/run/secrets:ro \
   -e MODEL_REGISTRY_READ_TOKENS_FILE=/run/secrets/read -e MODEL_REGISTRY_WRITE_TOKENS_FILE=/run/secrets/write "$TAG" >/dev/null
@@ -28,10 +30,10 @@ echo "user: $(docker exec "$NAME" id -u)"
 echo "labels: $(docker inspect -f '{{json .Config.Labels}}' "$TAG")"
 # 읽기 토큰 없이는 403, 있으면 200
 [ "$(curl -s -o /dev/null -w '%{http_code}' "$URL/v1/packages")" = 403 ]
-[ "$(curl -s -o /dev/null -w '%{http_code}' -H 'Authorization: Bearer read-secret' "$URL/v1/packages")" = 200 ]
-[ "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Authorization: Bearer read-secret' --data-binary x "$URL/v1/packages")" = 403 ]
+[ "$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $RT" "$URL/v1/packages")" = 200 ]
+[ "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H "Authorization: Bearer $RT" --data-binary x "$URL/v1/packages")" = 403 ]
 # 게시와 조회(클라이언트 대역으로)
-.venv/bin/python scripts/smoke_client.py "$URL" write-secret read-secret
+.venv/bin/python scripts/smoke_client.py "$URL" "$WT" "$RT"
 # 비밀 값이 로그에 없다
-! docker logs "$NAME" 2>&1 | grep -q -e read-secret -e write-secret
+! docker logs "$NAME" 2>&1 | grep -q -e "$RT" -e "$WT"
 echo SMOKE_OK

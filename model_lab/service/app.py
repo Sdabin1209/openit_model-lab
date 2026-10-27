@@ -60,6 +60,22 @@ def parse_tokens(spec: str | None) -> dict[str, str]:
     return out
 
 
+# 토큰 최소 길이 32자. 무차별 대입에 대한 실제 방어는 토큰의 엔트로피이고(실패 제한은 아래 Service 주석처럼 로그 스팸·CPU 보호일 뿐이다),
+# 32자 이상의 무작위 16진수는 128비트 이상이다. 근거(ADR 0009): 알고 있는 일반 지침 — OWASP 세션 관리 치트시트(예측 불가능한 ID는 CSPRNG로
+# 만들고 최소 64비트, 권장은 128비트 안팎)와 NIST SP 800-63B(무작위 인증 비밀의 엔트로피 하한)를 참고했다. 이번에 원문을 다시 확인하지는 않았다.
+# 길이는 엔트로피를 보증하지 못하므로 무작위로 만들 책임은 운영자 몫이다(`openssl rand -hex 32`).
+MIN_TOKEN_LEN = 32
+
+
+def check_token_strength(tokens: dict[str, str], *, min_len: int = MIN_TOKEN_LEN) -> None:
+    """시작 때 호출한다. 너무 짧거나 거의 한 글자로만 된 토큰이면 ValueError(토큰 값은 메시지에 넣지 않는다)."""
+    for tok, role in tokens.items():
+        if len(tok) < min_len:
+            raise ValueError(f"역할 {role}의 토큰이 {min_len}자 미만이다. `openssl rand -hex 32` 같은 무작위 값을 쓴다")
+        if len(set(tok)) < 8:
+            raise ValueError(f"역할 {role}의 토큰이 단조롭다(서로 다른 글자 8개 미만). 무작위 값을 쓴다")
+
+
 class Service:
     def __init__(self, root: Path, read_tokens: dict, write_tokens: dict, *, max_body: int = 4 << 30,
                  log=lambda s: print(s, flush=True), socket_timeout: float = 30.0, max_connections: int = 32,
@@ -101,6 +117,8 @@ class Service:
         """읽기 또는 쓰기 토큰으로 인식되는가(역할이 모자란 것과 구분한다: 유효한 토큰의 403은 실패 횟수에 넣지 않는다)."""
         return self._role(self.read, header) is not None or self._role(self.write, header) is not None
 
+    # 실패 제한의 의미(ADR 0009): 틀린 토큰이 쏟아질 때 로그 스팸과 CPU(토큰 비교 반복)를 줄이는 장치이지 무차별 대입 방어가 아니다.
+    # 제한된 주소에서도 올바른 토큰은 통과하므로(같은 주소의 정상 클라이언트 보호) 추측이 맞으면 막지 못한다. 그 방어는 토큰 엔트로피(MIN_TOKEN_LEN)다.
     def auth_blocked(self, addr: str) -> bool:
         now = time.monotonic()
         with self._fails_mu:
@@ -326,6 +344,10 @@ def make_handler(svc: Service):
             self._json(200 if existed else 201, got)
 
         def _handle(self):
+            # 핸들러 인스턴스는 keep-alive 연결 하나가 요청 여러 개에 재사용한다. 요청별 상태를 되돌리지 않으면 앞 요청의 _consumed=True가
+            # 남아 다음 거절에서 본문을 버리지 않는다(연결 초기화 위험).
+            self._consumed = False
+            self._sent_close = False
             self.server.set_busy(self.request, True)
             try:
                 self._handle_inner()
@@ -450,6 +472,8 @@ def main(env=os.environ) -> int:
                        parse_tokens(read_secret("MODEL_REGISTRY_WRITE_TOKENS", environ=env)))
         if not read and not write:
             raise ValueError("MODEL_REGISTRY_READ_TOKENS 또는 MODEL_REGISTRY_WRITE_TOKENS가 필요하다")
+        # 개발·시험에서 짧은 토큰이 꼭 필요하면 MODEL_REGISTRY_MIN_TOKEN_LEN으로 낮출 수 있다(운영에서는 쓰지 않는다)
+        check_token_strength({**read, **write}, min_len=int(env.get("MODEL_REGISTRY_MIN_TOKEN_LEN", MIN_TOKEN_LEN)))
         svc = Service(Path(env.get("MODEL_REGISTRY_ROOT", "/data")), read, write,
                       max_body=int(env.get("MODEL_REGISTRY_MAX_BODY", 4 << 30)),
                       socket_timeout=float(env.get("MODEL_REGISTRY_SOCKET_TIMEOUT", 30)),
