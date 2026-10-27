@@ -4,6 +4,8 @@ import urllib.error
 import urllib.request
 
 import pytest
+from pathlib import Path
+ROOT = Path(__file__).resolve().parents[1]
 
 from model_lab.errors import ConfigError
 from model_lab.factories import resolve_args
@@ -75,3 +77,51 @@ def test_factory_args_read_secret_from_file_and_errors_have_no_value(tmp_path):
     assert "SHOULD-NOT-LEAK" not in str(ei.value) and "T_FILE" in str(ei.value)
     with pytest.raises(ConfigError):
         resolve_args({"token_env": "NOPE"}, {})
+
+
+# --- 설정 파일의 인라인 비밀 거부(D84) ---
+import yaml  # noqa: E402
+
+from model_lab.config import check_inline_secrets, load_config  # noqa: E402
+
+INLINE = "INLINE-SECRET-VALUE-789"
+
+
+@pytest.mark.parametrize("key", ["token", "secret", "password", "credential", "api_key", "authorization", "private_key", "Write_Token"])
+def test_inline_secret_keys_are_rejected_without_echoing_value(key):
+    with pytest.raises(ConfigError) as ei:
+        check_inline_secrets({"registry": {"kind": "http", key: INLINE}})
+    assert INLINE not in str(ei.value) and f"registry.{key}" in str(ei.value) and "NAME_FILE" in str(ei.value)
+
+
+def test_nested_dict_and_list_are_checked():
+    with pytest.raises(ConfigError) as ei:
+        check_inline_secrets({"inputs": {"failure_store": {"args": [{"ok": 1}, {"token": INLINE}]}}})
+    assert INLINE not in str(ei.value) and "inputs.failure_store.args[1].token" in str(ei.value)
+
+
+def test_env_name_args_are_allowed_but_must_look_like_names():
+    check_inline_secrets({"a": {"token_env": "MODEL_REGISTRY_WRITE_TOKEN", "base_url_env": "x"}})
+    for bad in (INLINE.lower(), "has space", "1ABC", "A", ""):
+        with pytest.raises(ConfigError) as ei:
+            check_inline_secrets({"a": {"token_env": bad}})
+        assert INLINE not in str(ei.value) and "a.token_env" in str(ei.value)
+
+
+def test_non_string_values_and_numeric_token_limits_are_not_flagged():
+    check_inline_secrets({"decoding": {"max_tokens": 512}, "x": {"token": None}, "y": {"secret": 1}})
+
+
+def test_load_config_refuses_inline_secret_in_config_and_profile(tmp_path):
+    base = yaml.safe_load((ROOT / "configs" / "dryrun.yaml").read_text())
+    base["registry"] = {"kind": "http", "base_url": "http://x", "token": INLINE}
+    p = tmp_path / "c.yaml"; p.write_text(yaml.safe_dump(base))
+    with pytest.raises(ConfigError) as ei:
+        load_config(p)
+    assert INLINE not in str(ei.value)
+    base["registry"] = {"kind": "file", "path": "r"}
+    (tmp_path / "prof.yaml").write_text(yaml.safe_dump({"training": {"api_key": INLINE}}))
+    base["profile"] = "prof.yaml"; p.write_text(yaml.safe_dump(base))
+    with pytest.raises(ConfigError) as ei:
+        load_config(p)
+    assert INLINE not in str(ei.value)

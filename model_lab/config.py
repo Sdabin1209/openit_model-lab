@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import copy
+import re
 import json
 from pathlib import Path
 from typing import Any
@@ -166,7 +167,31 @@ def _read(path: Path) -> dict:
     return data
 
 
+_SECRET_KEY_PARTS = ("token", "secret", "password", "credential", "api_key", "authorization", "private_key")
+_ENV_NAME = re.compile(r"^[A-Z][A-Z0-9_]+$")
+
+
+def check_inline_secrets(value, path: str = "config") -> None:
+    """비밀 값이 설정에 직접 적혀 있으면 거부한다(D84). 키 이름에 token/secret/password/credential/api_key/authorization/
+    private_key가 들어 있고 값이 문자열이면 거부한다. `*_env`는 환경 변수 *이름*을 받으므로 이름 형식([A-Z][A-Z0-9_]+)만 허용한다.
+    오류에는 키 경로와 안내만 싣고 값은 싣지 않는다."""
+    if isinstance(value, dict):
+        for k, v in value.items():
+            low, p = str(k).lower(), f"{path}.{k}"
+            if any(s in low for s in _SECRET_KEY_PARTS) and isinstance(v, str):
+                if low.endswith("_env"):
+                    if not _ENV_NAME.match(v):
+                        raise ConfigError(f"설정 {p}: 환경 변수 이름 형식이 아니다([A-Z][A-Z0-9_]+). 값을 직접 적지 않는다. 비밀은 NAME_FILE로 준다")
+                else:
+                    raise ConfigError(f"설정 {p}: 비밀 값을 설정 파일에 직접 적을 수 없다. 비밀은 NAME_FILE로 주고 설정에는 `<키>_env: NAME`만 쓴다")
+            check_inline_secrets(v, p)
+    elif isinstance(value, list):
+        for i, v in enumerate(value):
+            check_inline_secrets(v, f"{path}[{i}]")
+
+
 def validate_config(cfg: dict) -> None:
+    check_inline_secrets(cfg)
     errs = sorted(_VALIDATOR.iter_errors(cfg), key=lambda e: list(map(str, e.absolute_path)))
     if errs:
         msg = "; ".join(f"/{'/'.join(map(str, e.absolute_path))}: {e.message[:120]}" for e in errs[:8])
