@@ -47,6 +47,9 @@ _SCHEMA = {
                 "require_gpu": {"type": "boolean"},
                 "args_verified": {"type": "boolean"},
                 "args_evidence": {"type": "string"},
+                # arg_map을 확인한 시점의 서버 스크립트 sha256(역할별). 서버 코드가 바뀌면 doctor와 학습 전 점검이 알린다(ML-12).
+                "script_sha256": {"type": "object", "additionalProperties": False,
+                                  "properties": {r: {"type": "string", "pattern": r"^[0-9a-f]{64}$"} for r in ROLES}},
                 "arg_map": {"type": "object", "additionalProperties": _FLAG},
                 "extra_args": {"type": "array", "items": {"type": "string"}},
                 "python_modules": {"type": "array", "items": {"type": "string", "pattern": r"^[A-Za-z0-9_]+$"}},
@@ -64,6 +67,9 @@ _SCHEMA = {
         "output": {"type": "object", "additionalProperties": False, "required": ["adapter_dir"],
                    "properties": {"adapter_dir": {"type": "string", "minLength": 1}, "record_file": {"type": "string"},
                                   "server_run_record": {"type": "string"}, "min_free_gb": {"type": "number", "minimum": 0},
+                                  # 디스크 여유 부족 때 학습 전 점검과 doctor가 어떻게 하나(ML-2): block(기본, 멈춤) | warn | off.
+                                  # WSL의 df는 호스트 여유를 보여 주지 않으므로(docs/runbook.md) 그런 호스트는 warn/off로 두고 예산은 따로 관리한다
+                                  "disk_policy": {"enum": ["block", "warn", "off"]},
                                   "max_lora_rank": {"type": "integer", "minimum": 1}}},
     },
 }
@@ -186,6 +192,30 @@ def gpu_state() -> tuple[bool, str]:
     return False, "GPU를 찾지 못했다(nvidia-smi와 torch.cuda 모두)"
 
 
+# min_free_gb 기본 30: 근거 기록 없음(측정 안 함). 이전 비교 스크립트에서 가져온 값으로 보이나 출처 커밋을 찾지 못했다. 설정으로 조정한다.
+def disk_free_gb(cfg: dict) -> tuple[float, Path]:
+    """출력 폴더가 놓일 파일 시스템의 여유(GB)와 기준 경로. 시험에서 바꿔 끼울 수 있게 함수로 둔다."""
+    probe = adapter_dir(cfg)
+    while not probe.exists() and probe != probe.parent:
+        probe = probe.parent
+    return shutil.disk_usage(probe).free / 1e9, probe
+
+
+def script_hash_state(cfg: dict) -> tuple[str, str]:
+    """(상태, 설명). 상태: OK | UNSET | MISMATCH | UNREADABLE. 서버 스크립트가 읽히는 환경에서만 비교한다(서버에 접속하지 않는다)."""
+    want = cfg["server"].get("script_sha256", {}).get(cfg["role"])
+    sp = script_path(cfg)
+    if not sp.is_file():
+        return "UNREADABLE", f"{sp}를 읽을 수 없어 해시를 비교하지 못했다"
+    got = _sha256(sp)
+    if not want:
+        return "UNSET", f"server.script_sha256.{cfg['role']}가 없다. 현재 {sp.name}의 sha256은 {got}. arg_map을 확인한 코드라면 이 값을 적는다"
+    if got != want:
+        return "MISMATCH", (f"{sp.name}의 sha256({got[:12]}...)이 설정({want[:12]}...)과 다르다. 서버 코드가 바뀌었다: "
+                            "인자 이름(arg_map)을 다시 확인하고 script_sha256을 갱신한다")
+    return "OK", f"{sp.name} sha256 일치"
+
+
 def check_ready(cfg: dict) -> None:
     sp = script_path(cfg)
     if not sp.is_file():
@@ -193,6 +223,16 @@ def check_ready(cfg: dict) -> None:
     miss = [str(p) for p in dataset_files(cfg).values() if not p.is_file()]
     if miss:
         raise PipelineError(f"데이터셋 파일이 없다: {miss}. dataset.dir/prefix를 확인한다")
+    st, why = script_hash_state(cfg)
+    if st == "MISMATCH":
+        raise PipelineError(why)
+    policy = cfg["output"].get("disk_policy", "block")
+    if policy == "block":
+        free, probe = disk_free_gb(cfg)
+        need = cfg["output"].get("min_free_gb", 30)
+        if free < need:
+            raise PipelineError(f"디스크 여유가 부족하다: {free:.0f}GB < 필요 {need}GB(기준 {probe}). 정리하거나 output.min_free_gb를 조정한다. "
+                                "WSL처럼 df가 호스트 여유를 보여 주지 않는 곳은 output.disk_policy를 warn으로 둔다(docs/runbook.md)")
     if cfg["server"].get("require_gpu", True) and not gpu_state()[0]:
         raise PipelineError("[구멍: GPU 필요] 이 PC에는 GPU가 없다. 학습 서버에서 실행한다(docs/runbook.md). 미리 보려면 --dry-run")
 
@@ -293,13 +333,15 @@ def doctor(cfg: dict) -> list[tuple[str, str, str]]:
         out.append(("WARN", "프로파일", f"profiles/{prof}.yaml이 없다. package-adapters 전에 만들어야 한다"))
     else:
         out.append(("OK", "프로파일", prof))
-    sp_ = _p(cfg, cfg["output"]["adapter_dir"])
-    probe = sp_
-    while not probe.exists() and probe != probe.parent:
-        probe = probe.parent
-    free = shutil.disk_usage(probe).free / 1e9
-    need = cfg["output"].get("min_free_gb", 30)
-    out.append(("OK" if free >= need else "WARN", "디스크", f"{free:.0f}GB 여유(필요 {need}GB, 기준 {probe}). WSL이면 호스트 여유와 다를 수 있다"))
+    policy = cfg["output"].get("disk_policy", "block")
+    if policy != "off":
+        free, probe = disk_free_gb(cfg)
+        need = cfg["output"].get("min_free_gb", 30)
+        bad = "FAIL" if policy == "block" else "WARN"
+        out.append(("OK" if free >= need else bad, "디스크", f"{free:.0f}GB 여유(필요 {need}GB, 기준 {probe}, 정책 {policy}). WSL이면 호스트 여유와 다를 수 있다"))
+    st, why = script_hash_state(cfg)
+    out.append({"OK": ("OK", "서버 코드 해시", why), "UNSET": ("WARN", "서버 코드 해시", why),
+                "MISMATCH": ("FAIL", "서버 코드 해시", why), "UNREADABLE": ("WARN", "서버 코드 해시", why)}[st])
     return out
 
 

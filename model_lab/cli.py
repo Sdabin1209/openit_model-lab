@@ -30,6 +30,8 @@ def main(argv=None) -> int:
     p.add_argument("--prompt-a", required=True); p.add_argument("--prompt-b", required=True)
     p.add_argument("--dataset-id", required=True); p.add_argument("--dataset-version", required=True)
     p.add_argument("--dataset-hash", required=True, help="어댑터를 학습한 데이터셋의 content_hash(학습 run 기록의 dataset)")
+    p.add_argument("--train-record-a", help="`train`가 쓴 LORA_A 학습 기록(*.train-wrap.json). 계보를 대조해 패키지에 넣는다. 없으면 경고")
+    p.add_argument("--train-record-b", help="LORA_B 학습 기록")
     p.add_argument("--training-run-id"); p.add_argument("--version"); p.add_argument("--base-revision"); p.add_argument("--created-at")
     p.add_argument("--out", required=True, help="패키지를 만들 디렉터리")
     p.add_argument("--no-publish", action="store_true", help="패키지만 만들고 게시하지 않는다")
@@ -60,7 +62,11 @@ def main(argv=None) -> int:
                 config=a.config, profile=a.profile, out=Path(a.out), publish=not a.no_publish,
                 adapters={"LORA_A": a.adapter_a, "LORA_B": a.adapter_b}, prompts={"LORA_A": a.prompt_a, "LORA_B": a.prompt_b},
                 dataset={"id": a.dataset_id, "version": a.dataset_version, "content_hash": a.dataset_hash},
+                train_records={"LORA_A": a.train_record_a, "LORA_B": a.train_record_b},
                 training_run_id=a.training_run_id, version=a.version, base_revision=a.base_revision, created_at=a.created_at)
+            for role, v in res.items():
+                for w in v.get("warnings", []):
+                    print(f"경고 {role}: {w}", file=sys.stderr)
             print(json.dumps(res, ensure_ascii=False))
             return 0
         cfg = load_config(a.config)

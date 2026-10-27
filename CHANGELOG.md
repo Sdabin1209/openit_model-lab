@@ -1,5 +1,14 @@
 # 변경 이력
 
+## 0.2.9 (제안; 태그 없음) - 전수 점검 지적 반영 (ML-1~6, ML-12)
+- ML-3: 게시 중단 뒤 재시도해도 `list_versions`에 버전이 한 번만 나온다(order에 이미 있으면 추가하지 않고, 읽을 때 중복 제거). 서비스는 시작 때 `.tmp`와 게시 잔해를 지우고 SIGTERM에서 진행 중 요청을 마치고 멈춘다.
+- ML-1: 서버 소켓 timeout, 동시 연결 상한, 동시 게시 1건, 같은 주소의 인증 실패 제한(모두 503 UNAVAILABLE, 환경 변수로 조정).
+- ML-2: 게시 전 여유 공간 검사, 본문 tar 삭제와 하드 링크 저장으로 최대 사용량 약 3배에서 약 2배, 학습 전 점검과 doctor의 디스크 정책(`output.disk_policy` block 기본), runbook의 df 서술 정정.
+- ML-5: `package-adapters --train-record-a/-b`로 학습 기록을 대조해 매니페스트 `ext."model-lab".lineage`에 넣고, 없으면 경고.
+- ML-6: 게시자 기록(역할·주소·시각)을 매니페스트 옆 `.published.json`에 남김. 서명은 하지 않음(제안만).
+- ML-12: 학습 설정 `server.script_sha256`과 `train-doctor`/`train`의 서버 스크립트 해시 비교(서버 접속 없음, 읽히는 환경에서만). ML-14는 문서만.
+- 시험 18건 추가(`tests/test_hardening.py`).
+
 ## 0.2.8 (제안; 태그 없음) - 기반 모델 비교 시험의 호스트 디스크 의존 제거
 - `scripts/compare_base_models.py`: 사용량 예산 가드(`footprint_guard`)를 실제 백엔드(`--backend hf`)에서만 적용한다. 가짜 백엔드는 내려받지 않는데도 후보당 예상 크기를 더해, gpu-dev처럼 HF 캐시와 작업 폴더가 큰 호스트에서 시험이 실패했다. `main(argv)`로 인자를 주입할 수 있게 했다.
 - 시험 2건 추가: 작업 폴더가 예산보다 크게 보여도(희소 파일, HOME/HF_HOME을 tmp로 돌림) 가짜 백엔드는 통과하고, `hf` 백엔드는 여전히 가드로 멈춘다. 같은 종류(호스트 상태 의존) 시험을 tests/에서 훑었으나 더 찾지 못했다(`test_train_wrap`의 디스크 점검은 `min_free_gb=0`, 캐시는 경고뿐).

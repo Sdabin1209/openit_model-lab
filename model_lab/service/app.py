@@ -7,6 +7,11 @@
   MODEL_REGISTRY_ROOT          저장 볼륨(기본 /data)
   MODEL_REGISTRY_PORT          기본 8080 (0이면 빈 포트)
   MODEL_REGISTRY_MAX_BODY      게시 본문 최대 바이트(기본 4GiB)
+  MODEL_REGISTRY_SOCKET_TIMEOUT  연결 하나의 소켓 읽기/쓰기 timeout 초(기본 30; 느린 클라이언트가 스레드를 잡지 못하게 한다, ML-1)
+  MODEL_REGISTRY_MAX_CONNECTIONS 동시 연결 상한(기본 32; 넘으면 503 UNAVAILABLE)
+  MODEL_REGISTRY_MAX_PUBLISHES   동시 게시 상한(기본 1; 넘으면 503 UNAVAILABLE, 디스크와 .tmp를 지킨다)
+  MODEL_REGISTRY_AUTH_FAIL_LIMIT 같은 주소의 인증 실패 상한(기본 10회 / 60초; 넘으면 그 주소는 잠시 503, 상수 시간 비교와 별개의 시도 제한)
+  MODEL_REGISTRY_MIN_FREE_GB     게시 전 요구 여유 공간 GB(기본 1; 본문 크기의 2배 + 이 값이 모자라면 503, ML-2)
 로그는 표준 출력으로, 토큰과 본문은 남기지 않는다."""
 from __future__ import annotations
 
@@ -15,8 +20,12 @@ import json
 import os
 import re
 import shutil
+import signal
 import sys
 import tempfile
+import threading
+import time
+from collections import defaultdict, deque
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
@@ -49,14 +58,53 @@ def parse_tokens(spec: str | None) -> dict[str, str]:
 
 class Service:
     def __init__(self, root: Path, read_tokens: dict, write_tokens: dict, *, max_body: int = 4 << 30,
-                 log=lambda s: print(s, flush=True)):
+                 log=lambda s: print(s, flush=True), socket_timeout: float = 30.0, max_connections: int = 32,
+                 max_publishes: int = 1, auth_fail_limit: int = 10, auth_fail_window: float = 60.0,
+                 min_free_gb: float = 1.0, free_bytes=None):
         for role in write_tokens.values():
             if role != WRITE_ROLE:
                 raise ValueError(f"쓰기 역할은 {WRITE_ROLE}만 허용한다")
-        self.registry = FileModelRegistry(root)
+        self.registry = FileModelRegistry(root, link_on_commit=True)    # 풀어 둔 임시 폴더에서 하드 링크로 올려 디스크를 아낀다
         self.root, self.read, self.write, self.max_body, self.log = Path(root), read_tokens, write_tokens, max_body, log
         self.tmp = Path(root) / ".tmp"
+        self.socket_timeout, self.max_connections = socket_timeout, max_connections
+        self.auth_fail_limit, self.auth_fail_window, self.min_free_gb = auth_fail_limit, auth_fail_window, min_free_gb
+        self._free_bytes = free_bytes or (lambda: shutil.disk_usage(self.root).free)    # 시험에서 주입한다
+        self.publish_slots = threading.BoundedSemaphore(max(1, max_publishes))
+        self._fails: dict = defaultdict(deque)
+        self._fails_mu = threading.Lock()
+        self.startup_cleanup()
+
+    def startup_cleanup(self) -> None:
+        """재시작 후 정상화(ML-3): 이전 실행이 남긴 요청 임시 폴더와 게시 중단 잔해를 지운다. 서버가 시작될 때 한 번만 부른다."""
+        if self.tmp.exists():
+            shutil.rmtree(self.tmp, ignore_errors=True)
         self.tmp.mkdir(parents=True, exist_ok=True)
+        n = self.registry.recover()
+        if n:
+            self.log(f"시작 정리: 게시 중단 잔해 {n}개를 지웠다")
+
+    # ---- 자원 한도(ML-1, ML-2) ----
+    def check_free_space(self, body_bytes: int) -> None:
+        """본문(.tmp) + 풀어 둔 사본이 들어갈 여유(본문의 2배 + min_free_gb)가 없으면 받기 전에 거절한다(FAULT_POLICY 13항: 503)."""
+        need = 2 * body_bytes + int(self.min_free_gb * 2**30)
+        if self._free_bytes() < need:
+            self.log(f"경보: 디스크 여유 부족으로 게시 거절(필요 {need >> 20}MiB, 여유 {self._free_bytes() >> 20}MiB)")
+            raise BoundaryError("UNAVAILABLE", "저장소 여유 공간이 부족하다")
+
+    def auth_blocked(self, addr: str) -> bool:
+        now = time.monotonic()
+        with self._fails_mu:
+            q = self._fails[addr]
+            while q and now - q[0] > self.auth_fail_window:
+                q.popleft()
+            if not q:
+                self._fails.pop(addr, None)
+            return len(q) >= self.auth_fail_limit
+
+    def note_auth_failure(self, addr: str) -> None:
+        with self._fails_mu:
+            self._fails[addr].append(time.monotonic())
 
     # ---- 인증 ----
     def _role(self, tokens: dict, header: str | None) -> str | None:
@@ -97,6 +145,7 @@ def make_handler(svc: Service):
     class H(BaseHTTPRequestHandler):
         protocol_version = "HTTP/1.1"
         server_version = "model-registry"
+        timeout = svc.socket_timeout           # StreamRequestHandler가 연결 소켓에 건다(느린 클라이언트 차단, ML-1)
 
         def log_message(self, fmt, *args):   # 경로만(쿼리·토큰 제외)
             svc.log(f"{self.command} {urlparse(self.path).path} {args[1] if len(args) > 1 else ''}")
@@ -153,7 +202,15 @@ def make_handler(svc: Service):
             if path == "/readyz":
                 ok = svc.ready()
                 return self._json(200 if ok else 503, {"status": "ready" if ok else "not-ready"})
-            svc.authorize(self.command, self.headers.get("Authorization"))
+            addr = self.client_address[0]
+            if svc.auth_blocked(addr):
+                raise BoundaryError("UNAVAILABLE", "인증 시도가 너무 많다. 잠시 뒤 다시 시도한다")
+            try:
+                svc.authorize(self.command, self.headers.get("Authorization"))
+            except BoundaryError as e:
+                if e.code == "PERMISSION_DENIED":
+                    svc.note_auth_failure(addr)
+                raise
             if self.command == "POST":
                 if path != "/v1/packages":
                     raise BoundaryError("NOT_FOUND", "경로가 없다")
@@ -190,6 +247,15 @@ def make_handler(svc: Service):
                 raise BoundaryError("INVALID_RECORD", "Content-Length가 필요하다")
             if n > svc.max_body:
                 raise BoundaryError("INVALID_RECORD", "본문이 너무 크다")
+            if not svc.publish_slots.acquire(blocking=False):      # 동시 게시 상한(ML-1): 기다리게 하지 않고 재시도하게 한다
+                raise BoundaryError("UNAVAILABLE", "다른 게시가 진행 중이다. 잠시 뒤 다시 시도한다")
+            try:
+                self._publish_locked(n)
+            finally:
+                svc.publish_slots.release()
+
+        def _publish_locked(self, n: int) -> None:
+            svc.check_free_space(n)
             with tempfile.TemporaryDirectory(dir=svc.tmp) as td:
                 td = Path(td)
                 body = td / "body.tar"
@@ -201,6 +267,7 @@ def make_handler(svc: Service):
                             raise BoundaryError("INVALID_RECORD", "본문이 중간에 끊겼다")
                         f.write(chunk); left -= len(chunk)
                 tarutil.unpack(body, td / "in", max_bytes=svc.max_body)
+                body.unlink()                      # 풀었으면 본문 tar는 더 필요 없다(최대 사용량을 줄인다, ML-2)
                 mp, rp, ad = td / "in" / "manifest.json", td / "in" / "eval_report", td / "in" / "adapter"
                 if not mp.is_file() or not rp.is_file():
                     raise BoundaryError("INVALID_RECORD", "tar에 manifest.json과 eval_report가 있어야 한다")
@@ -218,7 +285,9 @@ def make_handler(svc: Service):
                     if e.code != "NOT_FOUND":
                         raise
                     existed = False
-                got = svc.registry.publish(manifest, ad, rp.read_bytes())
+                got = svc.registry.publish(manifest, ad, rp.read_bytes(), publisher={
+                    "role": WRITE_ROLE, "remote": self.client_address[0],
+                    "published_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())})
             self._json(200 if existed else 201, got)
 
         def _handle(self):
@@ -250,11 +319,46 @@ def _limit(q: dict) -> int:
 
 
 def make_server(svc: Service, host: str = "127.0.0.1", port: int = 0) -> ThreadingHTTPServer:
-    srv = ThreadingHTTPServer((host, port), make_handler(svc))
-    srv.daemon_threads = True
+    srv = _Server((host, port), make_handler(svc), svc.max_connections)
     return srv
 
 
+class _Server(ThreadingHTTPServer):
+    """동시 연결 상한(ML-1)과 우아한 종료(ML-3). 진행 중 요청을 끊지 않도록 스레드는 daemon이 아니고 server_close가 기다린다."""
+    daemon_threads = False
+    block_on_close = True
+
+    def __init__(self, addr, handler, max_connections: int):
+        super().__init__(addr, handler)
+        self._slots = threading.BoundedSemaphore(max(1, max_connections))
+
+    def process_request(self, request, client_address):
+        if not self._slots.acquire(blocking=False):
+            try:
+                request.settimeout(2)
+                body = json.dumps(BoundaryError("UNAVAILABLE", "연결이 너무 많다").to_record(), ensure_ascii=False).encode()
+                request.sendall(b"HTTP/1.1 503 Service Unavailable\r\nContent-Type: application/json\r\nContent-Length: "
+                                + str(len(body)).encode() + b"\r\nConnection: close\r\n\r\n" + body)
+            except OSError:
+                pass
+            self.shutdown_request(request)
+            return
+        super().process_request(request, client_address)
+
+    def process_request_thread(self, request, client_address):
+        try:
+            super().process_request_thread(request, client_address)
+        finally:
+            self._slots.release()
+
+
+# 아래 기본값의 근거(ADR 0007): 모두 측정하지 않은 보수적 시작값이다. 조정은 환경 변수로 한다. 근거 출처 없음 = 측정 안 함.
+#  소켓 timeout 30초: 정상 클라이언트는 1MiB 조각을 이어 보내므로 한 번의 읽기 대기가 길지 않다는 가정(측정 안 함); 느린 클라이언트가 스레드를 잡는 시간의 상한.
+#  동시 연결 32: 소비자가 release-gate 등 소수이고 게시는 1건뿐이라는 가정(측정 안 함); 스레드 서버의 자원 상한.
+#  동시 게시 1: 게시는 어차피 파일 잠금으로 직렬화되고(registry.py) 본문이 최대 4GiB라 대기시키면 디스크·스레드를 오래 잡는다.
+#  인증 실패 10회/60초: 사람이 토큰을 잘못 넣는 정도는 허용하고 반복 추측만 막는 값(측정 안 함, 표준 값 아님).
+#  여유 공간 = 본문 2배 + 1GB: 본문 tar와 풀어 둔 사본이 동시에 있는 최대 순간(저장은 하드 링크라 추가 사본 없음) + 여유 1GB(근거 기록 없음).
+#  본문 4GiB(MODEL_REGISTRY_MAX_BODY): 어댑터 크기 상한의 여유값. 근거 기록 없음(측정 안 함); 14B bf16이 아닌 LoRA 어댑터는 이보다 훨씬 작다고 가정(추정).
 def main(env=os.environ) -> int:
     try:
         read, write = (parse_tokens(read_secret("MODEL_REGISTRY_READ_TOKENS", environ=env)),
@@ -262,14 +366,30 @@ def main(env=os.environ) -> int:
         if not read and not write:
             raise ValueError("MODEL_REGISTRY_READ_TOKENS 또는 MODEL_REGISTRY_WRITE_TOKENS가 필요하다")
         svc = Service(Path(env.get("MODEL_REGISTRY_ROOT", "/data")), read, write,
-                      max_body=int(env.get("MODEL_REGISTRY_MAX_BODY", 4 << 30)))
+                      max_body=int(env.get("MODEL_REGISTRY_MAX_BODY", 4 << 30)),
+                      socket_timeout=float(env.get("MODEL_REGISTRY_SOCKET_TIMEOUT", 30)),
+                      max_connections=int(env.get("MODEL_REGISTRY_MAX_CONNECTIONS", 32)),
+                      max_publishes=int(env.get("MODEL_REGISTRY_MAX_PUBLISHES", 1)),
+                      auth_fail_limit=int(env.get("MODEL_REGISTRY_AUTH_FAIL_LIMIT", 10)),
+                      min_free_gb=float(env.get("MODEL_REGISTRY_MIN_FREE_GB", 1)))
     except (ValueError, OSError, SecretError) as e:
         print(f"시작 실패: {e}", file=sys.stderr, flush=True)
         return 2
     srv = make_server(svc, env.get("MODEL_REGISTRY_HOST", "0.0.0.0"), int(env.get("MODEL_REGISTRY_PORT", 8080)))
-    print(f"model-registry 시작 포트 {srv.server_address[1]}", flush=True)
+    # SIGTERM(컨테이너 종료)에도 진행 중 요청을 마친 뒤 멈춘다. shutdown은 serve_forever를 돌리는 스레드가 아닌 곳에서 불러야 한다.
+    def _stop(signum, frame):
+        # 신호 처리기는 메인 스레드의 어느 지점에서든 끼어들므로(출력 중일 수도 있다) 여기서는 출력하지 않고 스레드를 시작만 한다
+        threading.Thread(target=lambda: (svc.log("종료 신호: 진행 중 요청을 마치고 멈춘다"), srv.shutdown()), daemon=True).start()
+    try:
+        signal.signal(signal.SIGTERM, _stop)
+    except ValueError:      # 메인 스레드가 아니면(시험) 건너뛴다
+        pass
+    print(f"model-registry 시작 포트 {srv.server_address[1]}", flush=True)     # 신호 처리기를 건 뒤에 알린다
     try:
         srv.serve_forever()
     except KeyboardInterrupt:
         pass
+    finally:
+        srv.server_close()                       # 진행 중 요청 스레드를 기다린다(block_on_close)
+        shutil.rmtree(svc.tmp, ignore_errors=True)
     return 0

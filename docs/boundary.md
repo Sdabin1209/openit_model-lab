@@ -26,6 +26,10 @@
 
 의존은 Git 태그로 고정한다(`requirements.txt`). 개발은 `pip install -e ../boundary-contracts ../turn-engine ../model-runtime`.
 
+## 게시자 기록과 한계 (ML-6, ML-14)
+- 게시 때 서버가 {토큰 역할, 접속 주소, 시각, content_hash}를 `manifests/<패키지>/<버전>.published.json`에 남긴다. 계약의 매니페스트는 바뀌지 않는다. 서명은 없다(사용자·헤드 결정, `docs/runbook.md`에 제안). 전송은 평문 HTTP이고 TLS는 deploy·사용자 결정이다.
+- 패키지 `ext."model-lab".lineage`에 학습 기록 요약이 들어갈 수 있다(`package-adapters --train-record-*`). 비계약 필드다.
+
 ## 경계 오류
 경계 호출(I2·I3)의 실패는 `BoundaryError`다(`NOT_FOUND`, `INVALID_RECORD`, `CONFLICT`, `INTEGRITY_ERROR`, `UNSUPPORTED_VERSION`…). 재시도는 `UNAVAILABLE`일 때만이며 `run-once`가 종료 코드 3으로 알린다. model-runtime의 예외(`ServingConfigMismatch` 등)는 `BoundaryError`가 아니라 설정·환경 오류로 그대로 전달된다. 파이프라인 내부 오류는 `PipelineError`(종료 코드 2).
 

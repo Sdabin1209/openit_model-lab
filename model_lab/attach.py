@@ -9,6 +9,7 @@
 같은 패키지가 된다(멱등)."""
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import shutil
@@ -76,10 +77,43 @@ def _not_evaluated_report(*, role, package, dataset, created_at, decoding, repor
     return r
 
 
+def read_train_record(role: str, path, *, adapter_dir: Path, base: dict, dataset: dict) -> dict:
+    """`train`가 쓴 학습 기록(`*.train-wrap.json`)을 읽어 어댑터·데이터셋·기반 모델과 맞는지 확인하고 패키지에 넣을 계보를 돌려준다(ML-5).
+    어긋나면 PipelineError. 확인하지 못하는 것: 기록이 진짜 서버 실행의 결과인지(기록은 학습 실행기가 쓴 자기 보고다)."""
+    path = Path(path)
+    try:
+        raw = path.read_bytes()
+        rec = json.loads(raw.decode("utf-8"))
+    except (OSError, ValueError):
+        raise PipelineError(f"{role}: 학습 기록을 읽을 수 없다: {path.name}") from None
+    if not isinstance(rec, dict) or rec.get("record_version") != 1:
+        raise PipelineError(f"{role}: 학습 기록 형식이 아니다(record_version 1)")
+    if rec.get("role") != role:
+        raise PipelineError(f"{role}: 학습 기록의 역할({rec.get('role')})이 다르다")
+    rd = rec.get("dataset") or {}
+    for k in ("id", "version"):
+        if rd.get(k) != dataset[k]:
+            raise PipelineError(f"{role}: 학습 기록의 dataset.{k}({rd.get(k)!r})가 입력({dataset[k]!r})과 다르다")
+    if rd.get("content_hash") and rd["content_hash"] != dataset["content_hash"]:
+        raise PipelineError(f"{role}: 학습 기록의 dataset.content_hash가 입력과 다르다")
+    if (rec.get("base_model") or {}).get("id") != base["id"]:
+        raise PipelineError(f"{role}: 학습 기록의 기반 모델이 {base['id']}와 다르다")
+    from .train_wrap import _sha256
+    for f, want in ((rec.get("adapter") or {}).get("files") or {}).items():
+        if f in ADAPTER_FILES and _sha256(Path(adapter_dir) / f) != want:
+            raise PipelineError(f"{role}: 학습 기록의 {f} 해시가 지금 어댑터 파일과 다르다(기록 뒤에 바뀌었거나 다른 실행의 기록이다)")
+    return {"train_record_sha256": "sha256:" + hashlib.sha256(raw).hexdigest(), "config_hash": rec.get("config_hash"),
+            "server_script_sha256": rec.get("server_script_sha256"), "dataset_file_sha256": rd.get("file_sha256"),
+            "base_model": rec.get("base_model"), "hyperparams": rec.get("hyperparams")}
+
+
 def package_adapters(*, config: str | Path, adapters: dict, prompts: dict, out: Path, profile: str | None = None,
                      dataset: dict, training_run_id: str | None = None, version: str | None = None,
-                     base_revision: str | None = None, created_at: str | None = None, registry=None, publish: bool = True) -> dict:
+                     base_revision: str | None = None, created_at: str | None = None, registry=None, publish: bool = True,
+                     train_records: dict | None = None) -> dict:
     """adapters, prompts: {"LORA_A": 경로, "LORA_B": 경로}. dataset: {id, version, content_hash} (어댑터를 학습한 데이터셋).
+    train_records: {"LORA_A": 경로, ...} `train`이 쓴 학습 기록(선택). 있으면 어댑터·데이터셋·기반 모델과 대조해 계보(`ext."model-lab".lineage`)로
+    패키지에 넣는다. 없는 역할은 계보가 비어 있다는 경고를 결과의 `warnings`에 남긴다(ML-5; 계약의 정식 필드 승격은 변경 요청 몫).
     out: 패키지(매니페스트·평가 보고서·어댑터)를 쓸 디렉터리. publish=True면 설정의 registry(또는 인자)에 게시한다."""
     cfg = load_config(config)
     if profile:
@@ -102,6 +136,14 @@ def package_adapters(*, config: str | Path, adapters: dict, prompts: dict, out: 
         if not texts[r].strip():
             raise PipelineError(f"{r}: 시스템 프롬프트 파일이 비어 있다")
     created = created_at or _newest_mtime(*[Path(adapters[r]) / f for r in ROLES for f in ADAPTER_FILES], *[prompts[r] for r in ROLES])
+    lineage, warnings = {}, {}
+    for r in ROLES:
+        rp = (train_records or {}).get(r)
+        if rp:
+            lineage[r] = read_train_record(r, rp, adapter_dir=Path(adapters[r]), base=base, dataset=dataset)
+        else:
+            lineage[r] = {"train_record_sha256": None}
+            warnings[r] = ["학습 기록이 없어 계보(서버 스크립트 해시, 데이터 파일 해시, 하이퍼파라미터)가 패키지에 들어가지 않는다. `train`이 쓴 *.train-wrap.json을 --train-record-*로 준다"]
     contract_version = schemas.contract_version(resolved_path(cfg, cfg["inputs"]["schema_dir"]))
     out = Path(out)
     result = {}
@@ -125,7 +167,7 @@ def package_adapters(*, config: str | Path, adapters: dict, prompts: dict, out: 
             role=r, system_prompt=sp, package_id=pid, version=ver, created_at=created, contract_version=contract_version,
             base_model=base, adapter_dir=ad, serving_config=cfg["serving"][r], dataset_ref=dataset, dataset_manifest={"files": []},
             run_id=run_id, ext={"attached": True, "trainer": "external", "adapter_config_r": confs[r].get("r"),
-                                "evaluated": False})
+                                "evaluated": False, "lineage": lineage[r]})
         rep = _not_evaluated_report(role=r, package={"id": pid, "version": ver, "content_hash": m["content_hash"]},
                                     dataset=dataset, created_at=created, decoding=cfg["serving"][r]["decoding"], report_id=m["eval_report_ref"])
         rb = canonical.canonicalize(rep)
@@ -133,6 +175,8 @@ def package_adapters(*, config: str | Path, adapters: dict, prompts: dict, out: 
         (out / "package" / f"{r}.manifest.json").write_bytes(canonical.canonicalize(m))
         (out / "package" / f"{r}.evaluation-report.json").write_bytes(rb)
         result[r] = {"package_id": pid, "version": ver, "content_hash": m["content_hash"], "adapter_hash": m["adapter_hash"], "published": False}
+        if r in warnings:
+            result[r]["warnings"] = warnings[r]
         if publish:
             reg = registry
             if reg is None:

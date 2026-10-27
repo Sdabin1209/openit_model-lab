@@ -30,7 +30,9 @@ def _check_id(value: str, what: str) -> None:
         raise BoundaryError("INVALID_RECORD", f"{what}가 Id 규칙을 어겼다")
 
 
-def _copy_tree(src: Path, dst: Path) -> None:
+def _copy_tree(src: Path, dst: Path, *, link: bool = False) -> None:
+    """link=True면 같은 파일 시스템에서 하드 링크를 먼저 시도해 디스크를 더 쓰지 않는다(ML-2). 원본이 이후 바뀌지 않는다고
+    보장될 때(서비스가 풀어 둔 임시 폴더)만 켠다. 링크할 수 없으면 복사한다."""
     dst.mkdir(parents=True, exist_ok=True)
     for p in sorted(src.rglob("*")):
         rel = p.relative_to(src)
@@ -38,6 +40,12 @@ def _copy_tree(src: Path, dst: Path) -> None:
             (dst / rel).mkdir(parents=True, exist_ok=True)
         elif p.is_file():
             (dst / rel).parent.mkdir(parents=True, exist_ok=True)
+            if link:
+                try:
+                    os.link(p, dst / rel)
+                    continue
+                except OSError:
+                    pass
             shutil.copyfile(p, dst / rel)
 
 
@@ -58,14 +66,16 @@ class _Core:
     # --- 저장소 동작(하위 클래스) ---
     def _s_get_manifest(self, pid: str, ver: str) -> Optional[dict]: raise NotImplementedError
     def _s_get_report(self, ref: str) -> Optional[bytes]: raise NotImplementedError
-    def _s_commit(self, manifest: dict, adapter_dir: Path, ref: str, report: bytes) -> None: raise NotImplementedError
+    def _s_commit(self, manifest: dict, adapter_dir: Path, ref: str, report: bytes, publisher: Optional[dict] = None) -> None: raise NotImplementedError
     def _s_ids(self) -> list[str]: raise NotImplementedError
     def _s_versions(self, pid: str) -> list[str]: raise NotImplementedError
     def _s_extract(self, pid: str, ver: str, dest: Path) -> None: raise NotImplementedError
     def _lock(self): raise NotImplementedError
 
     # --- I3 ---
-    def publish(self, manifest: dict, adapter_dir: Path, eval_report: bytes) -> dict:
+    def publish(self, manifest: dict, adapter_dir: Path, eval_report: bytes, *, publisher: Optional[dict] = None) -> dict:
+        """publisher: 게시자 기록(ML-6; 예: {"role": ..., "remote": ...}). 매니페스트는 content_hash로 봉인되어 서버가 고칠 수 없으므로
+        파일 구현은 매니페스트 옆 별도 기록에 남긴다. 이미 게시된 것을 다시 게시(멱등)해도 최초 기록을 덮어쓰지 않는다."""
         try:
             self._validate(manifest)
         except Exception as e:  # jsonschema.ValidationError
@@ -100,7 +110,7 @@ class _Core:
             old = self._s_get_report(ref)
             if old is not None and old != eval_report:
                 raise BoundaryError("CONFLICT", "같은 eval_report_ref에 다른 내용이다")
-            self._s_commit(copy.deepcopy(manifest), adapter_dir, ref, eval_report)
+            self._s_commit(copy.deepcopy(manifest), adapter_dir, ref, eval_report, publisher)
         return copy.deepcopy(manifest)
 
     def get_manifest(self, package_id: str, version: str) -> dict:
@@ -166,7 +176,7 @@ class MemoryModelRegistry(_Core):
     def _s_get_manifest(self, pid, ver): return self._m.get((pid, ver))
     def _s_get_report(self, ref): return self._reports.get(ref)
 
-    def _s_commit(self, manifest, adapter_dir, ref, report):
+    def _s_commit(self, manifest, adapter_dir, ref, report, publisher=None):
         pid, ver = manifest["package_id"], manifest["version"]
         files = {p.relative_to(adapter_dir).as_posix(): p.read_bytes()
                  for p in sorted(adapter_dir.rglob("*")) if p.is_file()}
@@ -175,7 +185,8 @@ class MemoryModelRegistry(_Core):
         if pid not in self._vers:
             self._ids.append(pid)
             self._vers[pid] = []
-        self._vers[pid].append(ver)
+        if ver not in self._vers[pid]:
+            self._vers[pid].append(ver)
         self._m[(pid, ver)] = manifest
 
     def _s_ids(self): return list(self._ids)
@@ -197,8 +208,9 @@ class MemoryModelRegistry(_Core):
 class FileModelRegistry(_Core):
     """I3 파일 구현. root 아래 manifests/, adapters/, eval_reports/ 와 ids.json(처음 게시된 순서)."""
 
-    def __init__(self, root: str | Path) -> None:
+    def __init__(self, root: str | Path, *, link_on_commit: bool = False) -> None:
         super().__init__()
+        self.link_on_commit = link_on_commit      # 서비스처럼 원본이 임시 폴더일 때만 True(하드 링크로 디스크 절약)
         self.root = Path(root)
         (self.root / "manifests").mkdir(parents=True, exist_ok=True)
         (self.root / "adapters").mkdir(parents=True, exist_ok=True)
@@ -251,7 +263,7 @@ class FileModelRegistry(_Core):
         p = self.root / "eval_reports" / ref
         return p.read_bytes() if p.is_file() else None
 
-    def _s_commit(self, manifest, adapter_dir, ref, report):
+    def _s_commit(self, manifest, adapter_dir, ref, report, publisher=None):
         pid, ver = manifest["package_id"], manifest["version"]
         final = self.root / "adapters" / pid / ver
         tmp = self.root / "adapters" / pid / f".tmp-{ver}"
@@ -259,7 +271,7 @@ class FileModelRegistry(_Core):
             shutil.rmtree(tmp)
         if final.exists():          # 매니페스트 없는 잔해(이전 게시 중단)
             shutil.rmtree(final)
-        _copy_tree(adapter_dir, tmp)
+        _copy_tree(adapter_dir, tmp, link=self.link_on_commit)
         os.replace(tmp, final)
         self._atomic_write(self.root / "eval_reports" / ref, report)
         ids = self._read_json(self.root / "ids.json", [])
@@ -267,8 +279,12 @@ class FileModelRegistry(_Core):
             ids.append(pid)
             self._atomic_write(self.root / "ids.json", json.dumps(ids).encode())
         order = self._read_json(self._order(pid), [])
-        order.append(ver)
-        self._atomic_write(self._order(pid), json.dumps(order).encode())
+        if ver not in order:        # 중단 뒤 재시도(ML-3): 이미 order에 있으면 다시 넣지 않는다
+            order.append(ver)
+            self._atomic_write(self._order(pid), json.dumps(order).encode())
+        if publisher:
+            self._atomic_write(self.root / "manifests" / pid / f"{ver}.published.json",
+                               json.dumps({**publisher, "content_hash": manifest["content_hash"]}, ensure_ascii=False, sort_keys=True).encode())
         # 매니페스트가 마지막 쓰기다. 이것이 있어야 게시된 것이다.
         self._atomic_write(self._mpath(pid, ver), canonical.canonicalize(manifest))
 
@@ -276,10 +292,29 @@ class FileModelRegistry(_Core):
 
     def _s_versions(self, pid):
         order = self._read_json(self._order(pid), [])
-        return [v for v in order if self._mpath(pid, v).is_file()]
+        seen: set = set()
+        return [v for v in order if v not in seen and not seen.add(v) and self._mpath(pid, v).is_file()]   # 중복 제거(ML-3)
 
     def _s_extract(self, pid, ver, dest):
         _copy_tree(self.root / "adapters" / pid / ver, dest)
+
+    def get_publisher(self, package_id: str, version: str) -> Optional[dict]:
+        """게시자 기록(ML-6). 없으면 None(기록 도입 전에 게시된 패키지)."""
+        try:
+            _check_id(package_id, "package_id"); _check_id(version, "version")
+        except BoundaryError:
+            return None
+        return self._read_json(self.root / "manifests" / package_id / f"{version}.published.json", None)
+
+    def recover(self) -> int:
+        """시작 때 호출한다(ML-3). 게시 중단 잔해(adapters/*/.tmp-*, manifests/**/.tmp-*)를 지우고 지운 개수를 돌려준다.
+        매니페스트 없이 남은 final 디렉터리는 다음 게시가 지우고 다시 쓰므로 여기서 건드리지 않는다."""
+        n = 0
+        for base in ("adapters", "manifests"):
+            for p in (self.root / base).rglob(".tmp-*"):
+                shutil.rmtree(p, ignore_errors=True) if p.is_dir() else p.unlink(missing_ok=True)
+                n += 1
+        return n
 
     def _tamper_adapter(self, pid: str, ver: str) -> None:
         files = sorted(p for p in (self.root / "adapters" / pid / ver).rglob("*") if p.is_file())
