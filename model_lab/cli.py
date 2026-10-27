@@ -1,9 +1,10 @@
-"""명령줄: model-lab run | run-once | status. 모든 동작은 설정 파일 하나가 정한다."""
+"""명령줄: model-lab run | run-once | status | package-adapters. 모든 동작은 설정 파일 하나가 정한다."""
 from __future__ import annotations
 
 import argparse
 import json
 import sys
+from pathlib import Path
 
 from boundary_contracts import BoundaryError
 
@@ -22,8 +23,27 @@ def main(argv=None) -> int:
     o.add_argument("--config", required=True)
     s = sub.add_parser("status", help="실행 기록을 보여 준다")
     s.add_argument("--config", required=True)
+    p = sub.add_parser("package-adapters", help="학습 서버가 만든 어댑터 두 개를 패키지로 만들어 게시한다(D84, 평가 없음)")
+    p.add_argument("--config", required=True, help="서빙 설정·패키지 ID·게시 대상(registry)을 가진 설정 파일")
+    p.add_argument("--profile", help="프로파일 이름(profiles/<이름>.yaml). 기반 모델을 정한다. 생략하면 설정의 profile")
+    p.add_argument("--adapter-a", required=True); p.add_argument("--adapter-b", required=True)
+    p.add_argument("--prompt-a", required=True); p.add_argument("--prompt-b", required=True)
+    p.add_argument("--dataset-id", required=True); p.add_argument("--dataset-version", required=True)
+    p.add_argument("--dataset-hash", required=True, help="어댑터를 학습한 데이터셋의 content_hash(학습 run 기록의 dataset)")
+    p.add_argument("--training-run-id"); p.add_argument("--version"); p.add_argument("--base-revision"); p.add_argument("--created-at")
+    p.add_argument("--out", required=True, help="패키지를 만들 디렉터리")
+    p.add_argument("--no-publish", action="store_true", help="패키지만 만들고 게시하지 않는다")
     a = ap.parse_args(argv)
     try:
+        if a.cmd == "package-adapters":
+            from .attach import package_adapters
+            res = package_adapters(
+                config=a.config, profile=a.profile, out=Path(a.out), publish=not a.no_publish,
+                adapters={"LORA_A": a.adapter_a, "LORA_B": a.adapter_b}, prompts={"LORA_A": a.prompt_a, "LORA_B": a.prompt_b},
+                dataset={"id": a.dataset_id, "version": a.dataset_version, "content_hash": a.dataset_hash},
+                training_run_id=a.training_run_id, version=a.version, base_revision=a.base_revision, created_at=a.created_at)
+            print(json.dumps(res, ensure_ascii=False))
+            return 0
         cfg = load_config(a.config)
         if a.cmd == "run":
             run = Run(cfg)

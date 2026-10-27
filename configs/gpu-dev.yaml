@@ -1,5 +1,6 @@
 # 실제 실행 설정(gpu-dev, 12GB). 데이터셋은 synthetic-data가 낸 파일 저장소를 읽고, 모델 레지스트리와 실패 사례 저장소는 HTTP로 닿는다.
 # 필요한 환경 변수: DATASET_ROOT(데이터셋 루트 경로), MODEL_REGISTRY_URL, MODEL_REGISTRY_WRITE_TOKEN, FAILURE_STORE_URL, FAILURE_STORE_TOKEN
+# (토큰 두 개는 NAME_FILE=<파일 경로>로 줄 수 있고 파일이 우선이다. D84)
 # 네트워크 경계(어느 주소로 닿는지)는 운영에서 사용자와 정하기 전이라 가정이다. 개발에서는 SSH 역터널(docs/runbook.md 맨 위).
 config_version: 1
 profile: ../profiles/gpu-dev-12g.yaml

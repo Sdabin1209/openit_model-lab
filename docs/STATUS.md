@@ -1,5 +1,10 @@
 # STATUS (2026-10-27)
 
+## 11차 갱신: 비밀 파일화, 어댑터 얹기 (D84), 브랜치 `train`
+- boundary-contracts v2.0.2로 올림(requirements*, lock, Dockerfile `BC_SPEC`·라벨). 서비스와 `token_env`가 `read_secret`(NAME_FILE 우선)으로 비밀을 읽는다. 시험 `tests/test_secrets.py`.
+- 어댑터 얹기: 이전에는 어댑터를 받아 패키징만 하는 길이 없었다(패키징은 파이프라인 안의 단계뿐). `model-lab package-adapters`를 추가했다. 가짜 어댑터로 시험(`tests/test_attach.py`). 진짜 어댑터 서빙은 GPU가 필요해 확인하지 못했다.
+- 알려진 것: `.venv`의 turn-engine은 0.3.0이고 requirements의 v0.3.1 메타데이터는 boundary-contracts v2.0.1을 고정한다고 CHANGELOG에 적혀 있다. v2.0.2와 pip 해결이 안 될 수 있어 헤드가 turn-engine 태그를 맞춘다(이번에 올리지 않음) [미확인: `pip install -r requirements.txt` 전체 해결은 시도하지 않았다].
+
 ## 10차 갱신: 파이프라인을 model-runtime v0.6.0 / turn-engine v0.3.0으로 이전 (D74, D75)
 브랜치 `migrate-contracts-2.0.0`(push·태그 안 함).
 

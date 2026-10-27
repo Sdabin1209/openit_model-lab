@@ -12,13 +12,13 @@
 ### model-registry 서비스 환경 변수
 | 이름 | 뜻 |
 | --- | --- |
-| `MODEL_REGISTRY_READ_TOKENS` | `역할=토큰,역할=토큰` (예: `release-gate=...`). 읽기 경로만 허용 |
-| `MODEL_REGISTRY_WRITE_TOKENS` | `model-lab=토큰`. 게시(`POST /v1/packages`). 역할은 `model-lab`만 허용(시작할 때 검사) |
+| `MODEL_REGISTRY_READ_TOKENS_FILE` (개발용 대체: `MODEL_REGISTRY_READ_TOKENS`) | 파일 내용이 `역할=토큰,역할=토큰` (예: `release-gate=...`). 읽기 경로만 허용 |
+| `MODEL_REGISTRY_WRITE_TOKENS_FILE` (개발용 대체: `MODEL_REGISTRY_WRITE_TOKENS`) | 파일 내용이 `model-lab=토큰`. 게시(`POST /v1/packages`). 역할은 `model-lab`만 허용(시작할 때 검사) |
 | `MODEL_REGISTRY_ROOT` | 저장 위치(기본 `/data`, 볼륨 하나). 파일 레지스트리 그대로 |
 | `MODEL_REGISTRY_PORT` / `MODEL_REGISTRY_HOST` | 기본 8080 / 0.0.0.0 |
 | `MODEL_REGISTRY_MAX_BODY` | 게시 본문 상한 바이트(기본 4GiB) |
-토큰이 하나도 없으면 시작하지 않는다(종료 코드 2). 경로·상태 코드는 `../boundary-contracts/HTTP.md`의 I3 절. `/readyz`는 저장소를 읽고 임시 파일을 쓸 수 있을 때 200.
-이미지 라벨: `io.openit.service=model-registry`, `io.openit.revision`(빌드 인자 `REVISION`), `io.openit.contracts.boundary=v1.2.0`, `io.openit.contracts.survey-schema`/`turn-engine`/`model-runtime`은 `n/a`(서비스에 포함하지 않음). 확인: `scripts/smoke_registry.sh`(빌드 -> 빈 포트로 실행 -> healthz/readyz/토큰/게시/조회).
+비밀은 `boundary_contracts.read_secret`(D84)으로 읽는다: `NAME_FILE`(파일 경로)이 있으면 그 파일 내용(앞뒤 공백 제거), 없으면 `NAME` 환경 변수. 운영은 파일(`-v <비밀 폴더>:/run/secrets:ro`와 `…_FILE=/run/secrets/…`), 환경 변수는 개발용이다. 파일을 못 읽거나 비어 있으면 시작하지 않는다(종료 코드 2, 메시지에는 이름·경로만). 토큰이 하나도 없어도 시작하지 않는다. 토큰 값은 로그·`/readyz`·오류 본문에 나오지 않는다(`tests/test_secrets.py`). 경로·상태 코드는 `../boundary-contracts/HTTP.md`의 I3 절. `/readyz`는 저장소를 읽고 임시 파일을 쓸 수 있을 때 200.
+이미지 라벨: `io.openit.service=model-registry`, `io.openit.revision`(빌드 인자 `REVISION`), `io.openit.contracts.boundary=v2.0.2`, `io.openit.contracts.survey-schema`/`turn-engine`/`model-runtime`은 `n/a`(서비스에 포함하지 않음). 확인: `scripts/smoke_registry.sh`(빌드 -> 빈 포트로 실행 -> healthz/readyz/토큰/게시/조회).
 
 ### 입력 저장소 선택 (설정의 `inputs.*`)
 | 입력 | 팩토리 | 인자 |
@@ -27,13 +27,13 @@
 | 데이터셋(I2, 시험용) | `tests.doubles.dataset_store:from_dir` | 합성 v2 샘플로 만든 가짜 데이터. `configs/gpu-dev-fixture-*.yaml`이 쓴다 |
 | 실패 사례(I7) | `boundary_contracts.clients:HttpFailureStore` | `base_url`/`base_url_env`, `token`/`token_env` |
 | 문항(I1, 자리만) | `boundary_contracts.clients:HttpQuestionReader` | 같은 방식 |
-실제 실행 설정 예: `configs/gpu-dev.yaml`(환경 변수 `DATASET_ROOT`, `MODEL_REGISTRY_URL`, `MODEL_REGISTRY_WRITE_TOKEN`, `FAILURE_STORE_URL`, `FAILURE_STORE_TOKEN`). `configs/gpu-dev-fixture-*.yaml`과 `configs/dryrun.yaml`은 시험용이다.
+실제 실행 설정 예: `configs/gpu-dev.yaml`(환경 변수 `DATASET_ROOT`, `MODEL_REGISTRY_URL`, `MODEL_REGISTRY_WRITE_TOKEN`, `FAILURE_STORE_URL`, `FAILURE_STORE_TOKEN`). 설정의 `token_env: NAME`은 `NAME_FILE`(파일 경로)이 있으면 그 파일을, 없으면 `NAME` 환경 변수를 읽는다(D84). `configs/gpu-dev-fixture-*.yaml`과 `configs/dryrun.yaml`은 시험용이다.
 
 ### 회귀 평가 (I7)
 `evaluation.regression: {enabled, limit_cases, label}`로 켜고 끈다(기본 꺼짐). 켜면 `inputs.failure_store`에서 `review_status=CONFIRMED`이고 `expected`가 있는 최신 FailureCase를 읽어, 비식별 trace의 `parser_input`/`generator_input`을 입력으로 후보 어댑터를 평가하고 정답과의 일치를 보고서의 `regression` 절(`aggregate`, `by_failure_type`, `not_matching`)에 담는다. 종류는 `expected_kind`, 없으면 expected의 형태(`items` = 파서, `response_text` = 생성기)로 판별한다. trace가 없거나 입력이 없거나 입력 계약을 어기면 건너뛰고 사유(`skipped`: `trace_not_found`, `trace_input_missing`, `input_invalid`, `expected_invalid`, `kind_unknown`)와 건수·사례 ID를 남긴다. 임계치는 없다. 실패 사례 저장소 내용은 run_id에 들어가지 않으므로 집합이 달라졌을 때 새 run을 원하면 `label`을 바꾼다.
 
 ### 개발에서의 데이터·네트워크 절차 (한 단락, 운영의 네트워크 경계는 사용자와 정하기 전이라 **가정**)
-데이터셋 이동: synthetic-data의 출력 폴더(데이터셋 루트)를 `rsync -a <루트>/ gpu-dev:openit-gpu/datasets/`로 gpu-dev에 옮기고 잡 환경에 `DATASET_ROOT=$HOME/openit-gpu/datasets`를 준다(이미 게시된 버전은 불변이라 증분 rsync가 안전하다). 레지스트리 접근: gpu-dev에서는 서빙 서버의 model-registry가 직접 닿지 않으므로 개발에서는 서버 쪽에서 SSH 역터널을 연다: `ssh -N -R 127.0.0.1:18080:127.0.0.1:<레지스트리 포트> gpu-dev`(실패 사례 저장소도 같은 방식으로 다른 포트). 그러면 호스트에서 `MODEL_REGISTRY_URL=http://127.0.0.1:18080`이다. 쓰기 토큰은 파일·명령줄에 두지 않고 표준 입력으로 넘겨 환경 변수로만 준다: `printf %s "$TOKEN" | ssh gpu-dev 'read -r MODEL_REGISTRY_WRITE_TOKEN; export MODEL_REGISTRY_WRITE_TOKEN MODEL_REGISTRY_URL=http://127.0.0.1:18080 DATASET_ROOT=$HOME/openit-gpu/datasets; cd openit-gpu/model-lab && setsid nohup flock -w 1800 ~/openit-gpu/.gpu.lock .venv/bin/python -m model_lab run-once --config configs/gpu-dev.yaml > run.log 2>&1 &'`. 터널이 끊기면 게시가 `UNAVAILABLE`(종료 코드 3)로 멈추고 학습 결과는 남으므로 터널을 다시 열고 같은 명령을 실행한다. 운영(실제 스테이션)에서 어떤 주소·인증·방화벽으로 닿게 할지는 정해지지 않았다.
+데이터셋 이동: synthetic-data의 출력 폴더(데이터셋 루트)를 `rsync -a <루트>/ gpu-dev:openit-gpu/datasets/`로 gpu-dev에 옮기고 잡 환경에 `DATASET_ROOT=$HOME/openit-gpu/datasets`를 준다(이미 게시된 버전은 불변이라 증분 rsync가 안전하다). 레지스트리 접근: gpu-dev에서는 서빙 서버의 model-registry가 직접 닿지 않으므로 개발에서는 서버 쪽에서 SSH 역터널을 연다: `ssh -N -R 127.0.0.1:18080:127.0.0.1:<레지스트리 포트> gpu-dev`(실패 사례 저장소도 같은 방식으로 다른 포트). 그러면 호스트에서 `MODEL_REGISTRY_URL=http://127.0.0.1:18080`이다. 쓰기 토큰은 명령줄에 두지 않고 표준 입력으로 넘긴다. 개발에서는 환경 변수 대체를 쓴다(운영은 `MODEL_REGISTRY_WRITE_TOKEN_FILE`로 권한 0600 파일을 가리킨다): `printf %s "$TOKEN" | ssh gpu-dev 'read -r MODEL_REGISTRY_WRITE_TOKEN; export MODEL_REGISTRY_WRITE_TOKEN MODEL_REGISTRY_URL=http://127.0.0.1:18080 DATASET_ROOT=$HOME/openit-gpu/datasets; cd openit-gpu/model-lab && setsid nohup flock -w 1800 ~/openit-gpu/.gpu.lock .venv/bin/python -m model_lab run-once --config configs/gpu-dev.yaml > run.log 2>&1 &'`. 터널이 끊기면 게시가 `UNAVAILABLE`(종료 코드 3)로 멈추고 학습 결과는 남으므로 터널을 다시 열고 같은 명령을 실행한다. 운영(실제 스테이션)에서 어떤 주소·인증·방화벽으로 닿게 할지는 정해지지 않았다.
 
 ### run-once 잡
 - 명령: `python -m model_lab run-once --config <설정 파일>` (또는 `model-lab run-once`). 출력은 JSON 한 줄: `{"action": "ran"|"skip", "run_id": ..., "dataset_version": ...}`.
@@ -43,7 +43,7 @@
 - 설정 형식(요약, 정본은 `model_lab/config.py`의 `CONFIG_SCHEMA`와 `docs/design.md` 3절). 예: `configs/gpu-dev-fixture-smoke.yaml`.
   - `profile`: 학습 프로파일(`profiles/gpu-dev-12g.yaml`: 기반 모델, 양자화, 최대 길이, 배치, 학습률, 에폭, GPU 수·메모리 비율, `checks.max_lora_rank`)
   - `inputs.dataset`: `{id, version?}` (version 생략 = 최신), `inputs.dataset_store`: 읽기 SDK 팩토리
-  - `registry`: 게시 대상. 로컬 `{kind: file, path}` 또는 원격 `{kind: http, base_url, token_env, timeout}`(`boundary_contracts.clients.HttpModelRegistry`, boundary-contracts v1.2.0). `token_env`가 가리키는 환경 변수(쓰기 토큰)를 잡 실행 환경에 준다
+  - `registry`: 게시 대상. 로컬 `{kind: file, path}` 또는 원격 `{kind: http, base_url, token_env, timeout}`(`boundary_contracts.clients.HttpModelRegistry`). `token_env`가 가리키는 이름의 `_FILE` 경로 파일 또는 환경 변수(쓰기 토큰)를 잡 실행 환경에 준다
   - 이웃 읽기 SDK는 모두 `{factory: "pkg.mod:fn", args: {..., token_env: 변수}}`로 고른다. `*_env` 인자는 환경 변수 값으로 바뀐다. `inputs.question_reader`, `inputs.failure_store` 자리는 열려 있으나 아직 쓰지 않는다
 - 필요 환경: GPU 호스트에 `requirements.lock` + `requirements-train.txt`(torch 등), 모델 캐시(`~/.cache/huggingface`), `flock ~/openit-gpu/.gpu.lock`으로 GPU 직렬화(D47).
 - 다른 호스트의 서버에 게시할 때: GPU 호스트에서 서버 주소로 HTTP가 닿아야 하고, 쓰기 토큰은 잡 실행 환경에만 둔다. 어댑터(수십~수백 MB)는 게시 때 tar로 올라간다.
@@ -74,7 +74,7 @@ D22 (2): 서비스가 없는 run-once 잡이라 Dockerfile 없이 `requirements.
 1. 코드 보내기(비밀 값 없음, 호스트에서 GitHub 접속 없음):
    `rsync -a --exclude .venv --exclude .git --exclude runs --exclude fixtures ./ gpu-dev:openit-gpu/model-lab/`
    호스트에는 이웃 폴더가 없다. 태그에서 만든 wheel과 문진 스키마 사본을 `vendor/`(gitignore)에 두고 보낸다:
-   `pip wheel --no-deps -w vendor/wheels "git+file://<경로>/boundary-contracts@v2.0.0"` (turn-engine@v0.2.0, model-runtime@v0.4.0도 같이), `vendor/survey-schema/{schemas,CONTRACT_VERSION}`.
+   `pip wheel --no-deps -w vendor/wheels "git+file://<경로>/boundary-contracts@v2.0.2"` (turn-engine@v0.2.0, model-runtime@v0.4.0도 같이), `vendor/survey-schema/{schemas,CONTRACT_VERSION}`.
 2. 호스트 환경(처음 한 번): `cd ~/openit-gpu/model-lab && python3 -m venv .venv && .venv/bin/pip install vendor/wheels/*.whl pyyaml pytest -r requirements-train.txt`
 3. 시험 데이터: `.venv/bin/python scripts/make_fixture_dataset.py fixtures/store`
 4. 실행(긴 작업은 분리하고 로그를 본다. GPU 명령은 반드시 락으로 감싼다):
@@ -105,3 +105,24 @@ D22 (2): 서비스가 없는 run-once 잡이라 Dockerfile 없이 `requirements.
 ## 학습 서버 데이터셋 확인과 시스템 프롬프트 (2.0.0)
 - 서버 데이터는 읽기만 한다(`ssh openit cat ~/taehyeon/data/dataset_10_14/lora_{a,b}_{train,val,test}.jsonl`). 받은 파일은 `runs/_server_ds/`(gitignore)에 두고 `.venv/bin/python scripts/check_server_dataset.py runs/_server_ds`로 모든 줄의 계약 검증과 글자 단위 왕복을 확인한다.
 - `prompts/lora_{a,b}.system.txt`는 서버 데이터의 system 메시지를 바이트 그대로 둔 것이다. 데이터가 바뀌면 `tests/test_packager_v2.py::test_repo_prompts_are_the_ones_in_the_server_dataset_rows`가 고정 샘플 줄과의 불일치를 알려 주지만 새 데이터 전체와의 비교는 `read_server_file`로 직접 한다(시스템 프롬프트가 한 종이 아니면 중단한다).
+
+## 학습 서버 어댑터를 얹는 절차 (D84)
+
+학습 서버가 만든 LoRA 어댑터(A, B 각각 `adapter_model.safetensors` + `adapter_config.json`)를 모델 패키지로 만들어 model-registry에 게시한다. 파이프라인(학습·평가·패키징·게시)을 다시 돌리지 않는다. 명령은 `model-lab package-adapters`(`model_lab/attach.py`, 시험 `tests/test_attach.py`)다. 이 길은 **평가하지 않는다**: 게시되는 EvaluationReport는 지표 `evaluated`가 `n=0`이고 노트에 "평가하지 않았다"를 적는다. 평가는 별도다.
+
+현재 상태: 가짜 어댑터(작은 safetensors)로 패키지가 만들어지고 파일 레지스트리에 게시·재게시(멱등)되고 어댑터 해시가 다시 맞는 것까지 시험했다. 진짜 어댑터로 실제 모델을 불러 서빙하는 것은 GPU가 필요해 확인하지 못했다 [구멍: GPU].
+
+1. **[사용자가 직접] 어댑터를 가져온다.** 이 리포지토리의 세션은 학습 서버에 접속하지 않는다. 학습 서버의 어댑터 디렉터리(예: `<run>/adapters/LORA_A`, `<run>/adapters/LORA_B`)를 읽기만 하는 복사로 가져온다. 예(경로는 서버에서 확인): `rsync -a openit:<경로>/adapters/LORA_A/ ./attach/LORA_A/` 와 `LORA_B`. 학습한 데이터셋의 `id`, `version`, `content_hash`는 서버 run 기록(`run.json`의 `dataset`)에 있다.
+2. 시스템 프롬프트는 학습에 쓴 것과 같은 파일을 준다(`prompts/lora_a.system.txt`, `prompts/lora_b.system.txt`). 파일 내용이 패키지의 `system_prompt.sha256`에 들어가므로 학습 때와 다르면 안 된다.
+3. 패키지만 만들어 본다(게시 안 함):
+```
+.venv/bin/python -m model_lab package-adapters --config configs/gpu-dev.yaml --profile gpu-dev-12g \
+  --adapter-a attach/LORA_A --adapter-b attach/LORA_B \
+  --prompt-a prompts/lora_a.system.txt --prompt-b prompts/lora_b.system.txt \
+  --dataset-id <id> --dataset-version <version> --dataset-hash <sha256:...> \
+  --out runs/attach-<날짜> --no-publish
+```
+   출력은 역할별 `package_id`, `version`(`attach-<어댑터 해시 앞 12자>`), `content_hash`, `adapter_hash`다. 매니페스트·평가 보고서는 `--out/package/`, 어댑터(두 파일 + `system_prompt.txt`만 복사)는 `--out/adapters/`에 있다.
+4. 게시한다: 위 명령에서 `--no-publish`를 뺀다. 게시 대상은 설정의 `registry`다(`configs/gpu-dev.yaml`은 `MODEL_REGISTRY_URL`, 쓰기 토큰 `MODEL_REGISTRY_WRITE_TOKEN_FILE` 또는 개발용 `MODEL_REGISTRY_WRITE_TOKEN`). 같은 입력으로 다시 실행해도 안전하다(같은 패키지는 200으로 그대로, 다른 내용이 같은 버전이면 `CONFLICT`).
+5. 검사(실패하면 아무것도 게시하지 않고 종료 코드 2): 어댑터 디렉터리에 `adapter_model.safetensors`와 `adapter_config.json`이 있어야 한다. `adapter_config.json`의 `base_model_name_or_path`가 프로파일의 `base_model.id`와 같아야 한다(다르면 거부). 프로파일에 `checks.max_lora_rank`가 있으면 어댑터의 `r`이 그 이하여야 한다. 기반 모델 `revision`은 프로파일 값(`main`)이거나 `--base-revision`으로 준 값이다. 어댑터 안에는 해석된 커밋이 없어서, 학습 run 기록의 `base_model_revision`을 알면 `--base-revision`으로 주는 것이 정확하다.
+6. 서빙 설정(`serving`)은 `--config`의 값이 매니페스트에 들어간다. 서빙 쪽 model-runtime이 기대하는 값(`prompt_template_version`, `relax_policy_version` 등)과 같아야 한다.

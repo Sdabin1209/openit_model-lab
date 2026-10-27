@@ -1,5 +1,9 @@
 # 변경 이력
 
+## 0.2.1 (제안; 태그 없음, 브랜치 train)
+- boundary-contracts v2.0.2(D84). 비밀(`MODEL_REGISTRY_READ_TOKENS`, `MODEL_REGISTRY_WRITE_TOKENS`, 설정의 `token_env` 전부)을 `boundary_contracts.read_secret`로 읽는다: `NAME_FILE` 경로 우선, 없으면 `NAME` 환경 변수. 값이 로그·`/readyz`·오류에 나오지 않는 시험(`tests/test_secrets.py`). 이미지 스모크는 토큰을 파일로 준다. turn-engine·model-runtime 태그는 올리지 않았다.
+- `model-lab package-adapters`(`model_lab/attach.py`): 학습 서버 어댑터 두 개 + 시스템 프롬프트 두 개 + 프로파일 -> 패키지 -> 게시. 기반 모델 불일치·필수 파일 누락·순위 초과는 거부. 평가는 하지 않고 보고서에 그렇게 표시한다. 런북 "학습 서버 어댑터를 얹는 절차".
+
 ## 0.2.0 (제안, 이전 중; 태그 없음)
 - boundary-contracts v2.0.0(D74, D75). v1 레코드는 읽지 않는다.
 - 변환기: 학습 서버 messages <-> ActionExtractionSample/ResponseSample(`transform.py`), 검증 스크립트 `scripts/check_server_dataset.py`.

@@ -1,8 +1,9 @@
 """model-registry 서비스(I3 서버). HTTP.md의 I3 표와 CONVENTIONS 9절을 따른다. 표준 라이브러리만 쓴다.
 
-환경 변수(진입점 `python -m model_lab.service`가 읽는다):
-  MODEL_REGISTRY_READ_TOKENS   역할=토큰,역할=토큰  (읽기 경로만)
-  MODEL_REGISTRY_WRITE_TOKENS  model-lab=토큰         (쓰기 경로. 역할은 model-lab만 허용)
+환경 변수(진입점 `python -m model_lab.service`가 읽는다). 비밀 두 개는 boundary_contracts.read_secret(D84)으로 읽는다:
+  MODEL_REGISTRY_READ_TOKENS_FILE / MODEL_REGISTRY_READ_TOKENS    역할=토큰,역할=토큰  (읽기 경로만)
+  MODEL_REGISTRY_WRITE_TOKENS_FILE / MODEL_REGISTRY_WRITE_TOKENS  model-lab=토큰         (쓰기 경로. 역할은 model-lab만 허용)
+  (NAME_FILE이 있으면 그 파일 내용, 없으면 NAME 환경 변수. 운영은 파일, 환경 변수는 개발용)
   MODEL_REGISTRY_ROOT          저장 볼륨(기본 /data)
   MODEL_REGISTRY_PORT          기본 8080 (0이면 빈 포트)
   MODEL_REGISTRY_MAX_BODY      게시 본문 최대 바이트(기본 4GiB)
@@ -20,7 +21,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
-from boundary_contracts import BoundaryError
+from boundary_contracts import BoundaryError, SecretError, read_secret
 
 from ..registry import FileModelRegistry
 from . import tarutil
@@ -256,12 +257,13 @@ def make_server(svc: Service, host: str = "127.0.0.1", port: int = 0) -> Threadi
 
 def main(env=os.environ) -> int:
     try:
-        read, write = parse_tokens(env.get("MODEL_REGISTRY_READ_TOKENS")), parse_tokens(env.get("MODEL_REGISTRY_WRITE_TOKENS"))
+        read, write = (parse_tokens(read_secret("MODEL_REGISTRY_READ_TOKENS", environ=env)),
+                       parse_tokens(read_secret("MODEL_REGISTRY_WRITE_TOKENS", environ=env)))
         if not read and not write:
             raise ValueError("MODEL_REGISTRY_READ_TOKENS 또는 MODEL_REGISTRY_WRITE_TOKENS가 필요하다")
         svc = Service(Path(env.get("MODEL_REGISTRY_ROOT", "/data")), read, write,
                       max_body=int(env.get("MODEL_REGISTRY_MAX_BODY", 4 << 30)))
-    except (ValueError, OSError) as e:
+    except (ValueError, OSError, SecretError) as e:
         print(f"시작 실패: {e}", file=sys.stderr, flush=True)
         return 2
     srv = make_server(svc, env.get("MODEL_REGISTRY_HOST", "0.0.0.0"), int(env.get("MODEL_REGISTRY_PORT", 8080)))

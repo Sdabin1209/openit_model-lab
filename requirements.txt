@@ -1,5 +1,5 @@
 # 경계 계약·라이브러리는 Git 태그로 고정한다(D18, D22). 개발은 pip install -e ../boundary-contracts ../turn-engine ../model-runtime
-boundary-contracts @ git+ssh://git@github.com/Sdabin1209/openit_boundary-contracts.git@v2.0.1
+boundary-contracts @ git+ssh://git@github.com/Sdabin1209/openit_boundary-contracts.git@v2.0.2
 turn-engine @ git+ssh://git@github.com/Sdabin1209/openit_turn-engine.git@v0.3.1
 model-runtime @ git+ssh://git@github.com/Sdabin1209/openit_model-runtime.git@v0.6.5
 jsonschema>=4

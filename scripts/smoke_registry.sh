@@ -13,8 +13,12 @@ WHL=$(ls vendor/wheels/boundary_contracts-"$BC_VER"-*.whl | head -1)
 docker build -q --build-context wheels=vendor/wheels --build-arg "BC_SPEC=/wheels/$(basename "$WHL")" \
   --build-arg "REVISION=$(git rev-parse --short HEAD 2>/dev/null || echo unknown)" -t "$TAG" .
 docker volume create "$NAME-data" >/dev/null
+# 토큰은 환경 변수가 아니라 파일로 준다(D84, NAME_FILE). 컨테이너 사용자(uid 10001)가 읽도록 0644, 끝나면 지운다.
+SECRETS=$(mktemp -d); trap 'rm -rf "$SECRETS"; docker rm -f "$NAME" >/dev/null 2>&1 || true; docker volume rm "$NAME-data" >/dev/null 2>&1 || true; docker rmi "$TAG" >/dev/null 2>&1 || true' EXIT
+printf 'release-gate=read-secret\n' > "$SECRETS/read"; printf 'model-lab=write-secret\n' > "$SECRETS/write"; chmod 755 "$SECRETS"; chmod 644 "$SECRETS"/*
 docker run -d --name "$NAME" -p 127.0.0.1::8080 -v "$NAME-data":/data \
-  -e MODEL_REGISTRY_READ_TOKENS=release-gate=read-secret -e MODEL_REGISTRY_WRITE_TOKENS=model-lab=write-secret "$TAG" >/dev/null
+  -v "$SECRETS":/run/secrets:ro \
+  -e MODEL_REGISTRY_READ_TOKENS_FILE=/run/secrets/read -e MODEL_REGISTRY_WRITE_TOKENS_FILE=/run/secrets/write "$TAG" >/dev/null
 PORT=$(docker port "$NAME" 8080/tcp | head -1 | sed 's/.*://')
 URL="http://127.0.0.1:$PORT"
 for i in $(seq 1 30); do curl -fsS "$URL/healthz" >/dev/null 2>&1 && break; sleep 1; done
@@ -28,4 +32,6 @@ echo "labels: $(docker inspect -f '{{json .Config.Labels}}' "$TAG")"
 [ "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Authorization: Bearer read-secret' --data-binary x "$URL/v1/packages")" = 403 ]
 # 게시와 조회(클라이언트 대역으로)
 .venv/bin/python scripts/smoke_client.py "$URL" write-secret read-secret
+# 비밀 값이 로그에 없다
+! docker logs "$NAME" 2>&1 | grep -q -e read-secret -e write-secret
 echo SMOKE_OK

@@ -1,12 +1,14 @@
 """설정의 팩토리 명세로 이웃 영역의 읽기 SDK·원격 레지스트리를 만든다(HTTP 클라이언트로 바꿀 수 있는 구조, D49).
 
-명세: {"factory": "pkg.module:callable", "args": {...}}. args의 `<이름>_env: 변수` 항목은 환경 변수 값으로 바꿔
-`<이름>`으로 넘긴다(비밀 값은 설정 파일에 두지 않고 진입점이 환경에서 읽는다, CONVENTIONS 7절)."""
+명세: {"factory": "pkg.module:callable", "args": {...}}. args의 `<이름>_env: 변수` 항목은 `boundary_contracts.read_secret(변수)`로 읽어
+`<이름>`으로 넘긴다(`변수_FILE` 경로의 파일이 우선, 없으면 `변수` 환경 변수, D84. 비밀 값은 설정 파일에 두지 않는다)."""
 from __future__ import annotations
 
 import importlib
 import os
 from typing import Mapping
+
+from boundary_contracts import SecretError, read_secret
 
 from .errors import ConfigError, PipelineError
 
@@ -22,9 +24,10 @@ def resolve_args(args: Mapping, env: Mapping = os.environ) -> dict:
     out = {}
     for k, v in args.items():
         if k.endswith("_env") and isinstance(v, str):
-            if v not in env:
-                raise ConfigError(f"환경 변수 {v}가 없다")
-            out[k[:-4]] = env[v]
+            try:   # NAME_FILE(파일 경로)이 있으면 그 내용, 없으면 NAME 환경 변수(D84). 값은 오류에 담기지 않는다
+                out[k[:-4]] = read_secret(v, environ=env, required=True)
+            except SecretError as e:
+                raise ConfigError(str(e)) from None
         else:
             out[k] = v
     return out
