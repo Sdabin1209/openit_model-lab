@@ -7,6 +7,7 @@
 - 데이터셋 파일 역할 LORA_A/LORA_B, 샘플 검증은 v2 샘플 스키마.
 - model-runtime v0.6.0, turn-engine v0.3.0(태그)로 올림. 서빙 설정 prompt-3 / protect-2.
 - model-runtime v0.6.4로 올림. 서빙 설정 relax-2(supported_features에 pattern, minItems 추가; relax-1은 거부). 설정·시험의 relax_policy_version을 relax-2로 바꿈.
+- boundary-contracts v2.0.1(ActionExtraction properties 순서만 바뀐 PATCH), model-runtime v0.6.5로 올림. 서빙 설정 relax_policy_version은 relax-3. 설정·시험·비교 스크립트의 값을 relax-3으로 바꿈.
 - 파이프라인: 학습 데이터 변환은 v0.6.0 `render_prompt`(시스템 프롬프트 포함), 학습 직후 시스템 프롬프트를 어댑터 디렉터리에 넣는다(adapter_hash 포함), 평가는 `extract_raw`(A, 보호 없음) / `respond_raw`·`respond`(B). 샘플에 문항 세트가 없으면 파일의 문항 세트(하나일 때)로 채움.
 - 평가·지표: A는 score_a_v2.py 이름과 규칙, B는 끝맺음·다음 질문·새 숫자·금지 표현·문장 수(`text_rules.py`). v1 지표(risk_signal_* 등) 삭제. 상세 보고서 `report_version: 2`.
 - 회귀: `expected_kind` LORA_A/LORA_B, 입력은 ActionExtractionInput / ResponseRequest로 검증. trace 입력 키는 추정(미정).
