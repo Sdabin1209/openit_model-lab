@@ -139,6 +139,23 @@ def test_rejected_upload_still_returns_real_error_not_connection_reset(server):
     """본문을 읽기 전에 403/400으로 답하면 아직 보내는 중인 클라이언트가 연결 초기화(UNAVAILABLE)를 본다.
     서버가 본문을 비우고 답하는지 큰 본문으로 반복 확인한다(간헐 실패의 회귀 시험)."""
     big = b"x" * (40 * 1024 * 1024)
+    small = b"x" * (512 * 1024)        # 거절 때 서버가 버리는 상한(DRAIN_CAP 1MiB) 이내
     for _ in range(8):
-        assert raw(server + "/v1/packages", "POST", "rt", big)[0] == 403          # 읽기 토큰
-        assert raw(server + "/v1/packages", "POST", "wt", big)[0] == 400          # tar가 아님
+        assert raw(server + "/v1/packages", "POST", "rt", small)[0] == 403        # 읽기 토큰: 본문을 다 읽지 않고 답해도 실제 오류가 보인다
+        assert raw(server + "/v1/packages", "POST", "wt", big)[0] == 400          # tar가 아님(수락된 업로드는 끝까지 읽는다)
+
+
+def test_rejection_does_not_read_a_huge_body_and_closes_the_connection(server):
+    """거절(권한 없음)이 본문을 상한 없이 읽지 않는다(ML-1 재점검 L). 큰 본문이면 연결 초기화로 끝날 수 있고(재시도 가능한 UNAVAILABLE),
+    그 대신 서버는 DRAIN_CAP 넘게 읽지 않는다."""
+    import socket
+    import time
+    host, port = server.replace("http://", "").split(":")
+    s = socket.create_connection((host, int(port)))
+    s.sendall(b"POST /v1/packages HTTP/1.1\r\nHost: x\r\nAuthorization: Bearer rt\r\nContent-Length: " + str(4 << 30).encode() + b"\r\n\r\n")
+    s.settimeout(5)
+    t0 = time.time()
+    data = s.recv(4096)
+    assert b" 403 " in data.split(b"\r\n")[0] and b"Connection: close" in data       # 본문을 한 바이트도 보내지 않았는데 답한다
+    assert time.time() - t0 < 5
+    s.close()

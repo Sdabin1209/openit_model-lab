@@ -310,10 +310,11 @@ class FileModelRegistry(_Core):
         """시작 때 호출한다(ML-3). 게시 중단 잔해(adapters/*/.tmp-*, manifests/**/.tmp-*)를 지우고 지운 개수를 돌려준다.
         매니페스트 없이 남은 final 디렉터리는 다음 게시가 지우고 다시 쓰므로 여기서 건드리지 않는다."""
         n = 0
-        for base in ("adapters", "manifests"):
-            for p in (self.root / base).rglob(".tmp-*"):
-                shutil.rmtree(p, ignore_errors=True) if p.is_dir() else p.unlink(missing_ok=True)
-                n += 1
+        with self._lock():      # 같은 루트를 쓰는 다른 프로세스의 게시가 만드는 .tmp-*를 지우지 않도록 게시와 같은 잠금 안에서 한다
+            for base in ("adapters", "manifests"):
+                for p in (self.root / base).rglob(".tmp-*"):
+                    shutil.rmtree(p, ignore_errors=True) if p.is_dir() else p.unlink(missing_ok=True)
+                    n += 1
         return n
 
     def _tamper_adapter(self, pid: str, ver: str) -> None:

@@ -164,7 +164,7 @@ def test_connection_cap_answers_503_and_idle_connection_times_out(tmp_path):
         srv.shutdown()
 
 
-def test_repeated_bad_tokens_are_throttled_per_address(tmp_path):
+def test_repeated_bad_tokens_are_throttled_but_valid_tokens_always_pass(tmp_path):
     svc, srv, url = start(tmp_path, auth_fail_limit=3)
     try:
         def get(tok):
@@ -174,11 +174,16 @@ def test_repeated_bad_tokens_are_throttled_per_address(tmp_path):
             except urllib.error.HTTPError as e:
                 return e.code
         assert [get("bad") for _ in range(3)] == [403, 403, 403]
-        assert get("rt") == 503                                                     # 올바른 토큰도 잠시 막힌다
-        assert get("rt") == 503 and svc.auth_blocked("127.0.0.1")
-        svc.auth_fail_window = 0.0                                                  # 창이 지나면 풀린다
+        assert get("bad") == 503 and svc.auth_blocked("127.0.0.1")                  # 틀린 토큰은 제한된다
+        assert get("rt") == 200 and get("wt") == 200                                 # 같은 주소의 정상 토큰은 영향이 없다(프록시 뒤 호출자)
+        assert post_pkg(url, tmp_path)[0] == 201                                     # 쓰기도 마찬가지
+        # 유효한 읽기 토큰으로 쓰기를 시도한 403(역할 부족)은 실패 횟수에 넣지 않는다
+        before = len(svc._fails.get("127.0.0.1", []))
+        assert post_pkg(url, tmp_path, token="rt", payload=b"z")[0] == 403
+        assert len(svc._fails.get("127.0.0.1", [])) == before
+        svc.auth_fail_window = 0.0                                                   # 창이 지나면 틀린 토큰도 다시 403
         time.sleep(0.01)
-        assert get("rt") == 200
+        assert get("bad") == 403
     finally:
         srv.shutdown()
 
@@ -280,3 +285,55 @@ def test_train_record_that_does_not_match_is_rejected(setup, mut, msg):  # noqa:
     recs = {"LORA_A": _record(kw, "LORA_A", **mut), "LORA_B": _record(kw, "LORA_B")}
     with pytest.raises(PipelineError, match=msg):
         package_adapters(**kw, publish=False, train_records=recs)
+
+
+# ---------- ML-2 재점검: 유휴 keep-alive 연결이 있어도 빨리 끝난다 ----------
+def test_sigterm_with_idle_keepalive_connection_exits_fast(tmp_path):
+    env_ = {**os.environ, "MODEL_REGISTRY_ROOT": str(tmp_path / "data"), "MODEL_REGISTRY_PORT": "0", "MODEL_REGISTRY_HOST": "127.0.0.1",
+            "MODEL_REGISTRY_READ_TOKENS": "rg=readtok", "MODEL_REGISTRY_WRITE_TOKENS": "model-lab=writetok", "PYTHONPATH": str(ROOT),
+            "MODEL_REGISTRY_SOCKET_TIMEOUT": "30"}
+    for k in ("MODEL_REGISTRY_READ_TOKENS_FILE", "MODEL_REGISTRY_WRITE_TOKENS_FILE"):
+        env_.pop(k, None)
+    p = subprocess.Popen([sys.executable, "-m", "model_lab.service"], env=env_, cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    try:
+        port = int(p.stdout.readline().split()[-1])
+        s = socket.create_connection(("127.0.0.1", port))
+        s.sendall(b"GET /healthz HTTP/1.1\r\nHost: x\r\n\r\n")
+        got = b""
+        while b"}" not in got:
+            got += s.recv(4096)
+        assert b"200" in got                                 # 응답을 모두 받았고 연결은 keep-alive로 열려 있다(유휴)
+        t0 = time.time()
+        p.send_signal(signal.SIGTERM)
+        assert p.wait(timeout=10) == 0
+        assert time.time() - t0 < 5                          # 소켓 timeout(30초)을 기다리지 않는다
+        s.settimeout(2)
+        assert s.recv(10) == b""                             # 유휴 연결은 서버가 닫았다
+        s.close()
+    finally:
+        if p.poll() is None:
+            p.kill()
+
+
+def test_drain_lets_in_flight_request_finish_with_connection_close(tmp_path):
+    svc, srv, url = start(tmp_path)
+    started = threading.Event()
+    real = svc.registry.list_ids
+
+    def slow(**kw):
+        started.set(); time.sleep(1.0)
+        return real(**kw)
+    svc.registry.list_ids = slow
+    out = {}
+
+    def call():
+        r = urllib.request.Request(url + "/v1/packages"); r.add_header("Authorization", "Bearer rt")
+        with urllib.request.urlopen(r) as resp:
+            out["status"], out["conn"] = resp.status, resp.headers.get("Connection")
+    t = threading.Thread(target=call); t.start()
+    assert started.wait(5)
+    t0 = time.time()
+    srv.drain(5.0)                                           # 진행 중 요청이 끝날 때까지 기다린다
+    t.join(5)
+    assert out == {"status": 200, "conn": "close"} and 0.5 < time.time() - t0 < 4
+    srv.shutdown()

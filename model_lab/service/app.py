@@ -11,6 +11,7 @@
   MODEL_REGISTRY_MAX_CONNECTIONS 동시 연결 상한(기본 32; 넘으면 503 UNAVAILABLE)
   MODEL_REGISTRY_MAX_PUBLISHES   동시 게시 상한(기본 1; 넘으면 503 UNAVAILABLE, 디스크와 .tmp를 지킨다)
   MODEL_REGISTRY_AUTH_FAIL_LIMIT 같은 주소의 인증 실패 상한(기본 10회 / 60초; 넘으면 그 주소는 잠시 503, 상수 시간 비교와 별개의 시도 제한)
+  MODEL_REGISTRY_SHUTDOWN_GRACE  SIGTERM 뒤 진행 중 요청을 기다리는 초(기본 8; 유휴 연결은 즉시 닫는다, Docker 기본 정지 유예 10초보다 짧게)
   MODEL_REGISTRY_MIN_FREE_GB     게시 전 요구 여유 공간 GB(기본 1; 본문 크기의 2배 + 이 값이 모자라면 503, ML-2)
 로그는 표준 출력으로, 토큰과 본문은 남기지 않는다."""
 from __future__ import annotations
@@ -21,6 +22,7 @@ import os
 import re
 import shutil
 import signal
+import socket
 import sys
 import tempfile
 import threading
@@ -38,6 +40,8 @@ from . import tarutil
 STATUS = {"INVALID_RECORD": 400, "PERMISSION_DENIED": 403, "NOT_FOUND": 404, "CONFLICT": 409,
           "FAILED_PRECONDITION": 412, "UNSUPPORTED_VERSION": 422, "INTEGRITY_ERROR": 422, "UNAVAILABLE": 503}
 WRITE_ROLE = "model-lab"
+DRAIN_IDLE = 0.25        # 거절 전 본문을 버릴 때 다음 조각을 기다리는 최대 초. 근거 기록 없음(측정 안 함)
+DRAIN_CAP = 1 << 20      # 거절 응답 전에 버리는 요청 본문의 최대 바이트. 1MiB는 근거 기록 없음(측정 안 함), ADR 0007
 
 
 def parse_tokens(spec: str | None) -> dict[str, str]:
@@ -60,7 +64,7 @@ class Service:
     def __init__(self, root: Path, read_tokens: dict, write_tokens: dict, *, max_body: int = 4 << 30,
                  log=lambda s: print(s, flush=True), socket_timeout: float = 30.0, max_connections: int = 32,
                  max_publishes: int = 1, auth_fail_limit: int = 10, auth_fail_window: float = 60.0,
-                 min_free_gb: float = 1.0, free_bytes=None):
+                 min_free_gb: float = 1.0, free_bytes=None, shutdown_grace: float = 8.0):
         for role in write_tokens.values():
             if role != WRITE_ROLE:
                 raise ValueError(f"쓰기 역할은 {WRITE_ROLE}만 허용한다")
@@ -69,6 +73,7 @@ class Service:
         self.tmp = Path(root) / ".tmp"
         self.socket_timeout, self.max_connections = socket_timeout, max_connections
         self.auth_fail_limit, self.auth_fail_window, self.min_free_gb = auth_fail_limit, auth_fail_window, min_free_gb
+        self.shutdown_grace = shutdown_grace
         self._free_bytes = free_bytes or (lambda: shutil.disk_usage(self.root).free)    # 시험에서 주입한다
         self.publish_slots = threading.BoundedSemaphore(max(1, max_publishes))
         self._fails: dict = defaultdict(deque)
@@ -91,6 +96,10 @@ class Service:
         if self._free_bytes() < need:
             self.log(f"경보: 디스크 여유 부족으로 게시 거절(필요 {need >> 20}MiB, 여유 {self._free_bytes() >> 20}MiB)")
             raise BoundaryError("UNAVAILABLE", "저장소 여유 공간이 부족하다")
+
+    def token_valid(self, header: str | None) -> bool:
+        """읽기 또는 쓰기 토큰으로 인식되는가(역할이 모자란 것과 구분한다: 유효한 토큰의 403은 실패 횟수에 넣지 않는다)."""
+        return self._role(self.read, header) is not None or self._role(self.write, header) is not None
 
     def auth_blocked(self, addr: str) -> bool:
         now = time.monotonic()
@@ -147,6 +156,25 @@ def make_handler(svc: Service):
         server_version = "model-registry"
         timeout = svc.socket_timeout           # StreamRequestHandler가 연결 소켓에 건다(느린 클라이언트 차단, ML-1)
 
+        _sent_close = False
+
+        def setup(self):
+            super().setup()
+            self.server.track(self.request)
+
+        def finish(self):
+            try:
+                super().finish()
+            finally:
+                self.server.untrack(self.request)
+
+        def end_headers(self):
+            # 종료 중이면 모든 응답에 Connection: close를 달아 클라이언트가 연결을 재사용하지 않게 한다(ML-2 재점검)
+            if (self.server.draining or self.close_connection) and not self._sent_close:
+                self._sent_close = True
+                self.send_header("Connection", "close")
+            super().end_headers()
+
         def log_message(self, fmt, *args):   # 경로만(쿼리·토큰 제외)
             svc.log(f"{self.command} {urlparse(self.path).path} {args[1] if len(args) > 1 else ''}")
 
@@ -185,9 +213,12 @@ def make_handler(svc: Service):
                 return
             self._consumed = True
             try:
-                left = min(int(self.headers.get("Content-Length") or 0), svc.max_body)
+                # 거절 때 본문을 끝까지 읽지 않는다(최대 4GiB를 읽게 하면 거절이 자원 소모 경로가 된다). 작은 본문만 버려서
+                # 아직 보내는 클라이언트가 연결 초기화 대신 실제 오류를 보게 하고, 나머지는 연결을 닫는다(Connection: close).
+                left = min(int(self.headers.get("Content-Length") or 0), DRAIN_CAP)
+                self.connection.settimeout(DRAIN_IDLE)      # 클라이언트가 본문을 보내지 않으면 기다리지 않는다(느린 송신자가 스레드를 잡지 못하게)
                 while left > 0:
-                    chunk = self.rfile.read(min(1 << 20, left))
+                    chunk = self.rfile.read1(min(1 << 20, left)) if hasattr(self.rfile, "read1") else self.rfile.read(min(1 << 20, left))
                     if not chunk:
                         break
                     left -= len(chunk)
@@ -203,13 +234,17 @@ def make_handler(svc: Service):
                 ok = svc.ready()
                 return self._json(200 if ok else 503, {"status": "ready" if ok else "not-ready"})
             addr = self.client_address[0]
-            if svc.auth_blocked(addr):
-                raise BoundaryError("UNAVAILABLE", "인증 시도가 너무 많다. 잠시 뒤 다시 시도한다")
+            hdr = self.headers.get("Authorization")
             try:
-                svc.authorize(self.command, self.headers.get("Authorization"))
+                svc.authorize(self.command, hdr)             # 토큰 검증이 먼저다: 유효한 토큰은 제한과 무관하게 통과한다
             except BoundaryError as e:
-                if e.code == "PERMISSION_DENIED":
+                if e.code == "PERMISSION_DENIED" and not svc.token_valid(hdr):
+                    # 제한은 유효하지 않은(없거나 틀린) 토큰을 보낸 요청에만 건다. 프록시·Docker 뒤에서는 호출자가 모두 같은 주소로
+                    # 보이므로 주소만으로 막으면 정상 호출자까지 막힌다(ML-1 재점검).
+                    throttled = svc.auth_blocked(addr)
                     svc.note_auth_failure(addr)
+                    if throttled:
+                        raise BoundaryError("UNAVAILABLE", "인증 시도가 너무 많다. 잠시 뒤 다시 시도한다") from None
                 raise
             if self.command == "POST":
                 if path != "/v1/packages":
@@ -242,7 +277,6 @@ def make_handler(svc: Service):
 
         def _publish(self) -> None:
             n = int(self.headers.get("Content-Length") or -1)
-            self._consumed = True            # 이 함수가 본문을 읽는다(오류 시 남은 만큼 _drain이 아니라 아래 읽기 규칙을 따른다)
             if n < 0:
                 raise BoundaryError("INVALID_RECORD", "Content-Length가 필요하다")
             if n > svc.max_body:
@@ -256,6 +290,7 @@ def make_handler(svc: Service):
 
         def _publish_locked(self, n: int) -> None:
             svc.check_free_space(n)
+            self._consumed = True            # 여기부터 이 함수가 본문을 읽는다. 이전 단계의 거절은 _fail이 제한된 만큼만 버리고 연결을 닫는다
             with tempfile.TemporaryDirectory(dir=svc.tmp) as td:
                 td = Path(td)
                 body = td / "body.tar"
@@ -291,6 +326,15 @@ def make_handler(svc: Service):
             self._json(200 if existed else 201, got)
 
         def _handle(self):
+            self.server.set_busy(self.request, True)
+            try:
+                self._handle_inner()
+            finally:
+                self.server.set_busy(self.request, False)
+                if self.server.draining:
+                    self.close_connection = True
+
+        def _handle_inner(self):
             try:
                 self._dispatch()
             except BoundaryError as e:
@@ -331,6 +375,46 @@ class _Server(ThreadingHTTPServer):
     def __init__(self, addr, handler, max_connections: int):
         super().__init__(addr, handler)
         self._slots = threading.BoundedSemaphore(max(1, max_connections))
+        self.draining = False
+        self._conns: dict = {}                  # 연결 소켓 -> 요청을 처리 중인가
+        self._conns_mu = threading.Lock()
+
+    def track(self, sock) -> None:
+        with self._conns_mu:
+            self._conns[sock] = False
+
+    def untrack(self, sock) -> None:
+        with self._conns_mu:
+            self._conns.pop(sock, None)
+
+    def set_busy(self, sock, busy: bool) -> None:
+        with self._conns_mu:
+            if sock in self._conns:
+                self._conns[sock] = busy
+
+    def _close_conns(self, only_idle: bool) -> int:
+        with self._conns_mu:
+            targets = [c for c, busy in self._conns.items() if not (only_idle and busy)]
+        for c in targets:
+            try:
+                c.shutdown(socket.SHUT_RDWR)    # 읽기 대기 중인 핸들러 스레드가 즉시 깨어나 끝난다
+            except OSError:
+                pass
+        return len(targets)
+
+    def drain(self, grace: float, log=lambda s: None) -> None:
+        """우아한 종료(ML-2): 새 응답은 Connection: close, 유휴 keep-alive 연결은 즉시 닫고, 진행 중 요청만 grace초 기다린 뒤 남은 연결을 끊는다.
+        accept 루프는 호출자가 shutdown()으로 멈춘다."""
+        self.draining = True
+        n = self._close_conns(only_idle=True)
+        deadline = time.monotonic() + grace
+        while time.monotonic() < deadline:
+            with self._conns_mu:
+                if not any(self._conns.values()):
+                    break
+            time.sleep(0.05)
+        left = self._close_conns(only_idle=False)
+        log(f"종료: 유휴 연결 {n}개를 닫았고 유예 시간 뒤 진행 중 {left}개를 끊었다" if left else f"종료: 유휴 연결 {n}개를 닫았다")
 
     def process_request(self, request, client_address):
         if not self._slots.acquire(blocking=False):
@@ -358,6 +442,7 @@ class _Server(ThreadingHTTPServer):
 #  동시 게시 1: 게시는 어차피 파일 잠금으로 직렬화되고(registry.py) 본문이 최대 4GiB라 대기시키면 디스크·스레드를 오래 잡는다.
 #  인증 실패 10회/60초: 사람이 토큰을 잘못 넣는 정도는 허용하고 반복 추측만 막는 값(측정 안 함, 표준 값 아님).
 #  여유 공간 = 본문 2배 + 1GB: 본문 tar와 풀어 둔 사본이 동시에 있는 최대 순간(저장은 하드 링크라 추가 사본 없음) + 여유 1GB(근거 기록 없음).
+#  종료 유예 8초(MODEL_REGISTRY_SHUTDOWN_GRACE): Docker의 기본 정지 유예 10초(SIGKILL까지)보다 짧게 잡아 SIGKILL 전에 정리를 끝낸다. 8은 측정 안 함.
 #  본문 4GiB(MODEL_REGISTRY_MAX_BODY): 어댑터 크기 상한의 여유값. 근거 기록 없음(측정 안 함); 14B bf16이 아닌 LoRA 어댑터는 이보다 훨씬 작다고 가정(추정).
 def main(env=os.environ) -> int:
     try:
@@ -371,7 +456,8 @@ def main(env=os.environ) -> int:
                       max_connections=int(env.get("MODEL_REGISTRY_MAX_CONNECTIONS", 32)),
                       max_publishes=int(env.get("MODEL_REGISTRY_MAX_PUBLISHES", 1)),
                       auth_fail_limit=int(env.get("MODEL_REGISTRY_AUTH_FAIL_LIMIT", 10)),
-                      min_free_gb=float(env.get("MODEL_REGISTRY_MIN_FREE_GB", 1)))
+                      min_free_gb=float(env.get("MODEL_REGISTRY_MIN_FREE_GB", 1)),
+                      shutdown_grace=float(env.get("MODEL_REGISTRY_SHUTDOWN_GRACE", 8)))
     except (ValueError, OSError, SecretError) as e:
         print(f"시작 실패: {e}", file=sys.stderr, flush=True)
         return 2
@@ -379,7 +465,11 @@ def main(env=os.environ) -> int:
     # SIGTERM(컨테이너 종료)에도 진행 중 요청을 마친 뒤 멈춘다. shutdown은 serve_forever를 돌리는 스레드가 아닌 곳에서 불러야 한다.
     def _stop(signum, frame):
         # 신호 처리기는 메인 스레드의 어느 지점에서든 끼어들므로(출력 중일 수도 있다) 여기서는 출력하지 않고 스레드를 시작만 한다
-        threading.Thread(target=lambda: (svc.log("종료 신호: 진행 중 요청을 마치고 멈춘다"), srv.shutdown()), daemon=True).start()
+        def _go():
+            svc.log("종료 신호: 유휴 연결을 닫고 진행 중 요청을 마친 뒤 멈춘다")
+            threading.Thread(target=srv.shutdown, daemon=True).start()    # accept 루프 정지
+            srv.drain(svc.shutdown_grace, svc.log)
+        threading.Thread(target=_go, daemon=True).start()
     try:
         signal.signal(signal.SIGTERM, _stop)
     except ValueError:      # 메인 스레드가 아니면(시험) 건너뛴다

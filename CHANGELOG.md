@@ -1,5 +1,10 @@
 # 변경 이력
 
+## 0.2.11 (제안; 태그 없음) - 재점검 반영 (ML-1, ML-2, L)
+- 인증 실패 제한: 토큰 검증을 먼저 하고 유효한 토큰은 제한과 무관하게 통과(제한은 유효하지 않은 토큰을 보낸 요청에만; 유효한 읽기 토큰의 쓰기 403은 횟수에 넣지 않음).
+- 우아한 종료: SIGTERM이면 Connection: close, 유휴 keep-alive 연결 즉시 닫기, 진행 중 요청만 `MODEL_REGISTRY_SHUTDOWN_GRACE`(8초) 대기. 유휴 연결 1개로 30초 걸리던 종료가 수 초 안에 끝난다.
+- 거절 응답은 본문을 최대 1MiB만 버리고 연결을 닫는다. `recover()`는 게시와 같은 잠금 안에서 돈다. 시험 추가.
+
 ## 0.2.10 (제안; 태그 없음) - model-runtime v0.7.3
 - model-runtime 태그를 v0.7.2 -> v0.7.3으로 올림(requirements.txt, requirements.lock, README, docs/design.md, docs/runbook.md, docs/boundary.md, scripts/compare_base_models.py). 이 영역의 시험·스모크는 model-runtime 서버를 띄우지 않고 라이브러리(render_prompt, load, 가짜 백엔드)만 쓴다. v0.7.3의 서버 기본값 변경(토큰 없으면 시작 거부 등)은 이 영역에 영향이 없다(model-runtime CHANGELOG는 읽지 못했고 코드 검색으로만 확인). 과거 이력(0.2.7)은 그대로 둔다.
 
