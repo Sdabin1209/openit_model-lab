@@ -97,7 +97,7 @@ def serving(backend_name: str, backend_version: str, decoding: dict) -> dict:
     return {"prompt_template_version": "prompt-3",
             "decoding": {"constraint_mode": "none", "temperature": decoding["temperature"], "seed": decoding["seed"], "max_tokens": decoding["max_tokens"]},
             "max_attempts": 1,
-            "constraint": {"backend": backend_name, "backend_version": backend_version, "supported_features": [], "relax_policy_version": "relax-1"},
+            "constraint": {"backend": backend_name, "backend_version": backend_version, "supported_features": [], "relax_policy_version": "relax-2"},
             "output_contract": 1, "protection_policy_version": "protect-2"}
 
 

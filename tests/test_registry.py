@@ -42,7 +42,7 @@ def make(tmp_path, pid="pkg-a", ver="v1", payload=b"w", report=b"report-1", ref=
     (ad / "sub" / "c.json").write_text("{}")
     (ad / "system_prompt.txt").write_bytes(b"system prompt for " + pid.encode())
     sc = {"prompt_template_version": "prompt-2", "decoding": {"constraint_mode": "none", "temperature": 0, "seed": 1, "max_tokens": 8},
-          "max_attempts": 3, "constraint": {"backend": "x", "backend_version": "1", "supported_features": [], "relax_policy_version": "relax-1"},
+          "max_attempts": 3, "constraint": {"backend": "x", "backend_version": "1", "supported_features": [], "relax_policy_version": "relax-2"},
           "output_contract": 1, "protection_policy_version": "protect-1"}
     h = "sha256:" + "a" * 64
     m = {"pipeline_schema_version": "2.0", "package_id": pid, "version": ver, "role": "LORA_A", "created_at": "2026-10-15T00:00:00Z",
