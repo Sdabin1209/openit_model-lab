@@ -107,7 +107,9 @@ scripts/smoke_registry.sh
 
 ## 문서끼리 어긋난 곳 (이 문서를 쓰며 발견)
 
-- 시험 개수: `docs/runbook.md` 80건, `docs/STATUS.md` 113건(10차), 실제 수집 150건.
-- 버전: `pyproject.toml` 0.1.0, `CHANGELOG.md` 0.2.3(태그 없음). `docs/boundary.md` 머리말·EvaluationReport는 v1.3.0 언급, 소비 표는 v2.0.2.
-- `docs/boundary.md` 소비 표는 I7을 "쓰지 않음"이라 하나 `docs/runbook.md`·`docs/design.md`는 회귀 평가(I7)를 구현했다고 쓴다.
-- `docs/runbook.md` GPU 절의 wheel 예시(turn-engine v0.2.0, model-runtime v0.4.0)는 현재 requirements와 다르다.
+정정함(`docs/STATUS.md` 13차): runbook 시험 개수와 GPU 절 wheel 예시, boundary.md의 버전과 I7 서술.
+
+남아 있는 것(코드 영역이라 문서만 기록):
+- 버전: `pyproject.toml`·`model_lab/__init__.py` 0.1.0, `CHANGELOG.md` 0.2.3(태그 없음).
+- `configs/gpu-dev-fixture-*.yaml` 주석의 "golden에서 만든"은 낡았다(`tests/golden/` 제거됨, 데이터는 합성 v2 샘플).
+- 시험 개수: `docs/STATUS.md` 10차의 113건은 그 시점 값이고 지금 수집은 150건이다.

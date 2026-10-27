@@ -1,5 +1,10 @@
 # STATUS (2026-10-27)
 
+## 13차 갱신: 문서 낡음 정정 (코드 변경 없음), 브랜치 main
+- 고친 것(근거는 현재 파일 확인): `docs/runbook.md` 시험 개수 80건 -> 150건(`pytest --collect-only -q`가 150건 수집, 통과 실행은 안 함), GPU 절 wheel 예시 -> turn-engine v0.4.0, model-runtime v0.7.0(`requirements.txt`). `docs/boundary.md` 머리말·EvaluationReport·소비 표를 v2.0.2 / turn-engine v0.4.0 / model-runtime v0.7.0으로, I7을 "쓰지 않음"에서 구현 사실(`model_lab/regression.py`, `configs/gpu-dev.yaml`, runbook 회귀 절)로. `docs/design.md` 10절의 I7 "쓰지 않는다"도 같이 정정.
+- 알려진 낡은 것(코드·설정 영역이라 건드리지 않음): (1) `pyproject.toml`과 `model_lab/__init__.py`의 버전은 0.1.0인데 `CHANGELOG.md` 최신은 0.2.3(제안, 태그 없음)이다. (2) `configs/gpu-dev-fixture-*.yaml` 주석의 "golden으로 만든 가짜 데이터/golden에서 시험용 데이터셋 저장소를 만든다"는 낡았다: `tests/golden/`은 0.2.3에서 제거됐고 데이터는 `scripts/make_fixture_dataset.py`가 합성 v2 샘플로 만든다(runbook 기준). 데이터셋 id `fx-golden`은 이름만 남은 것이다. 이 주석 수정은 코드 영역 변경으로 별도 단위.
+- 미확인: `docs/boundary.md`·`docs/design.md`의 `HttpModelRegistry(v1.2.0)` 표기가 현재 계약 태그와 맞는지 확인하지 않았다. 아래 11차의 `pip install -r requirements.txt` 전체 해결도 여전히 미시도.
+
 ## 12차 갱신: 학습 서버 정본 감싸기 (D78, G06), 브랜치 main
 - 한 것: `configs/train.yaml` + `python -m model_lab train [--dry-run]` + `train-doctor`(`model_lab/train_wrap.py`), 프로파일 `qwen3-4b`, 런북 절, `trainers/hf.py` 비정본 경고(삭제 안 함: 사용처 있음), 시험 `tests/test_train_wrap.py`(서버 스크립트는 대역). CHANGELOG 0.2.3에 결정과 이유.
 - 못 한 것 [구멍]: 이번 세션에 학습 서버 ssh가 연결 거부(4회)라 서버 스크립트의 인자 이름·산출물 위치·run 기록 키를 확인하지 못했다. `server.arg_map`/`args_verified: false`로 표시했다. 진짜 학습은 GPU 구멍. 파이프라인 train 단계의 감싸기 연결(데이터 형식 messages vs prompt/completion)은 인자 확인 뒤.
