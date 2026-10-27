@@ -1,7 +1,7 @@
 """기반 모델 후보 비교(학습 없음). 사용: python scripts/compare_base_models.py --config configs/compare/base-model-candidates.yaml
        --schema-dir <.../schema/schemas> --out runs/base-compare [--only 이름] [--backend hf|fake]
 
-후보마다 LoRA-A 표본에 render_prompt(서빙과 같은 프롬프트, prompt-3)를 만들어 model-runtime(v0.6.0)의 extract_raw 경로로 평가하고
+후보마다 LoRA-A 표본에 render_prompt(서빙과 같은 프롬프트, prompt-4)를 만들어 model-runtime(v0.7.0)의 extract_raw 경로로 평가하고
 EvaluationReport(지표만, 합격 판정 없음)를 쓴다. 결과 요약은 <out>/summary.json.
 
 2.0.0(D74): v1 golden은 더 쓰지 않는다. 표본은 --samples(ActionExtractionSample JSONL, 예: transform.read_server_file로 만든 것)이고
@@ -94,7 +94,7 @@ def pick_samples(n: int, path: Path | None = None) -> list[dict]:
 
 
 def serving(backend_name: str, backend_version: str, decoding: dict) -> dict:
-    return {"prompt_template_version": "prompt-3",
+    return {"prompt_template_version": "prompt-4",
             "decoding": {"constraint_mode": "none", "temperature": decoding["temperature"], "seed": decoding["seed"], "max_tokens": decoding["max_tokens"]},
             "max_attempts": 1,
             "constraint": {"backend": backend_name, "backend_version": backend_version, "supported_features": [], "relax_policy_version": "relax-3"},

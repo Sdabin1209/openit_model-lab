@@ -1,5 +1,8 @@
 # 변경 이력
 
+## 0.2.2 (제안; 태그 없음)
+- turn-engine v0.4.0(v1 폐기 함수 제거, boundary-contracts v2.0.2 고정), model-runtime v0.7.0(비밀 파일화, prompt-3 제거, RUNTIME_VERSION 0.7, serving_config 허용 템플릿 ['prompt-4'])으로 올림. 서빙 설정의 prompt_template_version을 prompt-4로 바꿈(configs, 기반 모델 비교 스크립트). requirements.txt/lock 갱신.
+
 ## 0.2.1 (제안; 태그 없음, 브랜치 train)
 - boundary-contracts v2.0.2(D84). 비밀(`MODEL_REGISTRY_READ_TOKENS`, `MODEL_REGISTRY_WRITE_TOKENS`, 설정의 `token_env` 전부)을 `boundary_contracts.read_secret`로 읽는다: `NAME_FILE` 경로 우선, 없으면 `NAME` 환경 변수. 값이 로그·`/readyz`·오류에 나오지 않는 시험(`tests/test_secrets.py`). 이미지 스모크는 토큰을 파일로 준다. turn-engine·model-runtime 태그는 올리지 않았다.
 - 설정 파일의 인라인 비밀 거부(`config.check_inline_secrets`, release-gate와 같은 규칙): 비밀 같은 키에 문자열 값이 직접 있으면 `ConfigError`(키 경로만, 값 없음). `*_env`는 이름 형식만 허용. 시험 `tests/test_secrets.py`.
