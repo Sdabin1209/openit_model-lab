@@ -18,7 +18,7 @@
 | --- | --- | --- |
 | 문진 스키마 | `schema_dir`(`.../schema/schemas`) 경로. `CONTRACT_VERSION`이 데이터셋의 `runtime_contract_version`과 다르면 `UNSUPPORTED_VERSION` | 정수 1 |
 | boundary-contracts | `canonical`(모든 해시), `validator`(쓰기 전 검증), `sdk` Protocol, `BoundaryError`. 데이터셋 샘플은 `ActionExtractionSample`(LORA_A)·`ResponseSample`(LORA_B) | v2.0.0 |
-| turn-engine | 계보 기록(`ENGINE_VERSION`). 평가에서 `validate_extraction`은 쓰지 않았다(제안만) | v0.3.0 |
+| turn-engine | 계보 기록(`ENGINE_VERSION`). 평가에서 `validate_extraction`은 쓰지 않았다(제안만) | v0.3.1 |
 | model-runtime | `render_prompt`(system_prompt 인자), `load`(system_prompts 인자), `extract_raw/respond_raw/respond`, `validate_serving_config`, `serving_config_hash`, `RUNTIME_VERSION`. 서빙 설정은 prompt-3·protect-2 | v0.6.4 |
 | I2 데이터셋 읽기 | `DatasetStore` Protocol(`get_manifest`, `list_versions`, `open_file`)만 사용. 실제 SDK 진입점은 CR-L004 | 경계 계약 1.1 |
 | I1, I4, I7 | 이 단계에서 쓰지 않음 | |
