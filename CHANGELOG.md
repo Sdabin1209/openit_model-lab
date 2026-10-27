@@ -1,6 +1,7 @@
 # 변경 이력
 
 ## 0.2.3 (제안; 태그 없음) - 학습 서버 정본 감싸기 (D78, G06)
+- G09: v1 정적 예시 `tests/golden/`(210개)를 제거했다. 시험·코드·스크립트·Dockerfile 어디도 읽지 않는 것을 grep으로 확인했다(남은 `golden` 언급은 문자열 `fx-golden`(데이터셋 id)과 설명 글뿐).
 - 근본 원인: 학습 코드가 두 곳(서버 정본, `trainers/hf.py` 사본)에 따로 있었다. 서버 코드를 복사·재구현하지 않고 정본을 호출하는 얇은 감싸기를 만들었다.
 - 설정 한 개 `configs/train.yaml` + 명령 `python -m model_lab train --config configs/train.yaml [--dry-run]` + `python -m model_lab train-doctor --config ...` (`model_lab/train_wrap.py`). 서버 코드 위치·스크립트 이름·인자 이름(`server.arg_map`)·데이터셋·하이퍼파라미터는 모두 설정값이다. 비밀은 설정에 적을 수 없다(기존 규칙). dry-run은 조립한 명령과 예상 산출물 경로만 낸다. 실행 뒤에는 어댑터가 package-adapters 입력 규약(파일 두 개, 기반 모델 일치, rank 상한)과 맞는지 확인하고 `<어댑터>.train-wrap.json`에 명령·설정 해시·서버 스크립트 해시·데이터셋 파일 해시·어댑터 해시를 남긴다. 시험 `tests/test_train_wrap.py`(서버 스크립트는 대역).
 - 프로파일 `profiles/qwen3-4b.yaml`(기반 모델과 max_lora_rank 16만).

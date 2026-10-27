@@ -24,7 +24,7 @@
 **하지 않은 것·미정 [CR-L008]**
 - 학습기(`trainers/hf.py`) 손대지 않음(정본 결정 대기). 서빙(JCS)과 서버 학습 데이터의 user 글자 불일치, 위험 신호의 v2 표현, 회귀 trace 입력 키(추정), METRICS.md 갱신, `validate_extraction` 지표화(제안).
 - 실제 모델·GPU 평가는 하지 않았다(오라클 모델 시험). 지표 값은 의미가 없다.
-- `tests/golden/`(v1 정적 예시)는 더 이 리포 시험이 쓰지 않는다. 삭제 여부는 헤드 확인.
+- `tests/golden/`(v1 정적 예시)는 쓰는 곳이 없어 제거했다(12차 이후, G09).
 
 ## 9차 갱신: boundary-contracts 2.0.0 이전 (D74, D75) — (10차에서 파이프라인 이전 완료)
 지시서: `head/docs/migration-2.0.0.md`. 브랜치 `migrate-contracts-2.0.0`(push·태그 안 함).
