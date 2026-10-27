@@ -1,0 +1,7 @@
+# 학습 서버 어댑터(Qwen3-4B, rank 16, 모든 선형층)용 프로파일. package-adapters가 기반 모델과 최대 rank를 대조한다(D74).
+# 학습 설정은 서버 정본 코드가 정하므로 여기에 두지 않는다. 서빙 호스트별 값은 별도 프로파일에서 정한다.
+base_model:
+  id: Qwen/Qwen3-4B
+  revision: main
+checks:
+  max_lora_rank: 16

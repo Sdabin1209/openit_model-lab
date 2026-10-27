@@ -1,5 +1,10 @@
 """Hugging Face transformers + peft LoRA 학습기(torch는 이 파일 안에서만 가져온다).
 
+경고(D78, G06): 이 파일은 학습의 정본이 아니다. 정본은 학습 서버의 코드(train_lora_a.py, train_lora_b.py)다.
+이 사본은 서버 코드와 다르다(prompt/completion을 따로 토큰화하고 채팅 템플릿을 쓰지 않음, 4비트 양자화 선택, gpu-dev 프로파일의
+모듈 구성). 여기서 만든 어댑터는 서버 학습과 같지 않다. 파이프라인 검증(12GB 호스트의 통과 시험)용으로만 남긴다.
+실제 학습은 `python -m model_lab train --config configs/train.yaml`(서버 정본을 감싼다)을 쓴다.
+
 - 기반 모델, 양자화, 최대 길이, 배치, 학습률, 에폭, GPU 수, 메모리 비율은 모두 training 설정이다.
 - 손실은 완성(completion) 토큰에만 건다. 최대 길이를 넘는 샘플은 건너뛰고 건수를 기록한다.
 - 데이터 순서는 (시드, 에폭)으로 결정되고 체크포인트(어댑터+옵티마이저+스텝)에서 이어서 한다.

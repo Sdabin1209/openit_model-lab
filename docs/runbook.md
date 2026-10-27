@@ -106,6 +106,37 @@ D22 (2): 서비스가 없는 run-once 잡이라 Dockerfile 없이 `requirements.
 - 서버 데이터는 읽기만 한다(`ssh openit cat ~/taehyeon/data/dataset_10_14/lora_{a,b}_{train,val,test}.jsonl`). 받은 파일은 `runs/_server_ds/`(gitignore)에 두고 `.venv/bin/python scripts/check_server_dataset.py runs/_server_ds`로 모든 줄의 계약 검증과 글자 단위 왕복을 확인한다.
 - `prompts/lora_{a,b}.system.txt`는 서버 데이터의 system 메시지를 바이트 그대로 둔 것이다. 데이터가 바뀌면 `tests/test_packager_v2.py::test_repo_prompts_are_the_ones_in_the_server_dataset_rows`가 고정 샘플 줄과의 불일치를 알려 주지만 새 데이터 전체와의 비교는 `read_server_file`로 직접 한다(시스템 프롬프트가 한 종이 아니면 중단한다).
 
+## 학습 실행 감싸기: 설정 + 명령 + doctor (D78, G06)
+
+학습의 정본은 학습 서버의 코드(`train_lora_a.py`, `train_lora_b.py`)다. 이 리포지토리는 그 코드를 복사하지 않고 부르기만 한다. `trainers/hf.py`(파이프라인용 사본)는 서버 정본과 다르므로 **서버와 같은 어댑터를 만들 수 없다**(비정본, 파이프라인 검증용).
+
+현재 상태: 설정 검증·명령 조립·dry-run·doctor·산출물 확인은 대역 스크립트로 시험했다(`tests/test_train_wrap.py`). **서버 스크립트의 인자 이름과 산출물 위치는 확인하지 못했고**(서버 접속 불가였다) 진짜 학습은 GPU가 필요해 해 보지 못했다 [구멍: 인자 이름 확인, GPU].
+
+1. **[학습 서버에서] 점검.** 이 리포지토리를 서버에 두고(또는 `.venv`에 설치) 실행한다.
+```
+.venv/bin/python -m model_lab train-doctor --config configs/train.yaml
+```
+   `[OK]` `[WARN]` `[FAIL]` `[HOLE]`과 해결 안내가 나온다. FAIL은 고친다. `HOLE`은 "여기서는 확인할 수 없음"이다(GPU가 없는 PC에서 GPU는 HOLE). 점검 항목: 서버 스크립트 경로, 데이터셋 파일, GPU(nvidia-smi 또는 torch.cuda), 서버 인자 이름 확인 여부, 파이썬 의존(`server.python`으로 실행), 기반 모델 캐시, 프로파일, 디스크.
+2. **[처음 한 번, 서버에서] 인자 이름을 채운다.** `head -80 ~/taehyeon/train_lora_a.py`(또는 `--help`)로 인자 이름을 읽고 `configs/train.yaml`의 `server.arg_map`에 쓴 뒤 `args_verified: true`로 바꾼다. 어댑터가 나오는 폴더는 `output.adapter_dir`에 같게 적는다. B는 `role: LORA_B`, `server.code_dir: ~/myungchan`, `dataset.prefix: lora_b`, 출력 폴더만 바꾼다. 기반 모델은 `base_model.id`와 `profile`(4B 외에는 `profiles/`에 프로파일을 추가)로 정한다.
+3. **명령 미리 보기** (실행 안 함): `.venv/bin/python -m model_lab train --config configs/train.yaml --dry-run` - 조립한 명령, 작업 폴더, 예상 어댑터 경로, 기록 파일 경로, 주의(넘기지 못한 값)가 나온다.
+4. **[GPU 서버에서] 학습**: `.venv/bin/python -m model_lab train --config configs/train.yaml`. 서버 스크립트가 끝나면 어댑터 디렉터리에 `adapter_model.safetensors`와 `adapter_config.json`이 있는지, `base_model_name_or_path`가 설정의 기반 모델과 같은지, rank가 `output.max_lora_rank` 이하인지 확인하고 `<adapter_dir>.train-wrap.json`을 쓴다. 이 기록의 `dataset.content_hash`가 비어 있으면 서버 run 기록(`run.json`의 `dataset`)에서 찾아 `package-adapters --dataset-hash`에 준다. 기반 모델 커밋(`base_model_revision`)도 서버 run 기록에서 찾아 `--base-revision`으로 준다.
+5. **학습 결과 -> 모델 패키지**: A와 B를 각각 학습한 뒤 아래 "학습 서버 어댑터를 얹는 절차"의 명령을 그대로 쓴다. 대응은 다음과 같다.
+
+| 학습 감싸기 | package-adapters 인자 |
+| --- | --- |
+| A의 `output.adapter_dir` / B의 `output.adapter_dir` | `--adapter-a` / `--adapter-b` |
+| `base_model.profile` | `--profile` |
+| `dataset.id` / `dataset.version` / `dataset.content_hash` | `--dataset-id` / `--dataset-version` / `--dataset-hash` |
+| 기록의 `base_model.base_model_revision` | `--base-revision` |
+| 학습에 쓴 시스템 프롬프트 파일(서버 데이터 줄 안의 프롬프트와 같은 `prompts/lora_a.system.txt`, `lora_b.system.txt`) | `--prompt-a` / `--prompt-b` |
+```
+.venv/bin/python -m model_lab package-adapters --config configs/gpu-dev.yaml --profile qwen3-4b \
+  --adapter-a <A의 adapter_dir> --adapter-b <B의 adapter_dir> \
+  --prompt-a prompts/lora_a.system.txt --prompt-b prompts/lora_b.system.txt \
+  --dataset-id <dataset.id> --dataset-version <dataset.version> --dataset-hash <sha256:...> \
+  --out runs/attach-<날짜> --no-publish
+```
+
 ## 학습 서버 어댑터를 얹는 절차 (D84)
 
 학습 서버가 만든 LoRA 어댑터(A, B 각각 `adapter_model.safetensors` + `adapter_config.json`)를 모델 패키지로 만들어 model-registry에 게시한다. 파이프라인(학습·평가·패키징·게시)을 다시 돌리지 않는다. 명령은 `model-lab package-adapters`(`model_lab/attach.py`, 시험 `tests/test_attach.py`)다. 이 길은 **평가하지 않는다**: 게시되는 EvaluationReport는 지표 `evaluated`가 `n=0`이고 노트에 "평가하지 않았다"를 적는다. 평가는 별도다.

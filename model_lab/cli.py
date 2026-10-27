@@ -1,4 +1,4 @@
-"""명령줄: model-lab run | run-once | status | package-adapters. 모든 동작은 설정 파일 하나가 정한다."""
+"""명령줄: model-lab run | run-once | status | package-adapters | train | train-doctor. 모든 동작은 설정 파일 하나가 정한다."""
 from __future__ import annotations
 
 import argparse
@@ -33,8 +33,27 @@ def main(argv=None) -> int:
     p.add_argument("--training-run-id"); p.add_argument("--version"); p.add_argument("--base-revision"); p.add_argument("--created-at")
     p.add_argument("--out", required=True, help="패키지를 만들 디렉터리")
     p.add_argument("--no-publish", action="store_true", help="패키지만 만들고 게시하지 않는다")
+    t = sub.add_parser("train", help="학습 서버의 정본 학습 스크립트를 감싸 실행한다(D78). --dry-run은 명령만 보여 준다")
+    t.add_argument("--config", required=True, help="학습 설정(configs/train.yaml)")
+    t.add_argument("--dry-run", action="store_true")
+    d = sub.add_parser("train-doctor", help="학습을 돌릴 수 있는지 점검하고 해결 안내를 말한다")
+    d.add_argument("--config", required=True)
     a = ap.parse_args(argv)
     try:
+        if a.cmd in ("train", "train-doctor"):
+            from . import train_wrap as tw
+            tcfg = tw.load_train_config(a.config)
+            if a.cmd == "train-doctor":
+                rows = tw.doctor(tcfg)
+                print(tw.format_doctor(rows))
+                return 1 if any(r[0] == "FAIL" for r in rows) else 0
+            if a.dry_run:
+                pl = tw.plan(tcfg)
+                print(json.dumps(pl, ensure_ascii=False, indent=2))
+                print("(--dry-run: 실행하지 않았다)")
+                return 0
+            tw.run_train(tcfg)
+            return 0
         if a.cmd == "package-adapters":
             from .attach import package_adapters
             res = package_adapters(

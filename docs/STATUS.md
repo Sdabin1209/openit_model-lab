@@ -1,5 +1,9 @@
 # STATUS (2026-10-27)
 
+## 12차 갱신: 학습 서버 정본 감싸기 (D78, G06), 브랜치 main
+- 한 것: `configs/train.yaml` + `python -m model_lab train [--dry-run]` + `train-doctor`(`model_lab/train_wrap.py`), 프로파일 `qwen3-4b`, 런북 절, `trainers/hf.py` 비정본 경고(삭제 안 함: 사용처 있음), 시험 `tests/test_train_wrap.py`(서버 스크립트는 대역). CHANGELOG 0.2.3에 결정과 이유.
+- 못 한 것 [구멍]: 이번 세션에 학습 서버 ssh가 연결 거부(4회)라 서버 스크립트의 인자 이름·산출물 위치·run 기록 키를 확인하지 못했다. `server.arg_map`/`args_verified: false`로 표시했다. 진짜 학습은 GPU 구멍. 파이프라인 train 단계의 감싸기 연결(데이터 형식 messages vs prompt/completion)은 인자 확인 뒤.
+
 ## 11차 갱신: 비밀 파일화, 어댑터 얹기 (D84), 브랜치 `train`
 - boundary-contracts v2.0.2로 올림(requirements*, lock, Dockerfile `BC_SPEC`·라벨). 서비스와 `token_env`가 `read_secret`(NAME_FILE 우선)으로 비밀을 읽는다. 시험 `tests/test_secrets.py`.
 - 어댑터 얹기: 이전에는 어댑터를 받아 패키징만 하는 길이 없었다(패키징은 파이프라인 안의 단계뿐). `model-lab package-adapters`를 추가했다. 가짜 어댑터로 시험(`tests/test_attach.py`). 진짜 어댑터 서빙은 GPU가 필요해 확인하지 못했다.

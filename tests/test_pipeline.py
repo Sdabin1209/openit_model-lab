@@ -329,7 +329,7 @@ def test_neighbor_reader_factories_are_accepted_by_config(cfg):
 def test_all_shipped_configs_are_valid():
     from pathlib import Path
     from model_lab.config import load_config
-    files = sorted((Path(__file__).resolve().parents[1] / "configs").glob("*.yaml"))
+    files = sorted(f for f in (Path(__file__).resolve().parents[1] / "configs").glob("*.yaml") if f.name != "train.yaml")  # train.yaml은 학습 감싸기 전용 형식(test_train_wrap)
     assert len(files) >= 7
     for f in files:
         load_config(f)
