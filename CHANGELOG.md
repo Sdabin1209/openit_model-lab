@@ -1,5 +1,8 @@
 # 변경 이력
 
+## 0.2.4 (제안; 태그 없음) - model-runtime v0.7.1
+- model-runtime 태그를 v0.7.0 -> v0.7.1로 올림(requirements.txt, requirements.lock, README, docs/runbook.md, docs/design.md, scripts/compare_base_models.py의 설명). turn-engine v0.4.0, boundary-contracts v2.0.2는 그대로. 설정(configs)·시험에는 v0.7.0 문자열이 없어 바꾸지 않았다. 과거 이력(CHANGELOG 0.2.2, docs/STATUS.md의 옛 기록)은 그대로 둔다.
+
 ## 0.2.3 (제안; 태그 없음) - 학습 서버 정본 감싸기 (D78, G06)
 - G09: v1 정적 예시 `tests/golden/`(210개)를 제거했다. 시험·코드·스크립트·Dockerfile 어디도 읽지 않는 것을 grep으로 확인했다(남은 `golden` 언급은 문자열 `fx-golden`(데이터셋 id)과 설명 글뿐).
 - 근본 원인: 학습 코드가 두 곳(서버 정본, `trainers/hf.py` 사본)에 따로 있었다. 서버 코드를 복사·재구현하지 않고 정본을 호출하는 얇은 감싸기를 만들었다.

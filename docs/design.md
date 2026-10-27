@@ -62,7 +62,7 @@ publish:  {enabled}
 
 ## 5. 학습 데이터 변환 [확인: 브리프, I9]
 
-- 프롬프트는 `model_runtime.render_prompt(role, input, serving_config=…, system_prompt=…, schema_dir=…)`(v0.7.0, prompt-4)다. 서빙과 같은 함수·같은 `serving_config`·설정의 `roles.<역할>.system_prompt_file`.
+- 프롬프트는 `model_runtime.render_prompt(role, input, serving_config=…, system_prompt=…, schema_dir=…)`(v0.7.1, prompt-4)다. 서빙과 같은 함수·같은 `serving_config`·설정의 `roles.<역할>.system_prompt_file`.
 - 학습 목표(completion, 2.0.0): LoRA-A는 `ActionExtraction`의 키 정렬 JSON, LoRA-B는 응답 문장 그대로(JSON 아님). 서버 학습 데이터의 assistant 글자와 같다. 시스템 프롬프트는 학습이 끝나면 어댑터 디렉터리에 넣고(adapter_hash에 포함) 평가와 패키징이 그 파일을 쓴다.
 - [미해결] 서빙 프롬프트의 user 글자(JCS, 공백 없음)와 서버 학습 데이터의 user 글자(공백 있음, state 순서 보존)가 다르다. 이 파이프라인으로 학습하면 서빙과 일치하지만 서버에서 학습한 어댑터와는 다르다(CR-L008).
 - 학습 파일에는 TRAIN만, 검증 파일에는 VALIDATION만 들어간다. EVAL 샘플은 변환 단계에서 따로 저장하고, 학습·검증과 `scenario_id`·`sample_id`를 공유하면 단계가 중단된다(I2도 확인하지만 다시 본다, 브리프 4절).
