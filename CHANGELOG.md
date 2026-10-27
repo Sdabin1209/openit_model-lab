@@ -1,5 +1,9 @@
 # 변경 이력
 
+## 0.2.8 (제안; 태그 없음) - 기반 모델 비교 시험의 호스트 디스크 의존 제거
+- `scripts/compare_base_models.py`: 사용량 예산 가드(`footprint_guard`)를 실제 백엔드(`--backend hf`)에서만 적용한다. 가짜 백엔드는 내려받지 않는데도 후보당 예상 크기를 더해, gpu-dev처럼 HF 캐시와 작업 폴더가 큰 호스트에서 시험이 실패했다. `main(argv)`로 인자를 주입할 수 있게 했다.
+- 시험 2건 추가: 작업 폴더가 예산보다 크게 보여도(희소 파일, HOME/HF_HOME을 tmp로 돌림) 가짜 백엔드는 통과하고, `hf` 백엔드는 여전히 가드로 멈춘다. 같은 종류(호스트 상태 의존) 시험을 tests/에서 훑었으나 더 찾지 못했다(`test_train_wrap`의 디스크 점검은 `min_free_gb=0`, 캐시는 경고뿐).
+
 ## 0.2.7 (제안; 태그 없음) - model-runtime v0.7.2
 - model-runtime 태그를 v0.7.1 -> v0.7.2로 올림(가짜 A에 정정(CORRECT) 출력을 더한 하위 호환 변경; requirements.txt, requirements.lock, README, docs/runbook.md, docs/design.md, docs/boundary.md, scripts/compare_base_models.py). turn-engine v0.4.0, boundary-contracts v2.0.2는 그대로. 과거 이력(CHANGELOG 0.2.4, docs/STATUS.md)은 그대로 둔다.
 

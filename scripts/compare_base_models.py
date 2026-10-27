@@ -145,13 +145,13 @@ def run_candidate(cand: dict, cfg: dict, samples: list[dict], schema_dir: Path, 
     return res
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--config", required=True); ap.add_argument("--schema-dir", required=True); ap.add_argument("--out", required=True)
     ap.add_argument("--only"); ap.add_argument("--backend", choices=["hf", "fake"], default="hf")
     ap.add_argument("--samples", help="ActionExtractionSample JSONL(없으면 시험용 합성 표본)")
     ap.add_argument("--system-prompt-file", default=str(Path(__file__).resolve().parents[1] / "prompts" / "lora_a.system.txt"))
-    a = ap.parse_args()
+    a = ap.parse_args(argv)
     cfg = yaml.safe_load(Path(a.config).read_text())
     out = Path(a.out); out.mkdir(parents=True, exist_ok=True)
     samples = pick_samples(cfg["samples"], Path(a.samples) if a.samples else None)
@@ -160,7 +160,8 @@ def main() -> int:
     for cand in cfg["candidates"]:
         if a.only and cand["name"] != a.only:
             continue
-        footprint_guard(cand, cfg.get("max_footprint_gb", 20))      # 예산을 넘으면 이 후보 전에 멈춘다(후보 하나의 실패로 삼키지 않는다)
+        if a.backend == "hf":   # 가짜 백엔드는 모델을 내려받지 않으므로 디스크 예산 가드를 적용하지 않는다(호스트 디스크 상태와 무관해야 한다)
+            footprint_guard(cand, cfg.get("max_footprint_gb", 20))      # 예산을 넘으면 이 후보 전에 멈춘다(후보 하나의 실패로 삼키지 않는다)
         try:
             r = run_candidate(cand, cfg, samples, Path(a.schema_dir), a.backend, out, system_prompt)
         except Exception as e:   # 후보 하나의 실패(메모리 부족 등)가 나머지를 막지 않는다. 사유만 남긴다(원문 없음)

@@ -11,13 +11,13 @@ from boundary_contracts import validator
 from tests.conftest import ROOT, SCHEMA_DIR
 
 
-def run(tmp_path, cands, extra=()):
+def run(tmp_path, cands, extra=(), env=None):
     cfg = yaml.safe_load((ROOT / "configs/compare/base-model-candidates.yaml").read_text())
     cfg["candidates"] = cands
     cfg["fewshot"] = 0
     cp = tmp_path / "c.yaml"; cp.write_text(yaml.safe_dump(cfg))
     r = subprocess.run([sys.executable, str(ROOT / "scripts/compare_base_models.py"), "--config", str(cp), "--schema-dir", str(SCHEMA_DIR),
-                        "--out", str(tmp_path / "out"), "--backend", "fake", *extra], capture_output=True, text=True, cwd=ROOT)
+                        "--out", str(tmp_path / "out"), "--backend", "fake", *extra], capture_output=True, text=True, cwd=ROOT, env=env)
     assert r.returncode == 0, r.stderr[-500:]
     return json.loads((tmp_path / "out/summary.json").read_text())
 
@@ -29,6 +29,32 @@ def test_fake_run_emits_valid_reports(tmp_path):
     validator("EvaluationReport").validate(rep)
     assert rep["metrics"] and next(m for m in rep["metrics"] if m["name"] == "action_acc")["n"] == 50
     assert "threshold" not in json.dumps(rep).lower()
+
+
+def _full_workdir_env(tmp_path):
+    """HOME/HF_HOME을 tmp로 돌리고 작업 폴더(~/openit-gpu)를 예산(20GB)보다 크게 보이게 한다(희소 파일이라 실제 디스크는 쓰지 않는다)."""
+    import os
+    (tmp_path / "home/openit-gpu").mkdir(parents=True)
+    with open(tmp_path / "home/openit-gpu/big", "wb") as f:
+        f.truncate(25 * 2**30)
+    return {**os.environ, "HOME": str(tmp_path / "home"), "HF_HOME": str(tmp_path / "hf")}
+
+
+def test_fake_run_ignores_host_disk_state(tmp_path):
+    s = run(tmp_path, [{"name": "a", "id": "x/a"}], env=_full_workdir_env(tmp_path))     # 작업 폴더가 가득 차도 가짜 백엔드는 통과
+    assert s[0]["samples"] == 50 and "error" not in s[0]
+
+
+def test_hf_backend_still_blocked_by_footprint_guard(tmp_path, monkeypatch):
+    import pytest
+    m = load_script()
+    env = _full_workdir_env(tmp_path)
+    monkeypatch.setenv("HOME", env["HOME"]); monkeypatch.setenv("HF_HOME", env["HF_HOME"])
+    cfg = yaml.safe_load((ROOT / "configs/compare/base-model-candidates.yaml").read_text())
+    cfg["candidates"] = [{"name": "a", "id": "x/a", "approx_gb": 1}]
+    cp = tmp_path / "c.yaml"; cp.write_text(yaml.safe_dump(cfg))
+    with pytest.raises(SystemExit, match="사용량 예산 초과"):                               # 실제 백엔드는 모델을 받기 전에 멈춘다
+        m.main(["--config", str(cp), "--schema-dir", str(SCHEMA_DIR), "--out", str(tmp_path / "out"), "--backend", "hf"])
 
 
 def test_sample_selection_is_deterministic():
