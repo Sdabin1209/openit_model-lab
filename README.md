@@ -113,3 +113,20 @@ scripts/smoke_registry.sh
 - 버전: `pyproject.toml`·`model_lab/__init__.py` 0.1.0, `CHANGELOG.md` 0.2.3(태그 없음).
 - `configs/gpu-dev-fixture-*.yaml` 주석의 "golden에서 만든"은 낡았다(`tests/golden/` 제거됨, 데이터는 합성 v2 샘플).
 - 시험 개수: `docs/STATUS.md` 10차의 113건은 그 시점 값이고 지금은 156건이 통과한다(2026-10-27).
+
+## 설계 결정 기록 (ADR, D89)
+
+구조 선택의 이유와 대안, 되돌리는 조건은 `docs/adr/`에 있다. 값의 근거를 찾지 못한 곳은 "근거 기록 없음", 측정하지 않은 값은 "측정 안 함"으로 적었다.
+
+| ADR | 결정 |
+| --- | --- |
+| [0001](docs/adr/0001-직접-만든-모델-레지스트리.md) | 모델 레지스트리를 직접 만든다 (대안: MLflow, HF Hub, OCI) |
+| [0002](docs/adr/0002-파일시스템과-JSON-메타-저장.md) | 파일 시스템 + JSON 메타 저장 |
+| [0003](docs/adr/0003-모델-패키지-형식과-자기일관성-해시.md) | 패키지 형식과 자기일관성 해시, 서명 없음 |
+| [0004](docs/adr/0004-학습은-서버-코드-정본-감싸기.md) | 학습은 서버 코드 정본 + 감싸기 |
+| [0005](docs/adr/0005-설정-YAML과-train-doctor.md) | 설정 YAML + train-doctor |
+| [0006](docs/adr/0006-package-adapters로-어댑터-얹기.md) | package-adapters |
+| [0007](docs/adr/0007-디스크-가드와-서버-한도의-값.md) | 디스크 가드와 서버 한도의 값과 근거 |
+| [0008](docs/adr/0008-평가-코드는-가짜-모델로만-돈다.md) | 평가 시험은 가짜 모델로만 돈다(한계) |
+| [0009](docs/adr/0009-레지스트리-서버-인증-역할.md) | 서버 인증: 읽기/쓰기 토큰, 쓰기는 model-lab 하나 |
+| [0010](docs/adr/0010-서버-구현은-표준-라이브러리-HTTP.md) | 서버는 표준 라이브러리 HTTP |

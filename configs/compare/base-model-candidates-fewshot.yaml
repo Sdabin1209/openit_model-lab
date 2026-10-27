@@ -5,7 +5,7 @@ fewshot: 2                         # 표본에 없는 golden 사례 2개를 앞�
 suffix: "-fewshot2"
 decoding: {temperature: 0, seed: 1000, max_tokens: 512}
 training: {quantization: {mode: 4bit-nf4, compute_dtype: bfloat16}, dtype: bfloat16, gpu_memory_fraction: 0.9, attn_implementation: sdpa}
-max_footprint_gb: 20               # 우리 작업의 사용량 예산(HF 캐시 + ~/openit-gpu + 후보 예상 크기). WSL의 df는 호스트 여유를 알려 주지 않는다
+max_footprint_gb: 20 # 근거: docs/adr/0007(출처 없는 시작값, 측정 안 함)               # 우리 작업의 사용량 예산(HF 캐시 + ~/openit-gpu + 후보 예상 크기). WSL의 df는 호스트 여유를 알려 주지 않는다
 candidates:
   - {name: qwen2.5-7b, approx_gb: 16, id: Qwen/Qwen2.5-7B-Instruct}
   - {name: qwen3-8b, approx_gb: 17, id: Qwen/Qwen3-8B}
