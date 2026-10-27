@@ -16,7 +16,7 @@
 | 입력 | 학습 서버(영역 밖) | 학습한 어댑터 | 사람이 파일로 가져옴 (`docs/runbook.md` D84 절) |
 | 출력 | release-gate | 모델 패키지 조회 | I3 `ModelRegistry`, HTTP: `GET /v1/packages…`, `.../adapter`, `/v1/eval-reports/{ref}`, `POST /v1/packages`(model-lab만 쓰기) |
 
-라이브러리로 boundary-contracts v2.0.2, turn-engine v0.4.0, model-runtime v0.7.2을 태그로 쓴다(`requirements.txt`). 서비스 이미지는 boundary-contracts만 넣는다(`requirements-service.txt`). 판정 조회 I4는 이 단계에서 쓰지 않는다(`docs/boundary.md`).
+라이브러리로 boundary-contracts v2.0.2, turn-engine v0.4.0, model-runtime v0.7.3을 태그로 쓴다(`requirements.txt`). 서비스 이미지는 boundary-contracts만 넣는다(`requirements-service.txt`). 판정 조회 I4는 이 단계에서 쓰지 않는다(`docs/boundary.md`).
 
 ## 구조
 

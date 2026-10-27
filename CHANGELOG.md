@@ -1,5 +1,8 @@
 # 변경 이력
 
+## 0.2.10 (제안; 태그 없음) - model-runtime v0.7.3
+- model-runtime 태그를 v0.7.2 -> v0.7.3으로 올림(requirements.txt, requirements.lock, README, docs/design.md, docs/runbook.md, docs/boundary.md, scripts/compare_base_models.py). 이 영역의 시험·스모크는 model-runtime 서버를 띄우지 않고 라이브러리(render_prompt, load, 가짜 백엔드)만 쓴다. v0.7.3의 서버 기본값 변경(토큰 없으면 시작 거부 등)은 이 영역에 영향이 없다(model-runtime CHANGELOG는 읽지 못했고 코드 검색으로만 확인). 과거 이력(0.2.7)은 그대로 둔다.
+
 ## 0.2.9 (제안; 태그 없음) - 전수 점검 지적 반영 (ML-1~6, ML-12)
 - ML-3: 게시 중단 뒤 재시도해도 `list_versions`에 버전이 한 번만 나온다(order에 이미 있으면 추가하지 않고, 읽을 때 중복 제거). 서비스는 시작 때 `.tmp`와 게시 잔해를 지우고 SIGTERM에서 진행 중 요청을 마치고 멈춘다.
 - ML-1: 서버 소켓 timeout, 동시 연결 상한, 동시 게시 1건, 같은 주소의 인증 실패 제한(모두 503 UNAVAILABLE, 환경 변수로 조정).
