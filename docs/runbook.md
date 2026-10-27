@@ -110,14 +110,14 @@ D22 (2): 서비스가 없는 run-once 잡이라 Dockerfile 없이 `requirements.
 
 학습의 정본은 학습 서버의 코드(`train_lora_a.py`, `train_lora_b.py`)다. 이 리포지토리는 그 코드를 복사하지 않고 부르기만 한다. `trainers/hf.py`(파이프라인용 사본)는 서버 정본과 다르므로 **서버와 같은 어댑터를 만들 수 없다**(비정본, 파이프라인 검증용).
 
-현재 상태: 설정 검증·명령 조립·dry-run·doctor·산출물 확인은 대역 스크립트로 시험했다(`tests/test_train_wrap.py`). **서버 스크립트의 인자 이름과 산출물 위치는 확인하지 못했고**(서버 접속 불가였다) 진짜 학습은 GPU가 필요해 해 보지 못했다 [구멍: 인자 이름 확인, GPU].
+현재 상태: 설정 검증·명령 조립·dry-run·doctor·산출물 확인은 대역 스크립트로 시험했다(`tests/test_train_wrap.py`). 서버 스크립트의 인자 이름은 서버 코드로 확인했으나(`--help` 실행은 안 함) **산출물 위치는 확인하지 못했고**, 진짜 학습은 GPU가 필요해 해 보지 못했다 [구멍: 산출물 위치, GPU].
 
 1. **[학습 서버에서] 점검.** 이 리포지토리를 서버에 두고(또는 `.venv`에 설치) 실행한다.
 ```
 .venv/bin/python -m model_lab train-doctor --config configs/train.yaml
 ```
    `[OK]` `[WARN]` `[FAIL]` `[HOLE]`과 해결 안내가 나온다. FAIL은 고친다. `HOLE`은 "여기서는 확인할 수 없음"이다(GPU가 없는 PC에서 GPU는 HOLE). 점검 항목: 서버 스크립트 경로, 데이터셋 파일, GPU(nvidia-smi 또는 torch.cuda), 서버 인자 이름 확인 여부, 파이썬 의존(`server.python`으로 실행), 기반 모델 캐시, 프로파일, 디스크.
-2. **[처음 한 번, 서버에서] 인자 이름을 채운다.** `head -80 ~/taehyeon/train_lora_a.py`(또는 `--help`)로 인자 이름을 읽고 `configs/train.yaml`의 `server.arg_map`에 쓴 뒤 `args_verified: true`로 바꾼다. 어댑터가 나오는 폴더는 `output.adapter_dir`에 같게 적는다. B는 `role: LORA_B`, `server.code_dir: ~/myungchan`, `dataset.prefix: lora_b`, 출력 폴더만 바꾼다. 기반 모델은 `base_model.id`와 `profile`(4B 외에는 `profiles/`에 프로파일을 추가)로 정한다.
+2. **인자 이름 (채워져 있음).** `configs/train.yaml`(A, 8B)과 `configs/train-b.yaml`(B, 8B)의 `server.arg_map`은 헤드가 2026-10-27에 서버 `~/taehyeon/train_lora_a.py`, `~/myungchan/train_lora_b.py`의 `add_argument`를 읽어 채웠다(`args_verified: true`의 뜻은 "인자 이름을 서버 코드로 확인함"이고 근거는 `args_evidence`에 있다). **스크립트 `--help`를 실제로 실행해 본 것은 아니다.** 서버 스크립트가 바뀌면 `train-doctor`가 알려 주지 못하므로 `--help`와 `arg_map`을 다시 대조한다. 값 없는 플래그(`--dry_run`)는 불리언 하이퍼파라미터로 쓴다(true면 플래그만, false면 넘기지 않음). 설정 값은 서버 실제 v2 학습의 `run_config.json`(A `a_8b_v2`, B `b_8b_1014`)과 같고 시험이 명령줄을 대조한다. 어댑터가 `out_dir` 바로 아래에 나오는지는 [미확인]이라 `output.adapter_dir`은 첫 실행의 산출물 확인 결과에 맞춘다. B는 `configs/train-b.yaml`을 쓴다(`code_dir: ~/myungchan`, 데이터 경로에 공백이 있다).
 3. **명령 미리 보기** (실행 안 함): `.venv/bin/python -m model_lab train --config configs/train.yaml --dry-run` - 조립한 명령, 작업 폴더, 예상 어댑터 경로, 기록 파일 경로, 주의(넘기지 못한 값)가 나온다.
 4. **[GPU 서버에서] 학습**: `.venv/bin/python -m model_lab train --config configs/train.yaml`. 서버 스크립트가 끝나면 어댑터 디렉터리에 `adapter_model.safetensors`와 `adapter_config.json`이 있는지, `base_model_name_or_path`가 설정의 기반 모델과 같은지, rank가 `output.max_lora_rank` 이하인지 확인하고 `<adapter_dir>.train-wrap.json`을 쓴다. 이 기록의 `dataset.content_hash`가 비어 있으면 서버 run 기록(`run.json`의 `dataset`)에서 찾아 `package-adapters --dataset-hash`에 준다. 기반 모델 커밋(`base_model_revision`)도 서버 run 기록에서 찾아 `--base-revision`으로 준다.
 5. **학습 결과 -> 모델 패키지**: A와 B를 각각 학습한 뒤 아래 "학습 서버 어댑터를 얹는 절차"의 명령을 그대로 쓴다. 대응은 다음과 같다.

@@ -1,0 +1,59 @@
+# 학습 서버 정본 코드를 감싸는 학습 설정 (D78, G06): B(LORA_B) 8B v2
+# 명령: python -m model_lab train --config configs/train-b.yaml [--dry-run]   점검: python -m model_lab train-doctor --config configs/train-b.yaml
+# 학습 서버에서 실행한다(GPU 필요). 비밀은 적지 않는다(적으면 시작을 거부한다).
+# 값은 헤드가 2026-10-27에 읽은 서버 실제 v2 학습의 run_config.json(b_8b_1014)과 같다. tests/test_train_wrap.py가 이 설정이 만드는 명령줄을 그 값과 대조한다.
+# [미확인] 스크립트 --help 실제 출력, 인자 타입 검사 방식, 어댑터가 out_dir 아래 어디에 나오는지, 스크립트가 데이터 해시·기반 모델 revision을 남기는지.
+config_version: 1
+role: LORA_B
+server:
+  code_dir: ~/myungchan             # 정본 코드 위치 [확인: 헤드가 서버에서 읽음]. 서버 사용자 홈 기준
+  scripts: {LORA_A: train_lora_a.py, LORA_B: train_lora_b.py}
+  python: python3                  # 학습 환경의 파이썬(가상환경이면 그 경로)
+  require_gpu: true
+  args_verified: true              # 뜻: 인자 이름을 서버 스크립트 코드로 확인함. 스크립트 --help 실제 실행은 안 했다(아래 근거)
+  args_evidence: "헤드가 2026-10-27에 서버 ~/myungchan/train_lora_b.py의 add_argument를 읽어 확인함. --help 실제 실행·타입 검사 방식은 미확인. B 스크립트도 인자 이름이 같다"
+  arg_map:                         # 이름 -> 서버 스크립트 인자. null이면 넘기지 않는다(스크립트 기본값)
+    base_model: --model
+    dataset_dir: --data_dir
+    dataset_prefix: --prefix
+    output_dir: --out_dir
+    learning_rate: --lr
+    epochs: --epochs
+    per_device_batch_size: --batch
+    grad_accum_steps: --accum
+    max_len: --max_len
+    seed: --seed
+    lora_r: --rank
+    lora_alpha: --alpha
+    lora_dropout: --dropout
+    eval_steps: --eval_steps
+    dry_run: --dry_run             # 값 없는 플래그: true면 플래그만, false면 넘기지 않는다
+base_model:
+  id: Qwen/Qwen3-8B
+  revision: main
+  profile: qwen3-8b                # profiles/<이름>.yaml. package-adapters가 쓴다
+dataset:
+  dir: "/home/openit/toy dataset/dataset_10_14"   # 경로에 공백이 있다. 명령은 셸을 거치지 않는 인자 목록이라 따옴표 처리가 필요 없다
+  prefix: lora_b
+  id: dataset_10_14
+  version: v2
+  # content_hash: sha256:...       # 서버 run 기록에 없다(미확인). 데이터 파일에서 직접 계산해 package-adapters --dataset-hash에 쓴다
+hyperparams:                       # 서버 run_config.json 값. 순서 = 명령줄 인자 순서(바꾸지 않는다)
+  learning_rate: 0.0002
+  epochs: 3
+  per_device_batch_size: 2
+  grad_accum_steps: 4
+  max_len: 4096
+  seed: 42
+  lora_r: 16
+  lora_alpha: 16
+  lora_dropout: 0.0
+  eval_steps: 50
+  dry_run: false
+output:
+  # 서버 스크립트에 --out_dir로 그대로 넘기는 값이다. 서버 스크립트는 상대 경로를 자기 작업 폴더(code_dir) 기준으로 쓴다(run_config.json의 out_dir 예: runs/b_8b_1014).
+  # 이 감싸기는 설정 파일 기준 절대 경로로 풀어 넘긴다. [미확인] 어댑터 파일이 out_dir 바로 아래인지 하위 폴더인지: 첫 실행에서 산출물 확인이 실패하면 여기를 고친다.
+  adapter_dir: ../runs/train/lora_b_8b_1014/adapter
+  # server_run_record: ...         # 서버 run 기록이 있으면(키 이름 미확인) base_model_revision, dataset.content_hash만 옮긴다
+  max_lora_rank: 16
+  min_free_gb: 30

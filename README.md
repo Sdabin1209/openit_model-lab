@@ -59,20 +59,20 @@ python3 -m venv .venv
 .venv/bin/python -m model_lab status --config configs/dryrun.yaml
 # 4. 서비스 이미지 스모크 (Docker 필요, vendor/wheels에 boundary-contracts wheel 필요)
 scripts/smoke_registry.sh
-# 5. 학습 감싸기 (학습 서버에서): 점검 -> 명령 미리 보기
+# 5. 학습 감싸기 (학습 서버에서): 점검 -> 명령 미리 보기 (A: train.yaml, B: train-b.yaml)
 .venv/bin/python -m model_lab train-doctor --config configs/train.yaml
 .venv/bin/python -m model_lab train --config configs/train.yaml --dry-run
 # 6. 학습 서버 어댑터 얹기 (게시 안 함; 인자 전체는 docs/runbook.md D84 절)
 .venv/bin/python -m model_lab package-adapters --help
 ```
 
-이 문서를 쓰면서 **돌려 본 것**: `.venv/bin/python -m pytest --collect-only -q`(150건 수집, 실행은 안 함), `.venv/bin/python -m model_lab --help`(하위 명령 `run`, `run-once`, `status`, `package-adapters`, `train`, `train-doctor` 확인). **돌리지 않은 것**: 위 1~6 전부(설치, 시험 실행, 파이프라인, 이미지 빌드·스모크, doctor, train, package-adapters), GPU 관련 전부.
+이 문서를 쓰면서 **돌려 본 것**: `.venv/bin/python -m pytest -q`(2026-10-27, 156건 통과, 0 실패, 건너뜀 0; 이 PC의 `.venv` 한 환경), `.venv/bin/python -m model_lab --help`(하위 명령 `run`, `run-once`, `status`, `package-adapters`, `train`, `train-doctor` 확인). **돌리지 않은 것**: 위 1~6 중 시험 실행 외 전부(설치, 파이프라인, 이미지 빌드·스모크, doctor, train, package-adapters), GPU 관련 전부.
 
 ## 현재 상태
 
-확인된 것(근거 문서): CPU에서 가짜 모델로 파이프라인 끝까지, 레지스트리 파일·메모리·HTTP 적합성 시험, 이미지 스모크는 v2.0.0 때 통과(`docs/STATUS.md` 9차). 시험 113건 통과는 10차 때 값(`docs/STATUS.md`)이고 이후 시험이 늘어 지금은 150건이 수집된다(위 수집 결과). 현재 150건이 통과하는지는 **미확인**. GPU 호스트(gpu-dev)에서 작은 시험 데이터로 학습→게시 한 바퀴와 재실행 skip을 확인한 기록이 있으나 오래된 버전 기준이다(`docs/STATUS.md` 2차). 학습 품질과 학습 감싸기 결과는 의미 있는 값이 없다.
+확인된 것(근거 문서): CPU에서 가짜 모델로 파이프라인 끝까지, 레지스트리 파일·메모리·HTTP 적합성 시험, 이미지 스모크는 v2.0.0 때 통과(`docs/STATUS.md` 9차). 시험 113건 통과는 10차 때 값(`docs/STATUS.md`)이고 이후 시험이 늘어 지금은 156건이 통과한다(위 실행 결과, 한 환경). GPU 호스트(gpu-dev)에서 작은 시험 데이터로 학습→게시 한 바퀴와 재실행 skip을 확인한 기록이 있으나 오래된 버전 기준이다(`docs/STATUS.md` 2차). 학습 품질과 학습 감싸기 결과는 의미 있는 값이 없다.
 
-확인 못 한 것: 실제 서버 학습 스크립트의 인자 이름·산출물 위치(서버 접속 불가였음, `args_verified: false`), 진짜 어댑터의 서빙, 실제 모델 평가 값(지금까지 오라클 가짜 모델), 재개한 학습의 비트 단위 재현(`docs/design.md` 4절), 현재 버전(boundary-contracts v2.0.2, turn-engine v0.4.0, model-runtime v0.7.0)에서의 이미지 스모크와 새 환경 설치(`docs/STATUS.md` 11차의 pip 해결 미시도 기록). 두 번째 독립 머신 확인은 U12로 열려 있다.
+확인 못 한 것: 서버 학습 스크립트의 `--help` 실제 출력·인자 타입 검사 방식·산출물 위치(인자 이름은 헤드가 서버 코드의 `add_argument`를 읽어 확인했고 `args_verified: true`이다. 근거는 `configs/train.yaml`의 `args_evidence`), 진짜 어댑터의 서빙, 실제 모델 평가 값(지금까지 오라클 가짜 모델), 재개한 학습의 비트 단위 재현(`docs/design.md` 4절), 현재 버전(boundary-contracts v2.0.2, turn-engine v0.4.0, model-runtime v0.7.0)에서의 이미지 스모크와 새 환경 설치(`docs/STATUS.md` 11차의 pip 해결 미시도 기록). 두 번째 독립 머신 확인은 U12로 열려 있다.
 
 ## 이 영역의 열린 항목
 
@@ -80,7 +80,7 @@ scripts/smoke_registry.sh
 
 | ID | 요약 | 막고 있는 것 |
 | --- | --- | --- |
-| G06 | 학습 정본은 서버 코드(D78). 감싸기는 만들었으나 서버 인자 확인과 파이프라인 연결이 남음 | GPU·학습 서버 접근 |
+| G06 | 학습 정본은 서버 코드(D78). 감싸기와 인자 이름 설정(A·B 8B)은 있고, 어댑터 산출물 위치 확인·파이프라인 연결·실제 학습이 남음 | GPU·학습 서버 접근 |
 | H3 | 학습 파이프라인 실제 실행 (G06 관련) | GPU |
 | G09 | 대장은 `부분`. 이 리포는 `tests/golden/`을 제거했다(커밋 b1f57e3, 디렉터리 없음 확인). 대장 갱신은 헤드 몫 | 헤드(대장 정리) |
 | U10 | 평가가 가짜 모델로만 돌았다. 실제 모델 평가 값 없음 | GPU, 학습된 어댑터 |
@@ -112,4 +112,4 @@ scripts/smoke_registry.sh
 남아 있는 것(코드 영역이라 문서만 기록):
 - 버전: `pyproject.toml`·`model_lab/__init__.py` 0.1.0, `CHANGELOG.md` 0.2.3(태그 없음).
 - `configs/gpu-dev-fixture-*.yaml` 주석의 "golden에서 만든"은 낡았다(`tests/golden/` 제거됨, 데이터는 합성 v2 샘플).
-- 시험 개수: `docs/STATUS.md` 10차의 113건은 그 시점 값이고 지금 수집은 150건이다.
+- 시험 개수: `docs/STATUS.md` 10차의 113건은 그 시점 값이고 지금은 156건이 통과한다(2026-10-27).

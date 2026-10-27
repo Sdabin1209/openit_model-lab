@@ -1,5 +1,10 @@
 # STATUS (2026-10-27)
 
+## 15차 갱신: 학습 서버 인자 이름 채움 (G06), 브랜치 main
+- 한 것: `server.arg_map`과 A·B 8B 설정(`configs/train.yaml`, `configs/train-b.yaml`), 값 없는 플래그 처리, `args_evidence` 필드, 시험(명령줄을 서버 `run_config.json`과 대조). 자세한 내용은 CHANGELOG 0.2.6.
+- `args_verified: true`의 뜻은 "서버 코드의 add_argument를 헤드가 읽어 확인"이다. `--help` 실행은 안 했다.
+- 미확인: 스크립트 `--help` 출력, 인자 타입 검사 방식, 어댑터가 out_dir 아래 어디에 나오는지(첫 실행에서 `verify_output`이 알려 준다), 스크립트가 데이터 해시·기반 모델 revision을 남기는지, 스크립트 코드 해시. 실제 학습은 GPU 구멍. 파이프라인 train 단계 연결은 아직 안 했다.
+
 ## 14차 갱신: 24GB급 프로파일 qwen3-8b, 브랜치 main
 - 한 것: `profiles/qwen3-8b.yaml`, 런북 프로파일 표, 시험 2건 추가(pytest 152건 통과). 이제 `package-adapters --profile qwen3-8b`를 쓸 수 있다.
 - 14B 프로파일은 만들지 않았다(A만 학습됨, 24GB bf16 불가).

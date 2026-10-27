@@ -1,5 +1,12 @@
 # 변경 이력
 
+## 0.2.6 (제안; 태그 없음) - 학습 서버 인자 이름 채움 (G06)
+- `server.arg_map`을 채웠다: 헤드가 2026-10-27에 서버 `train_lora_a.py`/`train_lora_b.py`의 `add_argument`를 읽어 확인한 이름이다(`--model --data_dir --prefix --out_dir --lr --epochs --batch --accum --max_len --seed --rank --alpha --dropout --eval_steps --dry_run`). 서버에 접속한 것도 `--help`를 실행한 것도 이 영역이 아니다.
+- `args_verified: true`의 뜻을 정했다: "인자 이름을 서버 코드로 확인함". 실행 확인이 아니다. 근거 글을 새 필드 `server.args_evidence`에 두고 `train-doctor`가 보여 준다. 확인하지 못한 것(`--help` 출력, 타입 검사 방식, 산출물 위치, 스크립트가 데이터 해시·기반 모델 revision을 남기는지)은 설정 주석과 runbook에 미확인으로 남겼다.
+- 불리언 하이퍼파라미터는 값 없는 플래그다(true면 `--dry_run`만, false면 넘기지 않음). 이전에는 `true`라는 값을 붙였다.
+- `configs/train.yaml`은 A 8B v2(run_config `a_8b_v2`와 같은 값, profile qwen3-8b), 새 `configs/train-b.yaml`은 B 8B(`b_8b_1014`, 데이터 경로에 공백). 하이퍼파라미터에 `lora_dropout`, `eval_steps`, `dry_run`을 추가했다. 이전 `train.yaml`은 4B였다.
+- 시험: 두 설정의 명령줄을 서버 `run_config.json` 값과 대조(타입 포함), 인자 순서 안정성, 공백 경로가 인자 하나인 것, 값 없는 플래그. out_dir은 서버가 상대 경로로 기록한 값이라 시험에서 절대 경로로 맞춰 비교했다.
+
 ## 0.2.5 (제안; 태그 없음) - 24GB급 프로파일
 - `profiles/qwen3-8b.yaml` 추가(기반 모델 `Qwen/Qwen3-8B`, `max_lora_rank` 16). model-runtime `rtx4090-24g.json`의 기반 모델·max_lora_rank와 같다. 14B는 A만 학습되어 있고 24GB에 맞지 않아 만들지 않았다. 런북에 프로파일 표와 model-runtime 연결 설명, 시험 2건 추가(`tests/test_attach.py`: 8B 패키징, 4B 어댑터·rank 초과 거부와 미게시).
 

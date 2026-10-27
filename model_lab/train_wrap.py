@@ -3,7 +3,9 @@
 학습의 정본은 학습 서버의 코드(`train_lora_a.py`, `train_lora_b.py`)다. 이 파일은 그 코드를 복사하거나 다시 구현하지 않는다.
 하는 일은 다섯 가지뿐이다: 설정 검증, 서버 스크립트를 부르는 명령 조립, (GPU 서버에서) 실행, 산출물 확인, 실행 기록.
 서버 스크립트가 받는 인자 이름은 설정의 `server.arg_map`에 둔다(코드에 하드코딩하지 않는다).
-`server.args_verified: false`인 동안 인자 이름은 확인하지 못한 값이므로 doctor가 구멍으로 표시한다.
+`server.args_verified`는 "인자 이름을 서버 스크립트 근거로 확인했다"는 뜻이다(`--help` 실행 여부와는 별개). 근거는 `server.args_evidence`에 글로 남기고
+doctor가 그대로 보여 준다. false인 동안은 확인하지 못한 값이므로 doctor가 구멍으로 표시한다.
+값 규칙: 불리언 하이퍼파라미터는 값 없는 플래그다. true면 플래그만 넘기고 false면 넘기지 않는다(예: `--dry_run`).
 """
 from __future__ import annotations
 
@@ -44,6 +46,7 @@ _SCHEMA = {
                 "python": {"type": "string", "minLength": 1},
                 "require_gpu": {"type": "boolean"},
                 "args_verified": {"type": "boolean"},
+                "args_evidence": {"type": "string"},
                 "arg_map": {"type": "object", "additionalProperties": _FLAG},
                 "extra_args": {"type": "array", "items": {"type": "string"}},
                 "python_modules": {"type": "array", "items": {"type": "string", "pattern": r"^[A-Za-z0-9_]+$"}},
@@ -133,7 +136,10 @@ def build_command(cfg: dict) -> tuple[list[str], list[str]]:
     cmd = [s.get("python", "python3"), str(script_path(cfg))]
     for name, val in {**std, **cfg.get("hyperparams", {})}.items():
         flag = am.get(name)
-        if flag:
+        if flag and isinstance(val, bool):
+            if val:
+                cmd.append(flag)           # 값 없는 플래그(store_true). false면 넘기지 않는다
+        elif flag:
             cmd += [flag, _fmt(val)]
         else:
             skipped.append(f"{name}={_fmt(val)}")
@@ -259,10 +265,10 @@ def doctor(cfg: dict) -> list[tuple[str, str, str]]:
     else:
         out.append(("HOLE", "GPU", "구멍: GPU 필요. " + why + ". 학습은 GPU가 있는 학습 서버에서 실행한다. 이 PC에서는 --dry-run까지만"))
     if s.get("args_verified", False) and any(s.get("arg_map", {}).values()):
-        out.append(("OK", "서버 인자 이름", "확인됨(args_verified=true)"))
+        out.append(("OK", "서버 인자 이름", "확인됨(args_verified=true). 근거: " + (s.get("args_evidence") or "(server.args_evidence 없음: 근거를 적는다)")))
     else:
         out.append(("HOLE", "서버 인자 이름", "구멍: 서버 스크립트가 받는 인자 이름을 확인하지 못했다. 학습 서버에서 "
-                    f"`head -80 {sp.name}`(또는 --help)로 확인해 server.arg_map을 채우고 args_verified를 true로 바꾼다"))
+                    f"`{sp.name}`의 add_argument(또는 --help)로 확인해 server.arg_map을 채우고 args_verified를 true로, 근거를 args_evidence에 적는다"))
     mods = s.get("python_modules", ["torch", "transformers", "peft", "trl", "datasets", "accelerate"])
     py = s.get("python", "python3")
     code = "import importlib.util as u,sys;print(' '.join(m for m in sys.argv[1:] if u.find_spec(m) is None))"
