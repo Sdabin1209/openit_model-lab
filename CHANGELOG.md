@@ -1,5 +1,8 @@
 # 변경 이력
 
+## 0.2.7 (제안; 태그 없음) - model-runtime v0.7.2
+- model-runtime 태그를 v0.7.1 -> v0.7.2로 올림(가짜 A에 정정(CORRECT) 출력을 더한 하위 호환 변경; requirements.txt, requirements.lock, README, docs/runbook.md, docs/design.md, docs/boundary.md, scripts/compare_base_models.py). turn-engine v0.4.0, boundary-contracts v2.0.2는 그대로. 과거 이력(CHANGELOG 0.2.4, docs/STATUS.md)은 그대로 둔다.
+
 ## 0.2.6 (제안; 태그 없음) - 학습 서버 인자 이름 채움 (G06)
 - `server.arg_map`을 채웠다: 헤드가 2026-10-27에 서버 `train_lora_a.py`/`train_lora_b.py`의 `add_argument`를 읽어 확인한 이름이다(`--model --data_dir --prefix --out_dir --lr --epochs --batch --accum --max_len --seed --rank --alpha --dropout --eval_steps --dry_run`). 서버에 접속한 것도 `--help`를 실행한 것도 이 영역이 아니다.
 - `args_verified: true`의 뜻을 정했다: "인자 이름을 서버 코드로 확인함". 실행 확인이 아니다. 근거 글을 새 필드 `server.args_evidence`에 두고 `train-doctor`가 보여 준다. 확인하지 못한 것(`--help` 출력, 타입 검사 방식, 산출물 위치, 스크립트가 데이터 해시·기반 모델 revision을 남기는지)은 설정 주석과 runbook에 미확인으로 남겼다.

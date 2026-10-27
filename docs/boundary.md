@@ -1,6 +1,6 @@
 # model-lab 경계
 
-상태: 구현됨(0.1.0). 2.0.0 이전 중(헤드 지시서 `head/docs/migration-2.0.0.md`): 계약 v2.0.2 의존(`requirements.txt`), 변환기·패키징(system_prompt)까지 반영. 파이프라인의 변환·평가·회귀는 model-runtime v0.7.1 / turn-engine v0.4.0을 쓴다(`requirements.txt`; 이력은 `docs/STATUS.md` 10차, `CHANGELOG.md` 0.2.2). 학습기는 정본 결정 대기. 정본은 `../boundary-contracts`의 `INTERFACES.md`·`CONVENTIONS.md`다.
+상태: 구현됨(0.1.0). 2.0.0 이전 중(헤드 지시서 `head/docs/migration-2.0.0.md`): 계약 v2.0.2 의존(`requirements.txt`), 변환기·패키징(system_prompt)까지 반영. 파이프라인의 변환·평가·회귀는 model-runtime v0.7.2 / turn-engine v0.4.0을 쓴다(`requirements.txt`; 이력은 `docs/STATUS.md` 10차, `CHANGELOG.md` 0.2.2). 학습기는 정본 결정 대기. 정본은 `../boundary-contracts`의 `INTERFACES.md`·`CONVENTIONS.md`다.
 
 ## 소유 저장소
 모델 레지스트리(불변 패키지). I3 `ModelRegistry`. 쓰기는 이 영역만 한다. 구현: `model_lab.registry.FileModelRegistry`(디스크), `MemoryModelRegistry`(메모리). 둘 다 `boundary_contracts.sdk.ModelRegistry` Protocol을 만족하고 `tests/test_registry.py`의 같은 적합성 시험을 통과한다(오류 코드·멱등·해시 검증 포함).

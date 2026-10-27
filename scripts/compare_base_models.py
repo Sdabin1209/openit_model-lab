@@ -1,7 +1,7 @@
 """기반 모델 후보 비교(학습 없음). 사용: python scripts/compare_base_models.py --config configs/compare/base-model-candidates.yaml
        --schema-dir <.../schema/schemas> --out runs/base-compare [--only 이름] [--backend hf|fake]
 
-후보마다 LoRA-A 표본에 render_prompt(서빙과 같은 프롬프트, prompt-4)를 만들어 model-runtime(v0.7.1)의 extract_raw 경로로 평가하고
+후보마다 LoRA-A 표본에 render_prompt(서빙과 같은 프롬프트, prompt-4)를 만들어 model-runtime(v0.7.2)의 extract_raw 경로로 평가하고
 EvaluationReport(지표만, 합격 판정 없음)를 쓴다. 결과 요약은 <out>/summary.json.
 
 2.0.0(D74): v1 golden은 더 쓰지 않는다. 표본은 --samples(ActionExtractionSample JSONL, 예: transform.read_server_file로 만든 것)이고
