@@ -99,3 +99,35 @@ def test_cli_no_publish_and_publish(setup, capsys):
     assert json.loads(capsys.readouterr().out)["LORA_B"]["published"] is True
     i = argv.index("--profile")
     assert cli_main(argv[:i] + argv[i + 2:]) == 2        # 설정에도 --profile에도 기반 모델이 없으면 오류
+
+
+def test_qwen3_8b_profile_matches_runtime_profile_and_packages(setup):
+    """프로파일 qwen3-8b: 기반 모델·rank 상한이 model-runtime rtx4090-24g와 같고, 8B 가짜 어댑터로 패키지가 만들어진다."""
+    kw, tmp = setup
+    rt = json.loads((ROOT.parent / "model-runtime" / "profiles" / "rtx4090-24g.json").read_text(encoding="utf-8")) \
+        if (ROOT.parent / "model-runtime" / "profiles" / "rtx4090-24g.json").is_file() else None
+    prof = yaml.safe_load((ROOT / "profiles" / "qwen3-8b.yaml").read_text(encoding="utf-8"))
+    assert prof["base_model"]["id"] == "Qwen/Qwen3-8B" and prof["checks"]["max_lora_rank"] == 16
+    if rt is not None:                                    # 이웃 리포가 없는 환경(이미지)에서는 건너뛴다
+        assert rt["base_model"] == prof["base_model"]["id"] and rt["engine"]["max_lora_rank"] == prof["checks"]["max_lora_rank"]
+    ok = {"LORA_A": make_adapter(tmp / "a8", base="Qwen/Qwen3-8B", weights=b"A8"),
+          "LORA_B": make_adapter(tmp / "b8", base="Qwen/Qwen3-8B", weights=b"B8")}
+    res = package_adapters(**{**kw, "profile": "qwen3-8b", "adapters": ok})
+    reg = FileModelRegistry(tmp / "registry")
+    for role, pid in (("LORA_A", "lora-a-parser"), ("LORA_B", "lora-b-generator")):
+        m = reg.get_manifest(pid, res[role]["version"])
+        validator("ModelPackageManifest").validate(m)
+        assert m["base_model"]["id"] == "Qwen/Qwen3-8B"
+
+
+def test_qwen3_8b_profile_rejects_4b_adapter_and_high_rank_without_publishing(setup):
+    kw, tmp = setup
+    good = make_adapter(tmp / "a8", base="Qwen/Qwen3-8B", weights=b"A8")
+    kw8 = {**kw, "profile": "qwen3-8b"}
+    kw8["adapters"] = {"LORA_A": good, "LORA_B": make_adapter(tmp / "b4", base="Qwen/Qwen3-4B")}
+    with pytest.raises(PipelineError, match="LORA_B.*기반 모델"):
+        package_adapters(**kw8)
+    kw8["adapters"] = {"LORA_A": good, "LORA_B": make_adapter(tmp / "b8r", base="Qwen/Qwen3-8B", r=32)}
+    with pytest.raises(PipelineError, match="LORA_B.*max_lora_rank"):
+        package_adapters(**kw8)
+    assert not (tmp / "registry").exists() or not list((tmp / "registry").glob("manifests/*"))   # 하나도 게시되지 않았다

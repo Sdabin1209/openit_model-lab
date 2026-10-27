@@ -53,7 +53,7 @@
 python3 -m venv .venv
 .venv/bin/pip install -e ../boundary-contracts -e ../turn-engine -e ../model-runtime pytest pyyaml
 # 태그로 설치(CI·이미지): .venv/bin/pip install -r requirements.txt   (requirements.lock이 확인된 전체 버전)
-.venv/bin/python -m pytest -q                      # 150건(수집 기준 확인; 통과는 이 문서 수정 때 실행하지 않음)
+.venv/bin/python -m pytest -q                      # 152건 통과
 ```
 D22 (2): 서비스가 없는 run-once 잡이라 Dockerfile 없이 `requirements.lock`으로 환경을 고정한다.
 
@@ -136,6 +136,17 @@ D22 (2): 서비스가 없는 run-once 잡이라 Dockerfile 없이 `requirements.
   --dataset-id <dataset.id> --dataset-version <dataset.version> --dataset-hash <sha256:...> \
   --out runs/attach-<날짜> --no-publish
 ```
+
+### 프로파일 표와 model-runtime 연결
+
+| 프로파일 | 기반 모델 | `max_lora_rank` | 용도 |
+|---|---|---|---|
+| `gpu-dev-12g` | `Qwen/Qwen2.5-1.5B-Instruct`(임시) | 16 | 12GB 호스트 파이프라인 검증(학습 값 포함) |
+| `qwen3-4b` | `Qwen/Qwen3-4B` | 16 | 학습 서버 4B 어댑터 얹기 |
+| `qwen3-8b` | `Qwen/Qwen3-8B` | 16 | 24GB급(model-runtime `rtx4090-24g`) 8B 어댑터 얹기 |
+
+- 14B 프로파일은 없다: 14B는 A만 학습되어 있어(`head/docs/impact-d74.md`) A·B를 함께 얹는 `package-adapters`에 쓸 수 없고, model-runtime 쪽도 14B는 bf16으로 24GB에 들어가지 않는다고 적고 있다.
+- 연결(코드 확인): model-lab은 프로파일을 `profiles/<이름>.yaml` 파일 이름으로만 찾는다(`model_lab/attach.py: load_profile`; `package-adapters --profile <이름>` 또는 설정의 `profile:`, `train` 설정에서는 `base_model.profile`). model-runtime의 프로파일 이름(`rtx4090-24g`)과 코드로 연결되지 않는다. 맞는 짝은 사람이 `base_model` 이름과 `max_lora_rank` 값을 같게 유지해 보장한다. 어댑터의 `base_model_name_or_path`가 프로파일의 `base_model.id`와 다르거나 `r`이 상한을 넘으면 `package-adapters`가 거부하고 아무것도 게시하지 않는다(`tests/test_attach.py`).
 
 ## 학습 서버 어댑터를 얹는 절차 (D84)
 

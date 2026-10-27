@@ -1,5 +1,8 @@
 # 변경 이력
 
+## 0.2.5 (제안; 태그 없음) - 24GB급 프로파일
+- `profiles/qwen3-8b.yaml` 추가(기반 모델 `Qwen/Qwen3-8B`, `max_lora_rank` 16). model-runtime `rtx4090-24g.json`의 기반 모델·max_lora_rank와 같다. 14B는 A만 학습되어 있고 24GB에 맞지 않아 만들지 않았다. 런북에 프로파일 표와 model-runtime 연결 설명, 시험 2건 추가(`tests/test_attach.py`: 8B 패키징, 4B 어댑터·rank 초과 거부와 미게시).
+
 ## 0.2.4 (제안; 태그 없음) - model-runtime v0.7.1
 - model-runtime 태그를 v0.7.0 -> v0.7.1로 올림(requirements.txt, requirements.lock, README, docs/runbook.md, docs/design.md, scripts/compare_base_models.py의 설명). turn-engine v0.4.0, boundary-contracts v2.0.2는 그대로. 설정(configs)·시험에는 v0.7.0 문자열이 없어 바꾸지 않았다. 과거 이력(CHANGELOG 0.2.2, docs/STATUS.md의 옛 기록)은 그대로 둔다.
 

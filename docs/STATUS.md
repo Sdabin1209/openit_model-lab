@@ -1,5 +1,10 @@
 # STATUS (2026-10-27)
 
+## 14차 갱신: 24GB급 프로파일 qwen3-8b, 브랜치 main
+- 한 것: `profiles/qwen3-8b.yaml`, 런북 프로파일 표, 시험 2건 추가(pytest 152건 통과). 이제 `package-adapters --profile qwen3-8b`를 쓸 수 있다.
+- 14B 프로파일은 만들지 않았다(A만 학습됨, 24GB bf16 불가).
+- 미확인: 실제 8B 어댑터의 `base_model_name_or_path` 값(가짜 어댑터로만 시험), 8B 서빙 적재(GPU 구멍), model-runtime 프로파일의 `status`는 `unverified` 그대로.
+
 ## 13차 갱신: 문서 낡음 정정 (코드 변경 없음), 브랜치 main
 - 고친 것(근거는 현재 파일 확인): `docs/runbook.md` 시험 개수 80건 -> 150건(`pytest --collect-only -q`가 150건 수집, 통과 실행은 안 함), GPU 절 wheel 예시 -> turn-engine v0.4.0, model-runtime v0.7.0(`requirements.txt`). `docs/boundary.md` 머리말·EvaluationReport·소비 표를 v2.0.2 / turn-engine v0.4.0 / model-runtime v0.7.0으로, I7을 "쓰지 않음"에서 구현 사실(`model_lab/regression.py`, `configs/gpu-dev.yaml`, runbook 회귀 절)로. `docs/design.md` 10절의 I7 "쓰지 않는다"도 같이 정정.
 - 알려진 낡은 것(코드·설정 영역이라 건드리지 않음): (1) `pyproject.toml`과 `model_lab/__init__.py`의 버전은 0.1.0인데 `CHANGELOG.md` 최신은 0.2.3(제안, 태그 없음)이다. (2) `configs/gpu-dev-fixture-*.yaml` 주석의 "golden으로 만든 가짜 데이터/golden에서 시험용 데이터셋 저장소를 만든다"는 낡았다: `tests/golden/`은 0.2.3에서 제거됐고 데이터는 `scripts/make_fixture_dataset.py`가 합성 v2 샘플로 만든다(runbook 기준). 데이터셋 id `fx-golden`은 이름만 남은 것이다. 이 주석 수정은 코드 영역 변경으로 별도 단위.
