@@ -21,13 +21,13 @@
 | --- | --- | --- |
 | 문진 스키마 | `schema_dir`(`.../schema/schemas`) 경로. `CONTRACT_VERSION`이 데이터셋의 `runtime_contract_version`과 다르면 `UNSUPPORTED_VERSION` | 정수 1 |
 | boundary-contracts | `canonical`(모든 해시), `validator`(쓰기 전 검증), `sdk` Protocol, `BoundaryError`. 데이터셋 샘플은 `ActionExtractionSample`(LORA_A)·`ResponseSample`(LORA_B) | `requirements.txt` |
-| turn-engine | 계보 기록(`ENGINE_VERSION`). 평가의 `semantic_violation_rate`가 `validate_extraction`을 부른다(D97, ADR 0011) | `requirements.txt` |
+| (turn-engine 없음) | 코드 의존을 없앴다(ADR 0022). 위반 검사는 계약 `action_rules.check_action_extraction` + 문진 스키마 `question_flow`(`openit-survey-schema`)이고, 계보의 `turn_engine_version`은 설정 `lineage.turn_engine_version`(기본 `v0.4.3` 표지)이다 | `requirements.txt` |
 | model-runtime | `render_prompt`(system_prompt 인자), `load`(system_prompts 인자), `extract_raw/respond_raw/respond`, `validate_serving_config`, `serving_config_hash`, `RUNTIME_VERSION`. 서빙 설정 버전은 model-runtime이 내보내는 상수 | `requirements.txt` |
 | I2 데이터셋 읽기 | HTTP 클라이언트 `boundary_contracts.clients.HttpDatasetStore`(D100, HTTP.md `## I2`, 계약 2.1.0). 쓰는 호출은 `list_versions`, `get_manifest`, `open_file`. 로컬 개발용 `file_dataset_store`는 남아 있다(ADR 0012) | 경계 계약 1.1 |
 | I7 실패 사례 읽기 | 회귀 평가(`evaluation.regression`, 기본 꺼짐)를 켜면 `inputs.failure_store`(`boundary_contracts.clients:HttpFailureStore`)로 읽는다(`model_lab/regression.py`, `configs/gpu-dev.yaml`, `docs/runbook.md` 회귀 평가 절) | `requirements.txt` |
 | I1, I4 | 이 단계에서 쓰지 않음(I1은 설정에 클라이언트를 고르는 자리만 있다) | |
 
-의존은 Git 태그로 고정한다(`requirements.txt`). 개발은 `pip install -e ../boundary-contracts ../turn-engine ../model-runtime`.
+의존은 Git 태그로 고정한다(`requirements.txt`). 환경은 `scripts/setup-env.sh`가 만든다.
 
 ## 게시자 기록과 한계 (ML-6, ML-14)
 - 게시 때 서버가 {토큰 역할, 접속 주소, 시각, content_hash}를 `manifests/<패키지>/<버전>.published.json`에 남긴다. 계약의 매니페스트는 바뀌지 않는다. 서명은 없다(사용자·헤드 결정, `docs/runbook.md`에 제안). 전송은 평문 HTTP이고 TLS는 deploy·사용자 결정이다.

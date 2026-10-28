@@ -9,7 +9,7 @@ from boundary_contracts import canonical, validator
 
 from .datasets import file_question_sets, split_files, qs_key
 from .config import ROLE_TO_FILE_ROLE
-from .registry import verify_system_prompt
+from .registry import layout_of, verify_system_prompt
 
 from boundary_contracts import PIPELINE_SCHEMA_VERSION
 
@@ -30,6 +30,9 @@ def training_question_sets(dataset_manifest: dict, role: str) -> list[dict]:
 
 
 SYSTEM_PROMPT_FILE = "system_prompt.txt"
+# 왜: 계약 기록(DatasetManifest, ModelPackageManifest.lineage)에 turn_engine_version 필드가 남아 있다(D109). turn-engine 코드를 쓰지 않으므로
+# 값은 실행한 코드에서 읽을 수 없고, 마지막 릴리스 v0.4.3을 고정 표지로 쓴다(3.0.0에서 필드가 바뀐다). 설정 lineage.turn_engine_version으로 바꿀 수 있다.
+DEFAULT_TURN_ENGINE_MARK = "v0.4.3"
 
 
 def install_system_prompt(adapter_dir: Path, text: str, filename: str = SYSTEM_PROMPT_FILE) -> dict:
@@ -48,10 +51,12 @@ def eval_report_ref(package_id: str, version: str) -> str:
 
 def build_manifest(*, role: str, package_id: str, version: str, created_at: str, contract_version: int,
                    base_model: dict, adapter_dir: Path, serving_config: dict, dataset_ref: dict,
-                   dataset_manifest: dict, run_id: str, ext: dict, system_prompt: dict) -> dict:
+                   dataset_manifest: dict, run_id: str, ext: dict, system_prompt: dict,
+                   turn_engine_version: str = DEFAULT_TURN_ENGINE_MARK) -> dict:
     """system_prompt: install_system_prompt가 낸 {path, sha256}. 어댑터 디렉터리 안의 파일과 맞아야 한다."""
     model_runtime.validate_serving_config(serving_config)
     verify_system_prompt(adapter_dir, system_prompt)
+    layout_of(adapter_dir, role)      # 게시 때 거절될 디렉터리를 만들기 전에 알린다(같은 검사, 게시 쪽이 정본)
     m = {
         "pipeline_schema_version": PIPELINE_SCHEMA_VERSION,
         "package_id": package_id,
@@ -67,7 +72,7 @@ def build_manifest(*, role: str, package_id: str, version: str, created_at: str,
         "lineage": {
             "dataset": dataset_ref,
             "training_run_id": run_id,
-            "turn_engine_version": _te_version(),
+            "turn_engine_version": turn_engine_version,
             "model_runtime_version": model_runtime.RUNTIME_VERSION,
             "question_sets": training_question_sets(dataset_manifest, role),
         },
@@ -78,7 +83,3 @@ def build_manifest(*, role: str, package_id: str, version: str, created_at: str,
     validator("ModelPackageManifest").validate(m)
     return m
 
-
-def _te_version() -> str:
-    import turn_engine
-    return turn_engine.ENGINE_VERSION

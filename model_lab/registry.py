@@ -57,6 +57,21 @@ def verify_system_prompt(adapter_dir: Path, ref: dict) -> None:
         raise BoundaryError("INTEGRITY_ERROR", "시스템 프롬프트 파일이 없거나 system_prompt.sha256과 다르다")
 
 
+def layout_of(adapter_dir: Path, role: str) -> dict:
+    """어댑터 디렉터리의 ModelPackageLayout 문서(상대 경로 -> 파일 해시, adapter_hash, 시스템 프롬프트). 계약 스키마로 검증해 돌려준다.
+    왜 스키마로: 어댑터 디렉터리에 들어갈 수 있는 파일을 손으로 나열해 검사하던 것을 계약(필수 3개, 모르는 파일 거부)에 맡긴다(D107).
+    어기면 INVALID_RECORD. 시스템 프롬프트 파일이 매니페스트의 sha256과 같은지는 verify_system_prompt가 본다."""
+    root = Path(adapter_dir)
+    files = {p.relative_to(root).as_posix(): canonical.file_hash(p) for p in sorted(root.rglob("*")) if p.is_file()}
+    doc = {"role": role, "adapter_files": files, "adapter_hash": canonical.directory_hash(root),
+           "system_prompt": {"path": "system_prompt.txt", "sha256": files.get("system_prompt.txt")}}
+    errs = sorted(validator("ModelPackageLayout").iter_errors(doc), key=lambda e: list(e.absolute_path))
+    if errs:
+        path = "/" + "/".join(map(str, errs[0].absolute_path))
+        raise BoundaryError("INVALID_RECORD", f"ModelPackageLayout 위반: {path}")
+    return doc
+
+
 class _Core:
     """저장 방식과 무관한 규칙. 하위 클래스는 _Storage 동작(아래 _s_*)만 구현한다."""
 
@@ -100,6 +115,7 @@ class _Core:
         if canonical.directory_hash(adapter_dir) != manifest["adapter_hash"]:
             raise BoundaryError("INTEGRITY_ERROR", "adapter_dir의 해시가 adapter_hash와 다르다")
         verify_system_prompt(adapter_dir, manifest["system_prompt"])
+        layout_of(adapter_dir, manifest["role"])
         with self._lock():
             existing = self._s_get_manifest(pid, ver)
             if existing is not None:

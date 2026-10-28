@@ -14,9 +14,9 @@ from __future__ import annotations
 from typing import Callable, Mapping
 
 from boundary_contracts import PIPELINE_SCHEMA_VERSION, canonical, metric_name_problems, metrics as registry_metrics, validator
-from turn_engine import validation as _tv
 
 from .datasets import qs_key
+from .flow import violation_codes
 from .metric_names import DEPRECATED_V1, SERVER_TO_REGISTRY
 from .evaluate import _sum_c, a_rates, sample_dims, sample_qs
 
@@ -144,7 +144,7 @@ def build_metrics(role: str, pairs: list[tuple[dict, dict]], seen_sets: set, *, 
         metrics += metrics_for(role, buckets[key], key)
     if role == "LORA_A":
         checked = [r["violations"] for r in recs if r.get("violations") is not None]
-        for code in _tv.CODES:       # 위반 코드별 비율. 0도 낸다(위반이 없다는 것을 보고서에서 읽을 수 있게)
+        for code in violation_codes():       # 위반 코드별 비율. 0도 낸다(위반이 없다는 것을 보고서에서 읽을 수 있게)
             if checked:
                 metrics.append(_m("semantic_violation_rate", "ACCURACY", sum(1 for v in checked if code in v) / len(checked), len(checked),
                                   False, slice_=("VIOLATION_CODE", code)))
@@ -170,7 +170,7 @@ def build_metrics(role: str, pairs: list[tuple[dict, dict]], seen_sets: set, *, 
     if role == "LORA_A":
         notes += ["LoRA-A 지표는 학습 서버 score_a_v2.py와 같은 규칙으로 계산했다: 칸(key)별 비교(values 순서 무시), 칸 정답은 value·status·save가 모두 같을 때, 5와 5.0은 같고 true와 1은 다름, 형식 실패 행의 정답 칸도 분모에 넣는다. precision은 따로 센다.",
                   "schema_ok_rate는 계약 ActionExtraction 스키마(allOf 포함)를 통과한 비율이고, score_a_v2의 schema_ok(느슨한 검사)보다 엄격하다. LoRA-A는 보호가 없어 통과하지 못하면 서빙에서는 503 OUTPUT_INVALID(D75)다(output_invalid).",
-                  "semantic_violation_rate는 turn-engine validate_extraction(문항 순서표 DATASET_V2_FLOW)이 위반을 낸 출력의 비율이다. 형식 실패 출력은 분모에서 빠지고 output_invalid_rate가 센다. 정답과 비교하지 않는다(D97).",
+                  "semantic_violation_rate는 계약 check_action_extraction(문진 스키마 question_flow의 문항 순서표)이 위반을 낸 출력의 비율이다. 형식 실패 출력은 분모에서 빠지고 output_invalid_rate가 센다. 정답과 비교하지 않는다(D97).",
                   "output_invalid_rate는 평가 백엔드(제약 디코딩 없음)에서 잰 값이며 서빙(vLLM) 값과 다를 수 있다. 백엔드는 evaluation_backend에 적는다.",
                   "extra_keys, dup_keys, targets_extra_rows의 n은 평가한 행 수다."]
     else:

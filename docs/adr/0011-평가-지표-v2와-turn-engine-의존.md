@@ -1,6 +1,6 @@
 # 0011. 평가 지표를 METRICS.md v2로 바꾸고 의미 위반율에 turn-engine을 쓴다
 
-- 상태: 채택됨 (헤드 결정 D94·D96·D97·D98을 구현)
+- 상태: 채택됨 (헤드 결정 D94·D96·D97·D98을 구현). 의미 위반율의 turn-engine 의존은 [ADR 0022](0022-turn-engine-코드-의존을-계약으로-옮긴다.md)가 대체했다(계약 `check_action_extraction`).
 
 ## 맥락
 v1 지표(`risk_signal_*`, `intent_accuracy`, `item_*`, `slot_coverage`)는 v2 출력(`ActionExtraction`, 문자열 응답)에 근거가 없어 계산할 수 없다. 제약 디코딩이 형식을 지켜 형식 통과율은 변별력이 낮다. 서비스는 의미 위반을 재시도한 뒤 실패 턴으로 처리한다(D75).

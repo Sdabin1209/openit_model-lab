@@ -4,11 +4,11 @@ import json
 
 import pytest
 import model_runtime
-import turn_engine
 from boundary_contracts import PIPELINE_SCHEMA_VERSION, BoundaryError, canonical
 from boundary_contracts.sdk import ModelRegistry
 
 from model_lab.registry import FileModelRegistry, MemoryModelRegistry
+from model_lab.packager import DEFAULT_TURN_ENGINE_MARK
 
 
 class _HttpReg:
@@ -39,9 +39,9 @@ def reg(request, tmp_path):
 
 def make(tmp_path, pid="pkg-a", ver="v1", payload=b"w", report=b"report-1", ref="eval-1"):
     ad = tmp_path / f"ad-{pid}-{ver}"
-    (ad / "sub").mkdir(parents=True, exist_ok=True)
-    (ad / "adapter_model.bin").write_bytes(payload)
-    (ad / "sub" / "c.json").write_text("{}")
+    ad.mkdir(parents=True, exist_ok=True)
+    (ad / "adapter_model.safetensors").write_bytes(payload)
+    (ad / "adapter_config.json").write_text("{}")      # ModelPackageLayout의 필수 파일 3개(D107)
     (ad / "system_prompt.txt").write_bytes(b"system prompt for " + pid.encode())
     sc = {"prompt_template_version": "prompt-2", "decoding": {"constraint_mode": "none", "temperature": 0, "seed": 1, "max_tokens": 8},
           "max_attempts": 3, "constraint": {"backend": "x", "backend_version": "1", "supported_features": [], "relax_policy_version": "relax-3"},
@@ -52,7 +52,7 @@ def make(tmp_path, pid="pkg-a", ver="v1", payload=b"w", report=b"report-1", ref=
          "serving_config": sc, "serving_config_hash": canonical.sha256_hash(sc),
          "system_prompt": {"path": "system_prompt.txt", "sha256": canonical.file_hash(ad / "system_prompt.txt")},
          "lineage": {"dataset": {"id": "d", "version": "1", "content_hash": h}, "training_run_id": "run-1",
-                     "turn_engine_version": turn_engine.ENGINE_VERSION, "model_runtime_version": model_runtime.RUNTIME_VERSION},
+                     "turn_engine_version": DEFAULT_TURN_ENGINE_MARK, "model_runtime_version": model_runtime.RUNTIME_VERSION},
          "eval_report_ref": ref}
     m["content_hash"] = canonical.content_hash(m)
     return m, ad, report
@@ -107,7 +107,7 @@ def test_validation_errors(reg, tmp_path):
     assert code(reg.publish, bad, ad, rep) == "INVALID_RECORD"
     bad = copy.deepcopy(m); bad["created_at"] = "2026-10-16T00:00:00Z"        # content_hash를 다시 계산하지 않음
     assert code(reg.publish, bad, ad, rep) == "INTEGRITY_ERROR"
-    (ad / "adapter_model.bin").write_bytes(b"tampered")                        # adapter_hash 불일치
+    (ad / "adapter_model.safetensors").write_bytes(b"tampered")                        # adapter_hash 불일치
     assert code(reg.publish, m, ad, rep) == "INTEGRITY_ERROR"
     assert code(reg.publish, m, tmp_path / "nope", rep) in ("NOT_FOUND", "INVALID_RECORD")      # 원격 클라이언트는 INVALID_RECORD
 

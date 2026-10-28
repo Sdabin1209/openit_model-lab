@@ -34,9 +34,8 @@ def now_utc() -> str:
 
 
 def library_versions() -> dict:
-    import turn_engine
     from . import __version__
-    v = {"boundary-contracts": metadata.version("boundary-contracts"), "turn-engine": turn_engine.ENGINE_VERSION,
+    v = {"boundary-contracts": metadata.version("boundary-contracts"),
          "model-runtime": model_runtime.RUNTIME_VERSION, "model-lab": __version__}
     return v
 
@@ -372,7 +371,7 @@ class Run:
                 role=role, system_prompt=sp, package_id=self.cfg["roles"][role]["package_id"], version=version, created_at=created,
                 contract_version=self.contract_version, base_model=base, adapter_dir=self.dir / "adapters" / role,
                 serving_config=self.cfg["serving"][role], dataset_ref=self.dataset_ref, dataset_manifest=dm,
-                run_id=self.run_id,
+                run_id=self.run_id, turn_engine_version=self.cfg.get("lineage", {}).get("turn_engine_version", packager.DEFAULT_TURN_ENGINE_MARK),
                 ext={"run_id": self.run_id, "config_hash": self.config_hash, "seed": self.seed,
                      "trainer": tr["trainer"],
                      "resumed": tr["result"].get("resumed_from_step", 0) > 0,

@@ -17,8 +17,10 @@ if ! ls vendor/wheels/boundary_contracts-"$BC_VER"-*.whl >/dev/null 2>&1; then
   $PIP wheel --no-deps -q -w vendor/wheels "$SPEC"
 fi
 WHL=$(ls vendor/wheels/boundary_contracts-"$BC_VER"-*.whl | head -1)
+# 왜: 커밋을 모르면 라벨 revision이 거짓이 된다(계약 ImageLabels는 hex만 받는다). 'unknown'으로 대신하지 않고 실패한다.
+REV=$(git rev-parse --short HEAD) || { echo "git 커밋을 읽지 못해 revision 라벨을 정할 수 없다" >&2; exit 1; }
 docker build -q --build-context wheels=vendor/wheels --build-arg "BC_SPEC=/wheels/$(basename "$WHL")" --build-arg "BC_VERSION=v$BC_VER" \
-  --build-arg "REVISION=$(git rev-parse --short HEAD 2>/dev/null || echo unknown)" -t "$TAG" .
+  --build-arg "REVISION=$REV" -t "$TAG" .
 docker volume create "$NAME-data" >/dev/null
 # 토큰은 환경 변수가 아니라 파일로 준다(D84, NAME_FILE). 컨테이너 사용자(uid 10001)가 읽도록 0644, 끝나면 지운다.
 SECRETS=$(mktemp -d); trap 'rm -rf "$SECRETS"; docker rm -f "$NAME" >/dev/null 2>&1 || true; docker volume rm "$NAME-data" >/dev/null 2>&1 || true; docker rmi "$TAG" >/dev/null 2>&1 || true' EXIT

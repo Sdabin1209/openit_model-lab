@@ -7,7 +7,9 @@ LORA_B면 ResponseRequest로, 정답은 ActionExtraction / ResponseText로 검�
 
 비식별 trace 안의 모델 입력 키(D98 확정): 문진 스키마 TurnTrace의 `extract_input`(A 입력), `extract_output`, `response_input`(B 입력), `response_output`.
 왜 이 이름: 문진 스키마가 정본이고 소비자는 스키마를 따른다(D21). 입력만 읽는다 — 출력 키는 '운영에서 낸 출력'이라 기대값(검토자가 확정)과 다르다.
-내부 스키마(ActionExtractionInput 등)는 아래에서 다시 검증하므로 맞지 않으면 input_invalid로 건너뛴다. 맞는 키가 없으면 trace_input_missing."""
+trace 전체는 계약 OpsFeedbackDeidentifiedTrace(ops-feedback 소유, 모르는 키 거부)로 검증하고 어기면 trace_invalid로 건너뛴다(D107).
+그 안의 모델 입력은 ActionExtractionInput / ResponseRequest로 따로 검증한다(trace 스키마는 입력의 모양을 느슨하게만 본다). 맞지 않으면 input_invalid,
+맞는 키가 없으면 trace_input_missing."""
 from __future__ import annotations
 
 import collections
@@ -68,7 +70,9 @@ def build_set(store, schema_dir: Path | None, *, limit: int | None = None, max_l
                 if e.code == "NOT_FOUND":
                     skipped["trace_not_found"].append(cid); continue
                 raise                  # UNAVAILABLE 등은 중단(재시도)
-            inp = trace.get(TRACE_KEYS[role]["input"]) if isinstance(trace, dict) else None
+            if not validator("OpsFeedbackDeidentifiedTrace").is_valid(trace):
+                skipped["trace_invalid"].append(cid); continue      # I7 get_trace의 정본 스키마(모르는 키 거부). 어기면 평가 입력으로 쓰지 않는다
+            inp = trace.get(TRACE_KEYS[role]["input"])
         if not isinstance(inp, dict):
             skipped["trace_input_missing"].append(cid); continue
         if list(validator(_IN[role]).iter_errors(inp)):

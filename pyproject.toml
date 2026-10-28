@@ -7,7 +7,7 @@ name = "model-lab"
 version = "0.1.0"
 description = "openit model-lab: LoRA-A/B 학습·평가·패키징·게시 파이프라인"
 requires-python = ">=3.10"
-dependencies = ["boundary-contracts", "turn-engine", "model-runtime", "jsonschema>=4", "pyyaml>=6"]
+dependencies = ["boundary-contracts", "openit-survey-schema", "model-runtime", "jsonschema>=4", "pyyaml>=6"]
 
 [project.optional-dependencies]
 train = ["torch", "transformers", "peft", "accelerate", "bitsandbytes"]

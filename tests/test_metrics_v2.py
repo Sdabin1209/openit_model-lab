@@ -6,12 +6,13 @@ from pathlib import Path
 
 import pytest
 from boundary_contracts import BoundaryError, validator
-from turn_engine import DATASET_V2_FLOW
+from boundary_contracts.action_rules import _Flow    # 시험 전용: 합성 정답의 next_item을 계약과 같은 규칙으로 계산한다
 
 from model_lab import datasets, factories, metrics, pipeline, regression
 from model_lab.config import ConfigError, load_config
 from model_lab.metric_names import DEPRECATED_V1
 from model_lab.evaluate import build_report, score_a, semantic_violations
+from model_lab.flow import default_flow
 from model_lab.text_rules import check_response, material_coverage
 from tests.doubles.dataset_server import DatasetServer
 from tests.doubles.fixtures import load_samples
@@ -113,15 +114,18 @@ def test_semantic_violation_detects_what_validate_extraction_detects():
     assert semantic_violations(inp, "문자열") is None and semantic_violations({"x": 1}, out) is None     # 검사할 수 없으면 None
 
 
+FLOW = default_flow()
+
+
 def synthetic_gold():
-    """문항 순서표(DATASET_V2_FLOW) 31개 문항 x 답 True/False로 만든 합성 정답 A 샘플(규칙을 지키는 정답)."""
+    """문항 순서표(문진 스키마 question_flow) 31개 문항 x 답 True/False로 만든 합성 정답 A 샘플(규칙을 지키는 정답)."""
     base = load_samples("LORA_A")[0]["input"]
     out = []
-    for item in DATASET_V2_FLOW.order:
+    for item in FLOW["order"]:
         for val in (True, False):
             inp = {**base, "question_id": item, "state": {}}
             slot = f"{item}.answer"
-            nxt = DATASET_V2_FLOW.next_item(item, {slot: val})
+            nxt = _Flow(FLOW).next_item(item, {slot: val})
             exp = {"values": [{"key": slot, "value": val, "precision": "exact", "status": "ANSWERED", "save": True}], "action": "NEXT", "next_item": nxt}
             if validator("ActionExtractionInput").is_valid(inp) and validator("ActionExtraction").is_valid(exp):
                 out.append({"sample_id": f"syn-{item}-{val}", "input": inp, "expected": exp})
@@ -176,15 +180,20 @@ def test_regression_reads_d98_trace_keys():
         def list_cases(self, **kw): return [self.case], None
         def get_trace(self, ref): return self.trace
 
+    from tests.test_regression import trace_with
     A, B = load_samples("LORA_A")[0], load_samples("LORA_B")[0]
-    for kind, s, key, old in (("LORA_A", A, "extract_input", "parser_input"), ("LORA_B", B, "response_input", "respond_input")):
+    b_masked = {**B["input"], "topic": "[MASKED]"}                  # 비식별 trace의 topic은 [MASKED]다
+    for kind, s, key, val in (("LORA_A", A, "extract_input", trace_with()["extract_input"]), ("LORA_B", B, "response_input", b_masked)):
         case = {"case_id": "c1", "version": 1, "expected_kind": kind, "expected": s["expected"], "failure_type": "OTHER",
                 "source_release_id": "r1", "deidentified_trace_ref": "t1", "review_status": "CONFIRMED"}
-        st = St({key: s["input"]}); st.case = case
+        st = St(trace_with(**{key: val})); st.case = case
         got = regression.build_set(st, None)
         assert len(got["samples"][kind]) == 1 and got["samples"][kind][0]["input_source"] == "trace"
-        st = St({old: s["input"]}); st.case = case                                  # 옛 키·추정 키는 읽지 않는다
+        assert got["samples"][kind][0]["input"] == val
+        st = St(trace_with(**{key: None})); st.case = case                          # 입력이 없으면 건너뛴다
         assert regression.build_set(st, None)["skipped"]["trace_input_missing"]["count"] == 1
+        st = St({**trace_with(), "parser_input": s["input"]}); st.case = case       # 옛 키·추정 키는 trace 계약 위반이다
+        assert regression.build_set(st, None)["skipped"]["trace_invalid"]["count"] == 1
 
 
 # ---- (3) I2 HTTP(D100) ----------------------------------------------------------------------------------------------------------

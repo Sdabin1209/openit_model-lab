@@ -124,11 +124,11 @@ def test_publish_refused_when_free_space_is_short_and_leaves_no_tmp(tmp_path):
 def test_link_on_commit_saves_a_copy_only_when_asked(tmp_path):
     m, ad, rep = make(tmp_path)
     a = FileModelRegistry(tmp_path / "plain"); a.publish(m, ad, rep)
-    assert os.stat(ad / "adapter_model.bin").st_nlink == 1                          # 호출자의 원본과 저장본을 공유하지 않는다
+    assert os.stat(ad / "adapter_model.safetensors").st_nlink == 1                          # 호출자의 원본과 저장본을 공유하지 않는다
     b = FileModelRegistry(tmp_path / "linked", link_on_commit=True); b.publish(m, ad, rep)
-    assert os.stat(ad / "adapter_model.bin").st_nlink == 2
+    assert os.stat(ad / "adapter_model.safetensors").st_nlink == 2
     out = b.open_adapter("pkg-a", "v1", dest=tmp_path / "o")                       # 해시 검증을 통과한다
-    assert (out / "adapter_model.bin").read_bytes() == b"w"
+    assert (out / "adapter_model.safetensors").read_bytes() == b"w"
 
 
 # ---------- ML-1 자원 한도 ----------

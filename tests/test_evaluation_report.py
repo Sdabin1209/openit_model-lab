@@ -9,7 +9,7 @@ from model_lab.metric_names import DEPRECATED_V1, SERVER_TO_REGISTRY, UNREGISTER
 
 from model_lab.pipeline import Run
 from tests.conftest import FIXED
-from tests.test_regression import case, failure_world, reg_cfg  # noqa: F401  (픽스처 재사용)
+from tests.test_regression import case, failure_world, reg_cfg, trace_with  # noqa: F401  (픽스처 재사용)
 from tests.doubles.fixtures import load_samples
 
 
@@ -86,7 +86,7 @@ def test_regression_metrics_and_reviewed_input_first(cfg, failure_world, monkeyp
     for c in failure_world.cases:
         if c["case_id"] == "c-parser":
             c["reviewed_input"] = P[0]["input"]
-    failure_world.traces["tr-c-parser"] = {"extract_input": {"user_utterance": "깨진 입력"}}      # 쓰면 입력 계약 위반으로 건너뛰게 된다
+    failure_world.traces["tr-c-parser"] = trace_with(extract_input={"question_id": "Q1", "current_question": "[MASKED]", "user_utterance": "깨진 입력", "state": {}})   # 쓰면 trace 계약 위반으로 건너뛰게 된다
     c = reg_cfg(cfg, failure_world, monkeypatch)
     r = Run(c, clock=FIXED, log=lambda s: None); rec = r.run()
     _, a = published(r, rec, "LORA_A")

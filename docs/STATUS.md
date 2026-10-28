@@ -1,4 +1,13 @@
-# STATUS (2026-10-27)
+# STATUS (2026-10-29)
+
+## 16차 갱신: 단위 3, 계약 v2.2.1 핀 + 손코드 검증을 계약 스키마로, 브랜치 wo-u3
+- 핀: boundary-contracts v2.2.1, model-runtime v0.9.0, 문진 스키마 survey-schema-v1.1.0(태그는 헤드가 단다. 그 전까지 시험은 `survey-service/schema`를 `pip install --no-deps --force-reinstall`로 설치). turn-engine은 requirements·lock·pyproject·코드에서 모두 뺐다(ADR 0022).
+- 위반 검사를 계약 `check_action_extraction` + 문진 스키마 흐름표로 옮겼다(`model_lab/flow.py`). 이전 구현과의 차이 시험 `tests/test_semantic_diff.py`. 스키마를 통과한 출력은 위반 코드가 모두 같다.
+- `ModelPackageLayout`: 게시(`registry.publish`)와 `build_manifest`가 검사한다. 모의 학습기 어댑터 파일 이름을 `adapter_model.safetensors`로 바꿨다.
+- 회귀 평가 trace를 `OpsFeedbackDeidentifiedTrace`로 검증한다(`trace_invalid`). 비식별 trace의 입력은 `[MASKED]`라 trace에서 온 입력으로는 오라클 모델이 정답을 맞히지 못한다. 평가에 쓸 만한 입력은 `reviewed_input`(D55)이다.
+- 계보 `turn_engine_version`은 설정 `lineage.turn_engine_version`(기본 `v0.4.3` 표지).
+- 이미지 라벨: Dockerfile ARG에 기본값 없음(원래 없었음). 라벨을 계약 `ImageLabels`로 검사하는 시험 추가. 스모크 스크립트의 revision 폴백 `unknown`을 없앴다(커밋을 모르면 실패).
+- 미확인: GPU 호스트, 독립된 두 번째 머신. 이 PC의 새 venv 한 환경에서만 확인했다.
 
 ## 15차 갱신: 학습 서버 인자 이름 채움 (G06), 브랜치 main
 - 한 것: `server.arg_map`과 A·B 8B 설정(`configs/train.yaml`, `configs/train-b.yaml`), 값 없는 플래그 처리, `args_evidence` 필드, 시험(명령줄을 서버 `run_config.json`과 대조). 자세한 내용은 CHANGELOG 0.2.6.

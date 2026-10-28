@@ -54,7 +54,7 @@ publish:  {enabled}
 ## 4. 재현성과 재개
 
 - `run_id = "run-" + sha256({config_hash, 데이터셋 ref(id, version, content_hash), seed, 라이브러리 버전})[7:23]`. 같은 입력은 같은 `runs/<run_id>/`를 가리킨다. `config_hash`는 위치(runs_dir, registry 경로, schema_dir, 실행 이름)를 뺀 해석된 설정의 해시다. [확인: 시험]
-- `runs/<run_id>/run.json`이 설정(프로파일 병합 후), 시드, 데이터셋 ref, 라이브러리 버전(boundary-contracts, turn-engine, model-runtime, model-lab)과 환경(torch 등), 단계별 상태·해시·결과를 기록한다. 단계가 `done`이고 산출물 해시가 맞으면 건너뛴다.
+- `runs/<run_id>/run.json`이 설정(프로파일 병합 후), 시드, 데이터셋 ref, 라이브러리 버전(boundary-contracts, model-runtime, model-lab)과 환경(torch 등), 단계별 상태·해시·결과를 기록한다. 단계가 `done`이고 산출물 해시가 맞으면 건너뛴다.
 - 학습은 `work/<ROLE>/`의 체크포인트(`hf`: 어댑터+옵티마이저+스케줄러+스텝, 마지막에 `state.json`을 써서 완전한 것만 인정)에서 이어 한다. 데이터 순서는 (시드, 에폭)으로 정해져 재개해도 같다.
 - 시각은 run 기록에만 있다. 패키지의 `created_at`은 처음 정한 값을 run 기록에 고정해, 같은 run을 다시 돌려도 같은 매니페스트(같은 `content_hash`)가 나온다. 레지스트리 게시는 멱등이다.
 - **재현성 측정 [확인: gpu-dev RTX 4070 SUPER, STATUS.md]**: 데이터·설정·`run_id`·변환 결과·dry-run 어댑터는 비트 단위로 같다. GPU 학습은 `attn_implementation: sdpa`(기본)에서는 같은 시드로도 어댑터가 달랐고, `eager` + `deterministic: true`에서 같은 설정을 두 번 돌린 어댑터·평가 보고서 해시가 일치했다(양자화 없음/4비트 둘 다 `scripts/determinism_probe.py`, 스모크 실행 2회). 그래서 프로파일은 `eager`를 쓴다. 단 **체크포인트에서 재개한 학습이 중단 없는 학습과 같은 해시인지는 확인하지 못했다**(10스텝 시험에서 달랐고, 재개하지 않은 역할도 그 두 실행 사이에 달라 원인이 재개인지 환경인지 분리하지 못했다). 한계: 다른 GPU·드라이버·라이브러리 버전에서의 일치는 약속하지 않는다.

@@ -25,6 +25,14 @@ def case(cid, expected, **kw):
     return c
 
 
+def trace_with(**kw):
+    """계약 OpsFeedbackDeidentifiedTrace의 유효 예시(자유 문자열은 [MASKED])에 키만 바꾼 trace. 부분 trace는 계약 위반이라 get_trace 대역으로 쓰지 않는다."""
+    import conformance
+    t = json.loads((Path(conformance.__file__).parent / "examples" / "OpsFeedbackDeidentifiedTrace.json").read_text(encoding="utf-8"))
+    t.update(kw)
+    return t
+
+
 @pytest.fixture
 def failure_world():
     P = load_samples("LORA_A")
@@ -36,9 +44,15 @@ def failure_world():
              case("c-notrace", P[3]["expected"], expected_kind="LORA_A"),
              case("c-noexpected", None),
              case("c-weird", {"foo": 1}, expected_kind="LORA_A")]      # 정답이 ActionExtraction을 지키지 않음
-    # trace 안의 입력 키 이름은 추정이다(regression._TRACE_KEYS, 미정)
-    traces = {"tr-c-parser": {"extract_input": P[0]["input"]}, "tr-c-gen-noKind": {"response_input": G[0]["input"]},
-              "tr-c-pending": {"extract_input": P[1]["input"]}, "tr-c-noinput": {"extract_input": None}, "tr-c-weird": {"extract_input": P[4]["input"]}}
+    # 비식별 trace의 입력은 [MASKED]라 오라클 모델이 정답을 맞힐 수 없다. 평가에 쓰는 입력은 검토자가 고친 reviewed_input(D55)으로 준다.
+    # trace 경로 자체는 tests/test_u3_contracts.py와 test_metrics_v2.py의 D98 시험이 본다.
+    for c in cases:
+        if c["case_id"] == "c-parser":
+            c["reviewed_input"] = P[0]["input"]
+        elif c["case_id"] == "c-gen-noKind":
+            c["reviewed_input"] = G[0]["input"]
+    traces = {"tr-c-parser": trace_with(), "tr-c-gen-noKind": trace_with(),
+              "tr-c-pending": trace_with(), "tr-c-noinput": trace_with(extract_input=None), "tr-c-weird": trace_with()}
     fs = FailureServer(cases, traces)
     yield fs
     fs.stop()

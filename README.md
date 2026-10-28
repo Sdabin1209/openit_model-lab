@@ -16,7 +16,7 @@
 | 입력 | 학습 서버(영역 밖) | 학습한 어댑터 | 사람이 파일로 가져옴 (`docs/runbook.md` D84 절) |
 | 출력 | release-gate | 모델 패키지 조회 | I3 `ModelRegistry`, HTTP: `GET /v1/packages…`, `.../adapter`, `/v1/eval-reports/{ref}`, `POST /v1/packages`(model-lab만 쓰기) |
 
-라이브러리로 boundary-contracts, turn-engine, model-runtime을 태그로 쓴다(버전은 `requirements.txt`가 정본). 서비스 이미지는 boundary-contracts만 넣는다(`requirements-service.txt`). 판정 조회 I4는 이 단계에서 쓰지 않는다(`docs/boundary.md`).
+라이브러리로 boundary-contracts, model-runtime, 문진 스키마(openit-survey-schema)를 태그로 쓴다. turn-engine은 쓰지 않는다(ADR 0022)(버전은 `requirements.txt`가 정본). 서비스 이미지는 boundary-contracts만 넣는다(`requirements-service.txt`). 판정 조회 I4는 이 단계에서 쓰지 않는다(`docs/boundary.md`).
 
 ## 구조
 
@@ -135,6 +135,15 @@ scripts/smoke_registry.sh
 | [0008](docs/adr/0008-평가-코드는-가짜-모델로만-돈다.md) | 평가 시험은 가짜 모델로만 돈다(한계) |
 | [0009](docs/adr/0009-레지스트리-서버-인증-역할.md) | 서버 인증: 읽기/쓰기 토큰, 쓰기는 model-lab 하나 |
 | [0010](docs/adr/0010-서버-구현은-표준-라이브러리-HTTP.md) | 서버는 표준 라이브러리 HTTP |
-| [0011](docs/adr/0011-평가-지표-v2와-turn-engine-의존.md) | 평가 지표 METRICS.md v2, 의미 위반율은 turn-engine `validate_extraction` |
+| [0011](docs/adr/0011-평가-지표-v2와-turn-engine-의존.md) | 평가 지표 METRICS.md v2 (의미 위반율의 turn-engine 의존은 0022가 대체) |
 | [0012](docs/adr/0012-데이터셋-저장소는-HTTP-클라이언트.md) | I2 데이터셋 읽기는 HTTP 클라이언트 |
 | [0013](docs/adr/0013-설정의-package_id를-바꾸지-않는다.md) | 설정의 `package_id`(`lora-a-parser`, `lora-b-generator`)는 옛 이름이지만 바꾸지 않는다 |
+| [0014](docs/adr/0014-attach의-created_at은-입력에서만.md) | attach의 created_at은 입력에서만 |
+| [0015](docs/adr/0015-설정은-YAML-1.2로-읽고-중복-키를-거부한다.md) | 설정은 YAML 1.2로 읽고 중복 키 거부 |
+| [0016](docs/adr/0016-기반-모델-캐시는-huggingface_hub-공개-API로-읽는다.md) | 기반 모델 캐시는 huggingface_hub 공개 API |
+| [0017](docs/adr/0017-설정의-팩토리-이름은-허용-목록으로-제한한다.md) | 설정의 팩토리 이름은 허용 목록 |
+| [0018](docs/adr/0018-Dockerfile은-GitHub-호스트-키를-고정한다.md) | Dockerfile은 GitHub 호스트 키를 고정 |
+| [0019](docs/adr/0019-근거-없던-값의-출처-분류.md) | 근거 없던 값의 출처 분류 |
+| [0020](docs/adr/0020-created_at의-출처는-인자와-SOURCE_DATE_EPOCH뿐이다.md) | created_at의 출처는 인자와 SOURCE_DATE_EPOCH뿐 |
+| [0021](docs/adr/0021-인증-실패는-401과-WWW-Authenticate.md) | 인증 실패는 401 + WWW-Authenticate |
+| [0022](docs/adr/0022-turn-engine-코드-의존을-계약으로-옮긴다.md) | turn-engine 코드 의존을 계약으로 옮긴다 |

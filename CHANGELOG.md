@@ -1,5 +1,11 @@
 # 변경 이력
 
+## 미배포 - 단위 3: 계약 v2.2.1, turn-engine 코드 의존 제거, 계약 스키마 사용 (헤드 지시 D104·D107·D109, ADR 0022)
+- 핀: boundary-contracts v2.2.1, model-runtime v0.9.0, openit-survey-schema survey-schema-v1.1.0. turn-engine 제거.
+- `semantic_violations`/`semantic_violation_rate`: 계약 `check_action_extraction` + 문진 스키마 `question_flow`. 스키마를 어긴 출력에서는 `OUTPUT_SCHEMA`가 더 나오지 않는다(R7). 보고서 notes 문구 변경.
+- `ModelPackageLayout` 검사(게시·패키지 생성), 회귀 trace `OpsFeedbackDeidentifiedTrace` 검증(`trace_invalid`), 설정 `lineage.turn_engine_version`.
+- 모의 학습기 어댑터 파일 이름 `adapter_model.dryrun` -> `adapter_model.safetensors`. 스모크의 revision 폴백 제거.
+
 ## 미배포 - 계약 v2.2.0 열차 핀 (헤드 지시 wo-bc220)
 - 핀만 바꿨다: boundary-contracts v2.1.1 -> v2.2.0(`requirements.txt`, `requirements.lock`, `requirements-service.txt`), turn-engine v0.4.2 -> v0.4.3, model-runtime v0.8.0 -> v0.8.1(`requirements.txt`, `requirements.lock`). 잠금 파일은 태그만 담고 커밋 해시가 없다. `pipeline_schema_version`은 코드·시험 모두 계약 상수 `PIPELINE_SCHEMA_VERSION`에서 읽어 바꿀 곳이 없었다. 계약 변경점은 boundary-contracts CHANGELOG 2.2.0절이 정본이다.
 

@@ -51,6 +51,7 @@ class DryRunTrainer:
         req.adapter_dir.mkdir(parents=True, exist_ok=True)
         (req.adapter_dir / "adapter_config.json").write_text(
             json.dumps({"peft_type": "DRY_RUN", "base_model": req.base_model["id"], "role": req.role}, sort_keys=True))
-        (req.adapter_dir / "adapter_model.dryrun").write_text(h)
+        # 왜 이 이름: 게시는 ModelPackageLayout(필수 파일 3개)을 검사한다. 모의 학습기의 내용은 safetensors가 아니라 상태 해시 문자열이다.
+        (req.adapter_dir / "adapter_model.safetensors").write_text(h)
         return {"steps": total, "resumed_from_step": resumed, "base_model_revision": req.base_model.get("revision", "unknown"),
                 "library_versions": {}, "metrics": {"final_state_hash": h}}

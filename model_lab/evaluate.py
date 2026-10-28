@@ -14,7 +14,10 @@ from __future__ import annotations
 import collections
 from typing import Any, Callable, Mapping
 
-from turn_engine import DATASET_V2_FLOW, ContractViolation, validate_extraction
+from boundary_contracts import BoundaryError
+from boundary_contracts.action_rules import check_action_extraction
+
+from .flow import default_flow
 
 from .datasets import qs_key
 from .text_rules import check_response, material_coverage
@@ -143,19 +146,19 @@ def sample_dims(role: str, sample: Mapping, seen_sets: set) -> dict[str, set]:
     return d
 
 
-def semantic_violations(inp: Mapping, output, flow=DATASET_V2_FLOW) -> list[str] | None:
-    """turn-engine validate_extraction이 낸 위반 코드(중복 없이 정렬). 검사할 수 없으면 None(형식 실패 출력, 입력 계약 위반).
+def semantic_violations(inp: Mapping, output, flow: Mapping | None = None) -> list[str] | None:
+    """계약 check_action_extraction(boundary_contracts.action_rules)이 낸 위반 코드(중복 없이 정렬). 검사할 수 없으면 None(형식 실패 출력, 입력 계약 위반).
     왜: 서비스가 쓰는 것과 같은 검증기로 재야 지표가 운영 실패율과 같은 뜻이다(D97). 형식 실패 행은 출력이 없어 분모에서 빠지고
-    output_invalid_rate가 따로 센다. flow의 기본값 DATASET_V2_FLOW는 학습 데이터셋 v2의 문항 순서·건너뛰기이며 서비스 동작의 근거는 아니다(D99)."""
+    output_invalid_rate가 따로 센다. flow의 기본값은 문진 스키마 question_flow(학습 데이터셋 v2의 문항 순서·건너뛰기)이며 서비스 동작의 근거는 아니다(D99, D109)."""
     if not isinstance(output, Mapping):
         return None
     try:
-        return sorted({v.code for v in validate_extraction(dict(inp), dict(output), flow)})
-    except ContractViolation:
+        return sorted({v.code for v in check_action_extraction(dict(inp), dict(output), dict(flow or default_flow()))})
+    except BoundaryError:
         return None
 
 
-def evaluate_sample(role: str, session, sample: Mapping, *, flow=DATASET_V2_FLOW) -> dict:
+def evaluate_sample(role: str, session, sample: Mapping, *, flow: Mapping | None = None) -> dict:
     """한 샘플의 기록. A는 extract_raw 한 번(서빙 경로와 같은 재시도), B는 raw와 보호 적용 결과."""
     inp, exp = sample["input"], sample["expected"]
     if role == "LORA_A":
@@ -241,7 +244,7 @@ def aggregate(recs: list[dict], role: str) -> dict:
 
 def build_report(role: str, session, samples: list[dict], *, seen_sets: set, eval_files: list[dict],
                  max_listed_failures: int = 20, context: Mapping | None = None, return_records: bool = False,
-                 flow=DATASET_V2_FLOW):
+                 flow: Mapping | None = None):
     recs: list[tuple[dict, dict]] = [(s, evaluate_sample(role, session, s, flow=flow)) for s in samples]
     all_recs = [r for _, r in recs]
     dims: dict[str, dict[str, list]] = collections.defaultdict(lambda: collections.defaultdict(list))

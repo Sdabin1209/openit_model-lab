@@ -39,7 +39,7 @@ def test_runs_to_publication(cfg):
         assert m["serving_config"] == cfg["serving"][role]
         assert r.registry.get_eval_report(m["eval_report_ref"])
     # 실행 기록: 설정, 시드, 데이터셋 버전, 라이브러리 버전
-    assert rec["seed"] == 1234 and rec["dataset"]["version"] == "v1" and {"turn-engine", "model-runtime", "boundary-contracts"} <= set(rec["libraries"])
+    assert rec["seed"] == 1234 and rec["dataset"]["version"] == "v1" and {"model-runtime", "boundary-contracts"} <= set(rec["libraries"]) and "turn-engine" not in rec["libraries"]
     assert rec["config"]["run"]["seed"] == 1234
 
 
