@@ -22,3 +22,6 @@
 
 ## 되돌리는 조건
 태그 소스를 SSH 없이 받을 수 있게 되면 이 파일과 openssh-client를 없앤다.
+
+---
+**2026-10-29 후속 확인**: `scripts/smoke_registry.sh`가 `requirements-service.txt`의 태그에서 `pip wheel --no-deps`로 wheel을 만들도록 고쳤다(이웃 폴더 불사용). 고친 뒤 이 PC(Linux, Docker)에서 끝까지 통과했다: 고정 호스트 키 `COPY`를 거친 이미지 빌드, `healthz: {"status": "ok"}`, `readyz: {"status": "ready"}`, 비root `user: 10001`, 라벨 `io.openit.contracts.boundary` v2.1.1, 게시·조회 클라이언트 `client ok`, 마지막 줄 `SMOKE_OK`(23초). 한 환경에서만 확인했다. 위 "확인하지 못한 것" 문단은 이 확인으로 해소됐다.

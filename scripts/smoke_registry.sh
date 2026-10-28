@@ -7,8 +7,15 @@ TAG="model-lab-registry:smoke-$$"
 NAME="model-lab-registry-smoke-$$"
 trap 'docker rm -f "$NAME" >/dev/null 2>&1 || true; docker volume rm "$NAME-data" >/dev/null 2>&1 || true; docker rmi "$TAG" >/dev/null 2>&1 || true' EXIT
 mkdir -p vendor/wheels
-# requirements-service.txt가 고정한 태그(vX.Y.Z)의 wheel을 쓴다(다른 버전 wheel이 같이 있어도 섞이지 않는다).
-BC_VER=$(sed -n 's/.*openit_boundary-contracts.git@v\([0-9.]*\).*/\1/p' requirements-service.txt | head -1)
+# requirements-service.txt가 고정한 태그에서 wheel을 만든다(pip wheel --no-deps, 이웃 폴더 불사용). 같은 버전 wheel이 이미 있으면 다시 만들지 않는다.
+# 왜: 이미지 빌드는 ssh 없이 이 wheel로 설치한다(Dockerfile 머리말). 다른 버전 wheel이 같이 있어도 섞이지 않게 고정 버전만 고른다.
+SPEC=$(grep '^boundary-contracts' requirements-service.txt | head -1)
+BC_VER=$(printf '%s' "$SPEC" | sed -n 's/.*openit_boundary-contracts.git@v\([0-9.]*\).*/\1/p')
+[ -n "$BC_VER" ] || { echo "requirements-service.txt에서 boundary-contracts 태그를 읽지 못했다" >&2; exit 1; }
+if ! ls vendor/wheels/boundary_contracts-"$BC_VER"-*.whl >/dev/null 2>&1; then
+  PIP=.venv/bin/pip; [ -x "$PIP" ] || PIP="python3 -m pip"
+  $PIP wheel --no-deps -q -w vendor/wheels "$SPEC"
+fi
 WHL=$(ls vendor/wheels/boundary_contracts-"$BC_VER"-*.whl | head -1)
 docker build -q --build-context wheels=vendor/wheels --build-arg "BC_SPEC=/wheels/$(basename "$WHL")" --build-arg "BC_VERSION=v$BC_VER" \
   --build-arg "REVISION=$(git rev-parse --short HEAD 2>/dev/null || echo unknown)" -t "$TAG" .
