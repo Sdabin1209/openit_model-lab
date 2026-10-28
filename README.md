@@ -65,7 +65,7 @@ scripts/smoke_registry.sh
 .venv/bin/python -m model_lab package-adapters --help
 ```
 
-이 문서를 쓰면서 **돌려 본 것**: `.venv/bin/python -m pytest -q`(2026-10-28, 통과·건너뜀 개수는 5절 한 곳에만 둔다; 이 PC의 `.venv` 한 환경), `.venv/bin/python -m model_lab --help`(하위 명령 `run`, `run-once`, `status`, `package-adapters`, `train`, `train-doctor` 확인). **돌리지 않은 것**: 위 1~6 중 시험 실행 외 전부(설치, 파이프라인, 이미지 빌드·스모크, doctor, train, package-adapters), GPU 관련 전부.
+이 문서를 쓰면서 **돌려 본 것**: `.venv/bin/python -m pytest -q`(2026-10-28, 통과·건너뜀 개수는 5절 한 곳에만 둔다; 이 PC의 `.venv` 한 환경), `.venv/bin/python -m model_lab --help`(하위 명령 `run`, `run-once`, `status`, `package-adapters`, `train`, `train-doctor` 확인). **돌리지 않은 것**: 위 1~6 중 설치와 시험 실행 외 전부(파이프라인, 이미지 빌드·스모크, doctor, train, package-adapters), GPU 관련 전부.
 
 ## 현재 상태
 
@@ -77,7 +77,15 @@ scripts/smoke_registry.sh
 
 시험 개수의 정본은 이 절이다. 다른 문서는 개수를 복사하지 않고 여기를 가리킨다.
 
-PLACEHOLDER
+확인한 것(2026-10-28, 이웃 폴더가 없는 새 `git clone`, Linux, Python 3.12.3, `bash scripts/setup-env.sh`를 두 번 실행해 둘 다 종료 코드 0, 그 뒤 `.venv/bin/python -m pytest -q`):
+
+| 조건 | 통과 | 실패 | 건너뜀 |
+| --- | --- | --- | --- |
+| 문진 스키마 없음(이웃 `../survey-service/schema`도 `vendor/survey-schema/`도 없음) | 151 | 45 | 0 |
+| `vendor/survey-schema/{schemas,CONTRACT_VERSION}`에 문진 스키마를 둠 | 196 | 0 | 0 |
+
+45건 실패의 원인은 `schema_dir 상위의 CONTRACT_VERSION을 읽을 수 없다`(`model_lab/schemas.py`)다. 문진 스키마는 태그로 설치되는 패키지가 아니어서 `setup-env.sh`가 가져올 수 없다. 이웃이 없는 새 머신에서 혼자 시험이 돌려면 문진 스키마를 태그 설치 가능하게 해야 하며 변경 요청 `docs/change-requests/CR-L010-survey-schema-installable.md`로 헤드에게 냈다(미해결). 그때까지는 `vendor/survey-schema/`에 읽기 전용 사본을 두면 통과한다(위 둘째 줄이 그 경우).
+
 
 ## 이 영역의 열린 항목
 
