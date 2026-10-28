@@ -16,7 +16,7 @@
 | 입력 | 학습 서버(영역 밖) | 학습한 어댑터 | 사람이 파일로 가져옴 (`docs/runbook.md` D84 절) |
 | 출력 | release-gate | 모델 패키지 조회 | I3 `ModelRegistry`, HTTP: `GET /v1/packages…`, `.../adapter`, `/v1/eval-reports/{ref}`, `POST /v1/packages`(model-lab만 쓰기) |
 
-라이브러리로 boundary-contracts v2.0.2, turn-engine v0.4.0, model-runtime v0.7.3을 태그로 쓴다(`requirements.txt`). 서비스 이미지는 boundary-contracts만 넣는다(`requirements-service.txt`). 판정 조회 I4는 이 단계에서 쓰지 않는다(`docs/boundary.md`).
+라이브러리로 boundary-contracts, turn-engine, model-runtime을 태그로 쓴다(버전은 `requirements.txt`가 정본). 서비스 이미지는 boundary-contracts만 넣는다(`requirements-service.txt`). 판정 조회 I4는 이 단계에서 쓰지 않는다(`docs/boundary.md`).
 
 ## 구조
 
@@ -66,11 +66,11 @@ scripts/smoke_registry.sh
 .venv/bin/python -m model_lab package-adapters --help
 ```
 
-이 문서를 쓰면서 **돌려 본 것**: `.venv/bin/python -m pytest -q`(2026-10-28, 195건 통과, 0 실패, 건너뜀 1: I2 `HttpDatasetStore`가 아직 계약에 없어 건너뜀; 이 PC의 `.venv` 한 환경. 이전의 새 임시 venv 확인은 182건 때 값), `.venv/bin/python -m model_lab --help`(하위 명령 `run`, `run-once`, `status`, `package-adapters`, `train`, `train-doctor` 확인). **돌리지 않은 것**: 위 1~6 중 시험 실행 외 전부(설치, 파이프라인, 이미지 빌드·스모크, doctor, train, package-adapters), GPU 관련 전부.
+이 문서를 쓰면서 **돌려 본 것**: `.venv/bin/python -m pytest -q`(2026-10-28, 통과·건너뜀 개수는 5절 한 곳에만 둔다; 이 PC의 `.venv` 한 환경), `.venv/bin/python -m model_lab --help`(하위 명령 `run`, `run-once`, `status`, `package-adapters`, `train`, `train-doctor` 확인). **돌리지 않은 것**: 위 1~6 중 시험 실행 외 전부(설치, 파이프라인, 이미지 빌드·스모크, doctor, train, package-adapters), GPU 관련 전부.
 
 ## 현재 상태
 
-확인된 것(근거 문서): CPU에서 가짜 모델로 파이프라인 끝까지, 레지스트리 파일·메모리·HTTP 적합성 시험, 이미지 스모크는 v2.0.0 때 통과(`docs/STATUS.md` 9차). 시험 113건 통과는 10차 때 값(`docs/STATUS.md`)이고 이후 시험이 늘어 지금은 195건이 통과하고 1건은 건너뛴다(위 실행 결과, 한 환경). 평가 지표는 METRICS.md v2로 바뀌었고(ADR 0011) 데이터셋은 HTTP 클라이언트로 읽는다(ADR 0012, 실제 클라이언트로는 아직 시험하지 못함). GPU 호스트(gpu-dev)에서 작은 시험 데이터로 학습→게시 한 바퀴와 재실행 skip을 확인한 기록이 있으나 오래된 버전 기준이다(`docs/STATUS.md` 2차). 학습 품질과 학습 감싸기 결과는 의미 있는 값이 없다.
+확인된 것(근거 문서): CPU에서 가짜 모델로 파이프라인 끝까지, 레지스트리 파일·메모리·HTTP 적합성 시험, 이미지 스모크는 옛 계약 버전 때 통과(`docs/STATUS.md` 9차). 시험 개수는 5절만 정본이다. 평가 지표는 METRICS.md v2로 바뀌었고(ADR 0011) 데이터셋은 HTTP 클라이언트로 읽는다(ADR 0012, 실제 클라이언트로는 아직 시험하지 못함). GPU 호스트(gpu-dev)에서 작은 시험 데이터로 학습→게시 한 바퀴와 재실행 skip을 확인한 기록이 있으나 오래된 버전 기준이다(`docs/STATUS.md` 2차). 학습 품질과 학습 감싸기 결과는 의미 있는 값이 없다.
 
 확인 못 한 것: 서버 학습 스크립트의 `--help` 실제 출력·인자 타입 검사 방식·산출물 위치(인자 이름은 헤드가 서버 코드의 `add_argument`를 읽어 확인했고 `args_verified: true`이다. 근거는 `configs/train.yaml`의 `args_evidence`), 진짜 어댑터의 서빙, 실제 모델 평가 값(지금까지 오라클 가짜 모델), 재개한 학습의 비트 단위 재현(`docs/design.md` 4절), 현재 버전(boundary-contracts v2.0.2, turn-engine v0.4.0, model-runtime v0.7.0)에서의 이미지 스모크와 새 환경 설치(`docs/STATUS.md` 11차의 pip 해결 미시도 기록). 두 번째 독립 머신 확인은 U12로 열려 있다.
 
@@ -112,7 +112,7 @@ scripts/smoke_registry.sh
 남아 있는 것(코드 영역이라 문서만 기록):
 - 버전: `pyproject.toml`·`model_lab/__init__.py` 0.1.0, `CHANGELOG.md` 0.2.3(태그 없음).
 - `configs/gpu-dev-fixture-*.yaml` 주석의 "golden에서 만든"은 낡았다(`tests/golden/` 제거됨, 데이터는 합성 v2 샘플).
-- 시험 개수: `docs/STATUS.md` 10차의 113건은 그 시점 값이고 지금은 195건이 통과한다(2026-10-28).
+- 시험 개수: `docs/STATUS.md` 10차의 개수는 그 시점 값이고 현재 값은 `.venv/bin/python -m pytest -q` 결과다(2026-10-28 실행, 한 환경).
 
 ## 설계 결정 기록 (ADR, D89)
 

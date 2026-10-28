@@ -150,7 +150,7 @@ def build_metrics(role: str, pairs: list[tuple[dict, dict]], seen_sets: set, *, 
     notes = [
         "합격 판정과 임계치는 없다. 값은 계산한 그대로이며 평가 백엔드는 서빙과 다르고 제약 디코딩을 쓰지 않았다.",
         "coverage_seen_unseen_gap은 (본 문항 세트 정답 일치율 - 보지 못한 문항 세트 정답 일치율)이며 샘플에 question_set이 있고 둘 다 표본이 있을 때만 낸다. 일치는 정답 출력과의 완전 일치다.",
-        "v1 지표(risk_signal_*, intent_accuracy, item_precision/recall, target_accuracy, slot_coverage, risk_notice_verbatim_rate)는 폐기했다(METRICS.md v2). v2에서 위험 신호를 어떻게 표현할지는 정해지지 않았다(미정, 헤드).",
+        "v1 지표(" + ", ".join(sorted(DEPRECATED_V1)) + ")는 폐기했다(METRICS.md v2). v2에서 위험 신호를 어떻게 표현할지는 정해지지 않았다(미정, 헤드).",
         "value_precision/recall은 (key, value, status)가 모두 같은 값만 맞은 것으로 센다(D96 기본값, 학습 담당 확인 전 임시). 형식 실패 행의 정답 칸은 recall 분모에 들어간다. next_item_accuracy는 slice kind=ACTION이 action별 분모다. 합격선은 없다(O11).",
         "score_a_v2.py 이름의 지표(action_acc, cell_acc, value_acc, ...)는 학습 서버 값과 대조하려는 보조 값이며 METRICS.md v2 이름과 같은 분자·분모인 것도 있다.",
     ]

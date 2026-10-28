@@ -62,7 +62,7 @@ publish:  {enabled}
 
 ## 5. 학습 데이터 변환 [확인: 브리프, I9]
 
-- 프롬프트는 `model_runtime.render_prompt(role, input, serving_config=…, system_prompt=…, schema_dir=…)`(v0.7.3, prompt-4)다. 서빙과 같은 함수·같은 `serving_config`·설정의 `roles.<역할>.system_prompt_file`.
+- 프롬프트는 `model_runtime.render_prompt(role, input, serving_config=…, system_prompt=…, schema_dir=…)`다(버전은 `requirements.txt`, 프롬프트 버전은 model-runtime 상수). 서빙과 같은 함수·같은 `serving_config`·설정의 `roles.<역할>.system_prompt_file`.
 - 학습 목표(completion, 2.0.0): LoRA-A는 `ActionExtraction`의 키 정렬 JSON, LoRA-B는 응답 문장 그대로(JSON 아님). 서버 학습 데이터의 assistant 글자와 같다. 시스템 프롬프트는 학습이 끝나면 어댑터 디렉터리에 넣고(adapter_hash에 포함) 평가와 패키징이 그 파일을 쓴다.
 - [미해결] 서빙 프롬프트의 user 글자(JCS, 공백 없음)와 서버 학습 데이터의 user 글자(공백 있음, state 순서 보존)가 다르다. 이 파이프라인으로 학습하면 서빙과 일치하지만 서버에서 학습한 어댑터와는 다르다(CR-L008).
 - 학습 파일에는 TRAIN만, 검증 파일에는 VALIDATION만 들어간다. EVAL 샘플은 변환 단계에서 따로 저장하고, 학습·검증과 `scenario_id`·`sample_id`를 공유하면 단계가 중단된다(I2도 확인하지만 다시 본다, 브리프 4절).
@@ -90,7 +90,7 @@ publish:  {enabled}
 - METRICS.md v2 이름(정본, ADR 0011): `value_precision/recall`, `precision_match`, `targets_match`, `value_exact_match`, `action/reason/status/next_item_accuracy`, `semantic_violation_rate`(turn-engine `validate_extraction`, slice `VIOLATION_CODE`), `output_invalid_rate`, `output_attempts_mean`, `schema_valid_raw`(slice `CONSTRAINED_DECODING`); B: `material_coverage`, `ungrounded_number_rate`(재료 기준), `response_length_chars_p95`. 회귀 평가가 읽는 TurnTrace 키는 `extract_input/output`, `response_input/output`(D98).
 - 보조: LoRA-A(학습 서버 `score_a_v2.py`와 같은 이름과 규칙): `action_acc`, `action_reason_acc`, `next_item_acc`, `key_found_rate`, `cell_acc`(value·status·save 모두 일치), `value_acc`, `status_acc`, `save_acc`, `precision_acc`, `db_row_match_rate`, `targets_acc`, `note_presence_acc`, `exact_match_rate`, `oos_precision/recall/f1`, `extra_keys`·`dup_keys`·`targets_extra_rows`(count), PROTECTION `schema_ok_rate`·`output_invalid`(count). 형식 실패 행도 분모에 들어간다.
 - LoRA-B: ACCURACY `ends_ok_rate`(끝맺음), `asks_next_rate`(다음 질문), `sentence_count_violation_rate`, `exact_match_rate`; SAFETY `forbidden_expression_rate`(금지 표현), `ungrounded_number_rate`(새 숫자); PROTECTION `json_leak_rate`, `fallback_rate`, `schema_valid_raw`, `protection_intervened`(count). 문장 규칙 구현은 `text_rules.py`(학습 서버 `eval_lora_b_v2.py`의 항목을 이 리포 방식으로).
-- 공통: `coverage_seen_unseen_gap`, `regression_fixed/broken`. v1의 `risk_signal_*`, `item_*`, `intent_accuracy`, `slot_coverage`, `risk_notice_verbatim_rate`는 없앴다(v2 출력에 대응이 없다. 위험 신호의 v2 표현은 미정).
+- 공통: `coverage_seen_unseen_gap`, `regression_fixed/broken`. 폐기된 v1 지표 이름은 쓰지 않는다(목록은 `model_lab/metric_names.py`의 `DEPRECATED_V1`, 지표의 정본은 boundary-contracts의 지표 정의).
 슬라이스: `SEEN_UNSEEN`, `QUESTION_SET`, `ACTION`, `REASON`, `NEXT_TYPE`(B). 합격 판정·임계치는 없다. `METRICS.md`(계약, 제안)는 아직 v1 기준이라 이 이름과 어긋난다(헤드·학습 담당 몫).
 
 ## 7. 패키징 [확인]

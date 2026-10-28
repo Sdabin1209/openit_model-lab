@@ -1,6 +1,6 @@
 # model-lab 경계
 
-상태: 구현됨(0.1.0). 2.0.0 이전 중(헤드 지시서 `head/docs/migration-2.0.0.md`): 계약 v2.0.2 의존(`requirements.txt`), 변환기·패키징(system_prompt)까지 반영. 파이프라인의 변환·평가·회귀는 model-runtime v0.7.3 / turn-engine v0.4.0을 쓴다(`requirements.txt`; 이력은 `docs/STATUS.md` 10차, `CHANGELOG.md` 0.2.2). 학습기는 정본 결정 대기. 정본은 `../boundary-contracts`의 `INTERFACES.md`·`CONVENTIONS.md`다.
+상태: 구현됨(0.1.0). 2.0.0 이전 중(헤드 지시서 `head/docs/migration-2.0.0.md`): 계약 의존(버전은 `requirements.txt`), 변환기·패키징(system_prompt)까지 반영. 파이프라인의 변환·평가·회귀는 model-runtime / turn-engine을 쓴다(버전은 `requirements.txt`; 이력은 `docs/STATUS.md` 10차, `CHANGELOG.md` 0.2.2). 학습기는 정본 결정 대기. 정본은 `../boundary-contracts`의 `INTERFACES.md`·`CONVENTIONS.md`다.
 
 ## 소유 저장소
 모델 레지스트리(불변 패키지). I3 `ModelRegistry`. 쓰기는 이 영역만 한다. 구현: `model_lab.registry.FileModelRegistry`(디스크), `MemoryModelRegistry`(메모리). 둘 다 `boundary_contracts.sdk.ModelRegistry` Protocol을 만족하고 `tests/test_registry.py`의 같은 적합성 시험을 통과한다(오류 코드·멱등·해시 검증 포함).
@@ -17,11 +17,11 @@
 | 대상 | 방법 | 버전 |
 | --- | --- | --- |
 | 문진 스키마 | `schema_dir`(`.../schema/schemas`) 경로. `CONTRACT_VERSION`이 데이터셋의 `runtime_contract_version`과 다르면 `UNSUPPORTED_VERSION` | 정수 1 |
-| boundary-contracts | `canonical`(모든 해시), `validator`(쓰기 전 검증), `sdk` Protocol, `BoundaryError`. 데이터셋 샘플은 `ActionExtractionSample`(LORA_A)·`ResponseSample`(LORA_B) | v2.0.2 |
-| turn-engine | 계보 기록(`ENGINE_VERSION`). 평가의 `semantic_violation_rate`가 `validate_extraction`을 부른다(D97, ADR 0011) | v0.4.0 |
-| model-runtime | `render_prompt`(system_prompt 인자), `load`(system_prompts 인자), `extract_raw/respond_raw/respond`, `validate_serving_config`, `serving_config_hash`, `RUNTIME_VERSION`. 서빙 설정은 prompt-4·protect-2 | v0.7.0 |
+| boundary-contracts | `canonical`(모든 해시), `validator`(쓰기 전 검증), `sdk` Protocol, `BoundaryError`. 데이터셋 샘플은 `ActionExtractionSample`(LORA_A)·`ResponseSample`(LORA_B) | `requirements.txt` |
+| turn-engine | 계보 기록(`ENGINE_VERSION`). 평가의 `semantic_violation_rate`가 `validate_extraction`을 부른다(D97, ADR 0011) | `requirements.txt` |
+| model-runtime | `render_prompt`(system_prompt 인자), `load`(system_prompts 인자), `extract_raw/respond_raw/respond`, `validate_serving_config`, `serving_config_hash`, `RUNTIME_VERSION`. 서빙 설정 버전은 model-runtime이 내보내는 상수 | `requirements.txt` |
 | I2 데이터셋 읽기 | HTTP 클라이언트 `boundary_contracts.clients.HttpDatasetStore`(D100, HTTP.md `## I2`, 계약 2.1.0). 쓰는 호출은 `list_versions`, `get_manifest`, `open_file`. 로컬 개발용 `file_dataset_store`는 남아 있다(ADR 0012) | 경계 계약 1.1 |
-| I7 실패 사례 읽기 | 회귀 평가(`evaluation.regression`, 기본 꺼짐)를 켜면 `inputs.failure_store`(`boundary_contracts.clients:HttpFailureStore`)로 읽는다(`model_lab/regression.py`, `configs/gpu-dev.yaml`, `docs/runbook.md` 회귀 평가 절) | v2.0.2 |
+| I7 실패 사례 읽기 | 회귀 평가(`evaluation.regression`, 기본 꺼짐)를 켜면 `inputs.failure_store`(`boundary_contracts.clients:HttpFailureStore`)로 읽는다(`model_lab/regression.py`, `configs/gpu-dev.yaml`, `docs/runbook.md` 회귀 평가 절) | `requirements.txt` |
 | I1, I4 | 이 단계에서 쓰지 않음(I1은 설정에 클라이언트를 고르는 자리만 있다) | |
 
 의존은 Git 태그로 고정한다(`requirements.txt`). 개발은 `pip install -e ../boundary-contracts ../turn-engine ../model-runtime`.
