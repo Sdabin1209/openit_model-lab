@@ -24,7 +24,9 @@
 - `google/gemma-2-9b-it`, `meta-llama/Llama-3.1-8B-Instruct`: 접근 제한(gated)이라 카드를 읽지 못했다. 라이선스 **미확인**, 인증 없이 내려받을 수 없어 이번 비교에서 제외했다. 사용자가 접근을 승인하면 후보에 넣을 수 있다.
 
 ## 측정 (부분: 후보 1개만 끝났고 호스트가 다시 꺼졌다)
-같은 표본(파서 golden에서 50건: `RISK_SIGNAL` 사례 9건 전부 + 균등 간격), 같은 프롬프트(`render_prompt` prompt-2), 온도 0, 시드 1000, 시도 1회, 4비트 NF4, eager 어텐션, 예시 없음(제로샷). 프롬프트는 채팅 템플릿의 사용자 메시지로 넣는다(Qwen3은 thinking 끔).
+> **당시 기록(v1 지표, 폐기).** 아래 표의 `risk_signal_recall`, 항목 재현율은 v1 출력 기준 지표이며 METRICS.md v2에서 폐기됐다(대체: `value_precision/recall` 등, ADR 0011). 비교 시점의 값이라 고치지 않았다.
+
+같은 표본(v1 파서 golden에서 50건: `RISK_SIGNAL` 사례 9건 전부 + 균등 간격), 같은 프롬프트(`render_prompt` prompt-2), 온도 0, 시드 1000, 시도 1회, 4비트 NF4, eager 어텐션, 예시 없음(제로샷). 프롬프트는 채팅 템플릿의 사용자 메시지로 넣는다(Qwen3은 thinking 끔).
 
 | 후보 | 스키마 유효율(`schema_valid_raw`) | 값 정확도(`value_exact_match`) | 위험 신호 재현율(`risk_signal_recall`) | 항목 재현율 | 보호 개입 | 최대 GPU 메모리(4비트) | 소요 |
 | --- | --- | --- | --- | --- | --- | --- | --- |

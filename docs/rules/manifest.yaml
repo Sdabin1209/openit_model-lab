@@ -1,17 +1,11 @@
 version: 1
+# 이 영역이 읽는 규칙만 둔다(코드는 docs/rules를 읽지 않는다. 계약은 boundary-contracts 패키지에서 온다).
 files:
 - README.md
 - principles.md
-- preconditions.md
-- timing.md
+# v1 전용(첫 줄 '보관(v1)'). 참조를 끊었고 다음 릴리스에서 삭제한다(D99). 삭제 전까지 파일만 남긴다.
+archived_v1:
 - mapping.md
 - utterance_parser.md
-- answer_normalizer.md
-- answer_judge.md
-- record_writer.md
 - dialogue_planner.md
 - response_generator.md
-- orchestrator.md
-- session_store.md
-- verification.md
-- trace_contract.md

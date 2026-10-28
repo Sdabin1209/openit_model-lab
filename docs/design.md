@@ -15,7 +15,7 @@
 | 모듈 | 책임 |
 | --- | --- |
 | `config.py` | YAML/JSON 설정 읽기, 프로파일 병합, 형식 검증(알 수 없는 키 거부), `config_hash` |
-| `datasets.py`, `schemas.py` | I2로 읽기, 파일 해시·DatasetManifest·샘플(ParserSample/GeneratorSample + 문진 스키마 input/expected) 검증, 보지 못한 문항 세트 판정, 평가 누수 검사 |
+| `datasets.py`, `schemas.py` | I2로 읽기, 파일 해시·DatasetManifest·샘플(ActionExtractionSample/ResponseSample, input/expected는 샘플 스키마가 직접 검증) 검증, 보지 못한 문항 세트 판정, 평가 누수 검사 |
 | `transform.py` | 샘플 -> (`render_prompt` 프롬프트, 정답 글자). 서버 messages <-> 샘플 변환기 포함 |
 | `trainers/` | `Trainer` 인터페이스, `hf`(transformers+peft LoRA), `dry-run`(CPU 시험용) |
 | `backends/` | 평가용 `ConstraintBackend`: `hf`(어댑터를 붙인 transformers), `fake-oracle`(CPU 시험용) |

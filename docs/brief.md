@@ -3,12 +3,12 @@
 > **계약 상태.** 영역 사이 계약은 `../boundary-contracts`(헤드 소유)에 있고, 이 브리프의 계약 이름은 `head/docs/STRUCTURE.md`의 제안이다. 초안이 있는 것은 ReleaseManifest, GateDecision, TraceEnvelope뿐이고 나머지 필드는 헤드가 사용자와 논의해 확정 중이다. 확정 전에는 **계약에 의존하지 않는 부분**(내부 설계, 도메인 모델, 테스트 틀)만 진행한다. 계약이 부족하다고 느끼면 임의로 가정하지 말고 `docs/change-requests/`에 쓴다.
 > **읽기.** `../boundary-contracts`와 `../survey-service/schema`는 문진 서비스의 데이터 스키마(스키마만 남긴 최소 구성)다. 구현이 가져가는 계약은 `schemas/<계약명>.json`(JSON Schema Draft 2020-12), 컴포넌트별 입력·출력 대응은 `COMPONENTS.yaml`, 정수 버전은 `CONTRACT_VERSION`이다. 둘 다 읽기 전용이다.
 > **버전(D14, D19).** 문진 스키마는 정수 버전(`CONTRACT_VERSION`, 현재 1)에 정확히 일치해야 한다. 경계 계약은 `MAJOR.MINOR`이며 값은 `boundary-contracts`가 정한다. 불변 산출물은 `ArtifactRef`(id, version, content_hash)로 가리킨다.
-> **업무 규칙.** 이 영역이 구현하거나 의존하는 업무 요구는 `docs/rules/`에 있다(헤드가 전달, 출처는 `docs/rules/SOURCE.md`). 규칙 문서에 없는 정책은 임의로 만들지 말고 `docs/change-requests/`에 쓴다.
+> **업무 규칙.** `docs/rules/`의 v1 규칙(parser·planner·generator 등)은 `보관(v1)`이다. 현행 계약은 boundary-contracts v2.1.0이고 정본은 계약 패키지다(출처 `docs/rules/SOURCE.md`). 규칙 문서에 없는 정책은 임의로 만들지 말고 `docs/change-requests/`에 쓴다.
 
 ## 1. 목적과 범위
 
-- 목적: Parser의 LoRA-A와 Generator의 LoRA-B를 학습·평가하고, 서빙 가능한 패키지로 모델 레지스트리에 올린다. 프로젝트에서 사용자가 가장 집중하려는 영역이다.
-- 하는 일: 데이터셋 로딩, 학습, 실험 추적, Parser·Generator 평가, 턴 시뮬레이션, 회귀 평가, 보고서 작성, 모델 패키징.
+- 목적: 추출·절차(LoRA-A, `ActionExtraction`)와 응답 문장(LoRA-B, `ResponseText`)을 학습·평가하고, 서빙 가능한 패키지로 모델 레지스트리에 올린다. 프로젝트에서 사용자가 가장 집중하려는 영역이다.
+- 하는 일: 데이터셋 로딩, 학습, 실험 추적, LoRA-A·B 평가, 턴 시뮬레이션, 회귀 평가, 보고서 작성, 모델 패키징.
 - 하지 않는 일: 통과 임계치·지표·평가셋 구성을 임의로 정하지 않는다(O11, 사용자와 함께 정한다). 릴리스 승인(게이트).
 
 ## 2. 소유하는 것
@@ -20,7 +20,7 @@
 
 ## 3. 소비하는 것
 
-- 소비하는 계약: `ParserSample`, `GeneratorSample`, `DatasetManifest`, `FailureCase`, `QuestionBank`, `GateDecision`.
+- 소비하는 계약: `ActionExtractionSample`, `ResponseSample`, `DatasetManifest`(I2), `ActionExtractionInput`, `ActionExtraction`, `ResponseRequest`, `ResponseText`(회귀 평가와 패키징의 입출력 검증). 내보내는 계약은 `ModelPackageManifest`, `EvaluationReport`. 코드가 `validator(...)`로 읽는 것만 적었다(`model_lab` grep). `FailureCase`(I7)는 HTTP 클라이언트가 검증해 돌려주는 값을 쓴다.
 - 소비하는 SDK: 데이터셋 읽기 SDK(synthetic-data), 실패 사례 읽기 SDK(ops-feedback), 문항 읽기 SDK(question-authoring, D13), 판정 조회 SDK(release-gate). 라이브러리로 turn-engine, model-runtime, 문진 스키마.
 - 지원하는 계약 버전: 문진 스키마 정수 버전, 경계 계약 `MAJOR.MINOR`.
 
@@ -66,7 +66,7 @@
 
 ## 8. 시드
 
-데이터셋 로더, LoRA-A·B 학습기, 실험 추적기, Parser·Generator 평가기, 턴 시뮬레이터, 회귀 평가기, 보고서 작성기, 모델 패키저.
+데이터셋 로더, LoRA-A·B 학습기, 실험 추적기, LoRA-A·B 평가기, 턴 시뮬레이터, 회귀 평가기, 보고서 작성기, 모델 패키저.
 
 ## 9. 요구하는 산출물
 

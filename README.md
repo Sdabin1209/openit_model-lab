@@ -101,7 +101,7 @@ scripts/smoke_registry.sh
 | `docs/runbook.md` | 환경 변수, 실행, GPU 호스트 절차, 학습 감싸기, 어댑터 얹기 |
 | `docs/STATUS.md` | 세션별 진행 기록(최신이 위) |
 | `docs/change-requests/` | 헤드에게 보낸 변경 요청 CR-L001~L008 |
-| `docs/rules/` | 업무 규칙 (헤드 전달, 출처 `SOURCE.md`) |
+| `docs/rules/` | 업무 규칙 문서. 모델·평가 코드는 읽지 않는다. v1 전용 4건은 `보관(v1)`(`manifest.yaml`의 `archived_v1`, 다음 릴리스에서 삭제, D99) |
 | `docs/base-model-comparison.md` | 기반 모델 후보 비교 참고 자료 (비교는 중단됨) |
 | `CHANGELOG.md` | 변경 이력 |
 
