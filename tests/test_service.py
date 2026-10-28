@@ -82,7 +82,7 @@ def test_error_status_codes(server):
     assert raw(server + "/v1/eval-reports/nope", token="rt")[0] == 404
     assert raw(server + "/v1/unknown", token="rt")[0] == 404
     assert raw(server + "/v1/packages?limit=0", token="rt")[0] == 400
-    assert raw(server + "/v1/packages", token=None)[0] == 403
+    assert raw(server + "/v1/packages", token=None)[0] == 401   # 토큰 없음: 계약 6절
     s, body = raw(server + "/v1/packages", "POST", "wt", b"not a tar")
     assert s == 400 and json.loads(body)["code"] == "INVALID_RECORD"
 

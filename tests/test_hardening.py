@@ -173,7 +173,7 @@ def test_repeated_bad_tokens_are_throttled_but_valid_tokens_always_pass(tmp_path
                 return urllib.request.urlopen(r).status
             except urllib.error.HTTPError as e:
                 return e.code
-        assert [get("bad") for _ in range(3)] == [403, 403, 403]
+        assert [get("bad") for _ in range(3)] == [401, 401, 401]
         assert get("bad") == 503 and svc.auth_blocked("127.0.0.1")                  # 틀린 토큰은 제한된다
         assert get("rt") == 200 and get("wt") == 200                                 # 같은 주소의 정상 토큰은 영향이 없다(프록시 뒤 호출자)
         assert post_pkg(url, tmp_path)[0] == 201                                     # 쓰기도 마찬가지
@@ -181,9 +181,9 @@ def test_repeated_bad_tokens_are_throttled_but_valid_tokens_always_pass(tmp_path
         before = len(svc._fails.get("127.0.0.1", []))
         assert post_pkg(url, tmp_path, token="rt", payload=b"z")[0] == 403
         assert len(svc._fails.get("127.0.0.1", [])) == before
-        svc.auth_fail_window = 0.0                                                   # 창이 지나면 틀린 토큰도 다시 403
+        svc.auth_fail_window = 0.0                                                   # 창이 지나면 틀린 토큰도 다시 401
         time.sleep(0.01)
-        assert get("bad") == 403
+        assert get("bad") == 401
     finally:
         srv.shutdown()
 

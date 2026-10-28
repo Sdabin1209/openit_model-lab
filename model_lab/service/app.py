@@ -76,6 +76,11 @@ def check_token_strength(tokens: dict[str, str], *, min_len: int = MIN_TOKEN_LEN
             raise ValueError(f"역할 {role}의 토큰이 단조롭다(서로 다른 글자 8개 미만). 무작위 값을 쓴다")
 
 
+class Unauthenticated(BoundaryError):
+    """토큰이 없거나 틀렸다 -> 401 + `WWW-Authenticate: Bearer`. code는 PERMISSION_DENIED 그대로다(CONVENTIONS.md 6절, D106).
+    토큰은 맞지만 역할이 모자란 경우는 이 클래스가 아니라 일반 PERMISSION_DENIED -> 403이다."""
+
+
 class Service:
     def __init__(self, root: Path, read_tokens: dict, write_tokens: dict, *, max_body: int = 4 << 30,
                  log=lambda s: print(s, flush=True), socket_timeout: float = 30.0, max_connections: int = 32,
@@ -145,12 +150,12 @@ class Service:
         return found
 
     def authorize(self, method: str, header: str | None) -> None:
+        # 왜: 401(인증 안 됨)과 403(인증됐으나 권한 없음)을 가른다. RFC 9110 15.5.2·11.6.1, RFC 6750 3절, CONVENTIONS.md 6절
+        if not self.token_valid(header):
+            raise Unauthenticated("PERMISSION_DENIED", "토큰이 없거나 올바르지 않다")
         if method == "POST":
             if self._role(self.write, header) != WRITE_ROLE:
                 raise BoundaryError("PERMISSION_DENIED", "쓰기 권한이 없다")
-        else:
-            if self._role(self.read, header) is None and self._role(self.write, header) is None:
-                raise BoundaryError("PERMISSION_DENIED", "읽기 권한이 없다")
 
     def ready(self) -> bool:
         try:
@@ -196,16 +201,18 @@ def make_handler(svc: Service):
         def log_message(self, fmt, *args):   # 경로만(쿼리·토큰 제외)
             svc.log(f"{self.command} {urlparse(self.path).path} {args[1] if len(args) > 1 else ''}")
 
-        def _send(self, code: int, body: bytes, ctype: str = "application/json") -> None:
+        def _send(self, code: int, body: bytes, ctype: str = "application/json", headers: dict | None = None) -> None:
             self.send_response(code)
+            for k, v in (headers or {}).items():
+                self.send_header(k, v)
             self.send_header("Content-Type", ctype + ("; charset=utf-8" if ctype == "application/json" else ""))
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             if self.command != "HEAD":
                 self.wfile.write(body)
 
-        def _json(self, code: int, obj) -> None:
-            self._send(code, json.dumps(obj, ensure_ascii=False).encode())
+        def _json(self, code: int, obj, headers: dict | None = None) -> None:
+            self._send(code, json.dumps(obj, ensure_ascii=False).encode(), headers=headers)
 
         def _file(self, path: Path, ctype: str) -> None:
             size = path.stat().st_size
@@ -220,6 +227,8 @@ def make_handler(svc: Service):
             if self.command in ("POST", "PUT", "PATCH"):
                 self.close_connection = True      # 본문을 다 읽지 않았을 수 있다
                 self._drain()
+            if isinstance(e, Unauthenticated):
+                return self._json(401, e.to_record(), {"WWW-Authenticate": "Bearer"})
             self._json(STATUS[e.code], e.to_record())
 
         _consumed = False
@@ -256,7 +265,7 @@ def make_handler(svc: Service):
             try:
                 svc.authorize(self.command, hdr)             # 토큰 검증이 먼저다: 유효한 토큰은 제한과 무관하게 통과한다
             except BoundaryError as e:
-                if e.code == "PERMISSION_DENIED" and not svc.token_valid(hdr):
+                if isinstance(e, Unauthenticated):
                     # 제한은 유효하지 않은(없거나 틀린) 토큰을 보낸 요청에만 건다. 프록시·Docker 뒤에서는 호출자가 모두 같은 주소로
                     # 보이므로 주소만으로 막으면 정상 호출자까지 막힌다(ML-1 재점검).
                     throttled = svc.auth_blocked(addr)
