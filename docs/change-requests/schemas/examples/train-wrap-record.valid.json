@@ -1,0 +1,63 @@
+{
+  "adapter": {
+    "dir": "/tmp/pytest-of-user/pytest-57/test_gen0/run/adapter",
+    "files": {
+      "adapter_config.json": "d84d9b3f4087c0e072d47aa31841bdd3097e35e5d6bb9498a2597b032a2b3022",
+      "adapter_model.safetensors": "b5d54c39e66671c9731b9f471e585d8262cd4f54963f0c93082d8dcf334d4c78"
+    },
+    "r": 16
+  },
+  "base_model": {
+    "base_model_revision": null,
+    "id": "Qwen/Qwen3-4B",
+    "requested_revision": "main"
+  },
+  "command": [
+    "python3",
+    "/home/user/sdabin/healthKiosk/model-lab/tests/doubles/fake_server_train.py",
+    "--model",
+    "Qwen/Qwen3-4B",
+    "--data_dir",
+    "/tmp/pytest-of-user/pytest-57/test_gen0/ds",
+    "--prefix",
+    "lora_a",
+    "--out",
+    "/tmp/pytest-of-user/pytest-57/test_gen0/run/adapter",
+    "--epochs",
+    "3",
+    "--lr",
+    "0.0002"
+  ],
+  "config_hash": "sha256:feb36f42a76b7b47349a2219a52025c565857052703d924e63d91186fc4cb90f",
+  "dataset": {
+    "content_hash": null,
+    "file_sha256": {
+      "lora_a_test.jsonl": "19fc5b26092a5733a14f9b591aba844f8e317d306e4b1e56d8b3ecbc2a0eafca",
+      "lora_a_train.jsonl": "19fc5b26092a5733a14f9b591aba844f8e317d306e4b1e56d8b3ecbc2a0eafca",
+      "lora_a_val.jsonl": "19fc5b26092a5733a14f9b591aba844f8e317d306e4b1e56d8b3ecbc2a0eafca"
+    },
+    "id": "dataset_10_14",
+    "version": "v2"
+  },
+  "exit_code": 0,
+  "hyperparams": {
+    "dry_run": false,
+    "epochs": 3,
+    "eval_steps": 50,
+    "grad_accum_steps": 4,
+    "learning_rate": 0.0002,
+    "lora_alpha": 16,
+    "lora_dropout": 0.0,
+    "lora_r": 16,
+    "max_len": 4096,
+    "per_device_batch_size": 2,
+    "seed": 42
+  },
+  "notes": [
+    "인자 이름이 없어 넘기지 않는다(서버 스크립트 기본값에 맡김, 서버 기본값과 같은지 확인해야 한다): dry_run=false, eval_steps=50, grad_accum_steps=4, lora_alpha=16, lora_dropout=0.0, lora_r=16, max_len=4096, per_device_batch_size=2, seed=42"
+  ],
+  "record_version": 1,
+  "role": "LORA_A",
+  "server_script": "/home/user/sdabin/healthKiosk/model-lab/tests/doubles/fake_server_train.py",
+  "server_script_sha256": "51e7e6908b5c1f0578d4e1635fdd2bb18c368c2b424725d39dbc9d55a2072053"
+}

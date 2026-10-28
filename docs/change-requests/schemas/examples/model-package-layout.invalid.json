@@ -1,0 +1,12 @@
+{
+  "adapter_files": {
+    "adapter_config.json": "sha256:9b7470abdb11816984039c7a91726b134ec9311275c71eb95ace184ce19b849e",
+    "adapter_model.safetensors": "sha256:559aead08264d5795d3909718cdd05abd49572e84fe55590eef31a88a08fdffd"
+  },
+  "adapter_hash": "sha256:d0dea93dcda55ba42417115ae4219e1db2f95bb8184d3220228b63a7e9e281f3",
+  "role": "LORA_A",
+  "system_prompt": {
+    "path": "system_prompt.txt",
+    "sha256": "sha256:ea83b14ac575b5a227a412f3b9185b2c3e6463eaa2f31b84b818688153f1754b"
+  }
+}

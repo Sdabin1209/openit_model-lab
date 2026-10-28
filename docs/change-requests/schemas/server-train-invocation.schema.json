@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openit.example/model-lab/server-train-invocation.schema.json",
+  "title": "학습 서버 스크립트 호출 계획과 기대 산출물 (model-lab train --dry-run 출력 = train_wrap.plan())",
+  "description": "model-lab이 만들고(내는 형식) 학습 서버의 정본 스크립트(train_lora_a.py / train_lora_b.py)가 command의 인자로 받는다. 산출물(expected_files)을 서버 스크립트가 expected_adapter_dir에 만들어야 한다. command는 셸을 거치지 않는 인자 목록이다. 인자 이름 집합은 서버 스크립트의 add_argument로 헤드가 확인한 것(--model --data_dir --prefix --out_dir --lr --epochs --batch --accum --max_len --seed --rank --alpha --dropout --eval_steps --dry_run)이다.",
+  "type": "object",
+  "required": ["role", "command", "cwd", "expected_adapter_dir", "expected_files", "record_file", "config_hash"],
+  "properties": {
+    "role": {"enum": ["LORA_A", "LORA_B"]},
+    "command": {
+      "type": "array", "minItems": 2, "items": {"type": "string"},
+      "description": "[파이썬, 스크립트 경로, --flag, 값, ...]. 값 없는 플래그는 --dry_run뿐이다."
+    },
+    "command_line": {"type": "string", "description": "사람이 읽는 shlex.join(command)"},
+    "cwd": {"type": "string", "minLength": 1},
+    "expected_adapter_dir": {"type": "string", "minLength": 1},
+    "expected_files": {"type": "array", "const": ["adapter_model.safetensors", "adapter_config.json"]},
+    "record_file": {"type": "string", "pattern": "\\.train-wrap\\.json$"},
+    "config_hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "notes": {"type": "array", "items": {"type": "string"}}
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openit.example/model-lab/server-dataset-row.schema.json",
+  "title": "학습 서버 데이터셋 JSONL 한 줄 (<prefix>_{train,val,test}.jsonl)",
+  "description": "학습 서버(학습 담당)가 만들고 model-lab(transform.from_server_row)과 서버 학습 스크립트가 읽는다. 한 파일의 모든 줄은 같은 system 프롬프트여야 한다(파일 단위 불변식, 이 스키마로는 표현 못 함). user.content는 문자열화한 JSON(LORA_A: ActionExtractionInput, LORA_B: ResponseRequest), assistant.content는 LORA_A면 문자열화한 ActionExtraction JSON, LORA_B면 응답 문장 그대로다.",
+  "type": "object",
+  "required": ["scenario_id", "split", "messages"],
+  "properties": {
+    "scenario_id": {"type": "string", "minLength": 1},
+    "split": {"enum": ["train", "val", "test"]},
+    "human_review": {"type": "string", "minLength": 1, "description": "예: auto_only. 있으면 샘플 human_review로 옮긴다"},
+    "messages": {
+      "type": "array", "minItems": 3, "maxItems": 3,
+      "prefixItems": [
+        {"type": "object", "required": ["role", "content"], "properties": {"role": {"const": "system"}, "content": {"type": "string", "minLength": 1}}, "additionalProperties": false},
+        {"type": "object", "required": ["role", "content"], "properties": {"role": {"const": "user"}, "content": {"type": "string", "minLength": 2}}, "additionalProperties": false},
+        {"type": "object", "required": ["role", "content"], "properties": {"role": {"const": "assistant"}, "content": {"type": "string", "minLength": 1}}, "additionalProperties": false}
+      ],
+      "items": false
+    }
+  },
+  "additionalProperties": false
+}

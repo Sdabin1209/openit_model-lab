@@ -1,0 +1,19 @@
+{
+  "human_review": "auto_only",
+  "messages": [
+    {
+      "content": "건강검진 문진 상담원으로서, 이미 정해진 절차(action)와 값·다음 질문(next)을 환자에게 친근한 존댓말 1~3문장으로 전하세요. topic의 문항만 말하고, 값은 known·previous·current에 있는 것만 말하세요. next.type이 NEXT면 next.text를, SAME이면 ask(없으면 next.text)를 묻고 끝내며, END면 질문 없이 마무리 인사로 끝내세요. START면 인사 후 첫 질문을 하세요. 진단·처방·건강 조언·평가는 하지 마세요. 응답 문장만 출력하세요.",
+      "role": "system"
+    },
+    {
+      "content": "{\"action\": \"NEXT\", \"known\": \"진단 없음, 약 없음\", \"next\": {\"question_id\": \"Q1.D02\", \"text\": \"심근경색이나 협심증으로 진단받았거나 약을 드시나요?\", \"type\": \"NEXT\"}, \"topic\": \"뇌졸중 진단과 복용\", \"user_utterance\": \"진단은 받은 적 없고 약은 안 먹어요 (0)\"}",
+      "role": "user"
+    },
+    {
+      "content": "뇌졸중 진단과 복용은 진단 없음, 약 없음으로 알겠습니다. 심근경색이나 협심증으로 진단받았거나 약을 드시나요?",
+      "role": "assistant"
+    }
+  ],
+  "scenario_id": "fx_next_q1_0000",
+  "split": "train"
+}

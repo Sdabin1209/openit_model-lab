@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openit.example/model-lab/train-wrap-record.schema.json",
+  "title": "학습 기록 *.train-wrap.json (record_version 1)",
+  "description": "model-lab train(학습 서버에서 실행)이 만들고 model-lab package-adapters(다른 호스트일 수 있음)가 읽는다. 패키지 ext.\"model-lab\".lineage로 흘러간다. 해시 표기 주의: 이 기록의 *_sha256 값(adapter.files, dataset.file_sha256, server_script_sha256)은 접두사 없는 소문자 16진 64자이고, 계약 해시('sha256:...')와 형식이 다르다(현재 코드가 그렇게 쓴다).",
+  "type": "object",
+  "required": ["record_version", "role", "config_hash", "command", "exit_code", "server_script", "server_script_sha256", "base_model", "dataset", "adapter", "hyperparams", "notes"],
+  "$defs": {
+    "hex64": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  },
+  "properties": {
+    "record_version": {"const": 1},
+    "role": {"enum": ["LORA_A", "LORA_B"]},
+    "config_hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "command": {"type": "array", "items": {"type": "string"}, "minItems": 2},
+    "exit_code": {"const": 0, "description": "기록은 성공한 실행에서만 쓴다"},
+    "server_script": {"type": "string"},
+    "server_script_sha256": {"$ref": "#/$defs/hex64"},
+    "base_model": {
+      "type": "object", "required": ["id", "requested_revision", "base_model_revision"],
+      "properties": {"id": {"type": "string", "minLength": 1}, "requested_revision": {"type": "string"},
+                     "base_model_revision": {"type": ["string", "null"], "description": "서버 run 기록이 없으면 null(미확인)"}},
+      "additionalProperties": false
+    },
+    "dataset": {
+      "type": "object", "required": ["id", "version", "content_hash", "file_sha256"],
+      "properties": {"id": {"type": "string"}, "version": {"type": "string"},
+                     "content_hash": {"type": ["string", "null"], "pattern": "^sha256:[0-9a-f]{64}$"},
+                     "file_sha256": {"type": "object", "minProperties": 3, "additionalProperties": {"$ref": "#/$defs/hex64"},
+                                     "propertyNames": {"pattern": "^[A-Za-z0-9_.-]+_(train|val|test)\\.jsonl$"}}},
+      "additionalProperties": false
+    },
+    "adapter": {
+      "type": "object", "required": ["dir", "r", "files"],
+      "properties": {"dir": {"type": "string"}, "r": {"type": "integer", "minimum": 1},
+                     "files": {"type": "object", "required": ["adapter_model.safetensors", "adapter_config.json"],
+                               "properties": {"adapter_model.safetensors": {"$ref": "#/$defs/hex64"}, "adapter_config.json": {"$ref": "#/$defs/hex64"}},
+                               "additionalProperties": false}},
+      "additionalProperties": false
+    },
+    "hyperparams": {"type": "object", "description": "서버에 넘긴 값의 사본. 키 집합은 configs/train*.yaml hyperparams", "additionalProperties": {"type": ["number", "integer", "boolean", "string"]}},
+    "notes": {"type": "array", "items": {"type": "string"}}
+  },
+  "additionalProperties": false
+}
