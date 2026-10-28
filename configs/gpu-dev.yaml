@@ -1,6 +1,6 @@
-# 실제 실행 설정(gpu-dev, 12GB). 데이터셋은 synthetic-data가 낸 파일 저장소를 읽고, 모델 레지스트리와 실패 사례 저장소는 HTTP로 닿는다.
-# 필요한 환경 변수: DATASET_ROOT(데이터셋 루트 경로), MODEL_REGISTRY_URL, MODEL_REGISTRY_WRITE_TOKEN, FAILURE_STORE_URL, FAILURE_STORE_TOKEN
-# (토큰 두 개는 NAME_FILE=<파일 경로>로 줄 수 있고 파일이 우선이다. D84)
+# 실제 실행 설정(gpu-dev, 12GB). 데이터셋(I2, D100)·모델 레지스트리·실패 사례 저장소 모두 HTTP로 닿는다.
+# 필요한 환경 변수: DATASET_STORE_URL, DATASET_STORE_TOKEN(읽기 토큰), MODEL_REGISTRY_URL, MODEL_REGISTRY_WRITE_TOKEN, FAILURE_STORE_URL, FAILURE_STORE_TOKEN
+# (토큰 세 개는 NAME_FILE=<파일 경로>로 줄 수 있고 파일이 우선이다. D84)
 # 네트워크 경계(어느 주소로 닿는지)는 운영에서 사용자와 정하기 전이라 가정이다. 개발에서는 SSH 역터널(docs/runbook.md 맨 위).
 config_version: 1
 profile: ../profiles/gpu-dev-12g.yaml
@@ -8,7 +8,7 @@ run: {name: gpu-dev, seed: 1234, runs_dir: ../runs}
 inputs:
   schema_dir: ../vendor/survey-schema/schemas        # 호스트에서는 문진 스키마 사본(vendor/). 개발 PC에서는 ../../survey-service/schema/schemas
   dataset: {id: openit-dataset}                        # 데이터셋 ID는 synthetic-data의 설정에 맞춘다. version 생략 = 최신
-  dataset_store: {factory: "model_lab.file_dataset_store:file_dataset_store", args: {root_env: DATASET_ROOT}}
+  dataset_store: {kind: http, base_url_env: DATASET_STORE_URL, token_env: DATASET_STORE_TOKEN, timeout: 300}   # 같은 호스트 파일 읽기가 필요하면 factory: model_lab.file_dataset_store:file_dataset_store (로컬 개발용)
   failure_store: {factory: "boundary_contracts.clients:HttpFailureStore", args: {base_url_env: FAILURE_STORE_URL, token_env: FAILURE_STORE_TOKEN}}
 roles:
   LORA_A: {package_id: lora-a-parser, system_prompt_file: ../prompts/lora_a.system.txt}

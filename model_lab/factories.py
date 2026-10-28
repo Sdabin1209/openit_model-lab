@@ -39,7 +39,7 @@ def load_callable(path: str):
         return getattr(importlib.import_module(mod), fn)
     except (ImportError, AttributeError) as e:
         raise PipelineError(f"{path}를 불러올 수 없다({type(e).__name__}). "
-                            "boundary-contracts의 HTTP 클라이언트(v1.1.1 이상)가 설치되어 있어야 한다") from None
+                            "boundary-contracts의 HTTP 클라이언트가 설치되어 있어야 한다(I2 HttpDatasetStore는 v2.1.0 이상)") from None
 
 
 def build(spec: Mapping, *, default_factory: str | None = None, env: Mapping = os.environ):

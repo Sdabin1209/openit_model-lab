@@ -43,9 +43,39 @@ def _keywords(text: str | None) -> list[str]:
     return [w for w in re.findall(r"[가-힣A-Za-z0-9]{2,}", text or "") if w not in _STOP][:6]
 
 
+# 재료 = B가 말할 내용을 담은 입력 필드(METRICS.md v2 ungrounded_number_rate). topic·note는 B가 말하지 않는 서술이라 뺀다.
+MATERIAL_KEYS = ("known", "ask", "previous", "current", "hold", "user_utterance")
+
+
+def materials(request: Mapping) -> list[str]:
+    out = [request[k] for k in MATERIAL_KEYS if isinstance(request.get(k), str)]
+    nt = (request.get("next") or {}).get("text")
+    return out + ([nt] if isinstance(nt, str) else [])
+
+
+def _covered(material: str, text: str) -> bool:
+    """재료를 말했는가: 핵심 단어가 일부(1/3, 최소 1개) 들어 있고 재료의 숫자가 빠지지 않았다. 말을 바꿔 전하는 B를 글자 일치로 벌하지 않으려는 잠정 규칙이다."""
+    kw = _keywords(material)
+    return (not kw or sum(k in text for k in kw) >= max(1, len(kw) // 3)) and numbers(material) <= numbers(text)
+
+
+# action별로 말해야 할 재료 필드. 잠정값: 학습 데이터 규칙(IO_SPEC)의 표를 읽지 못했고 담당자 확인 전이다(D96, METRICS.md).
+_REQUIRED = {"START": ("next",), "NEXT": ("known", "next"), "CORRECT": ("known", "next"), "REASK": ("ask",),
+             "CONFIRM": ("previous", "current", "ask"), "HOLD": ("hold", "next"), "SKIP": ("hold", "next"), "REDIRECT": ("next",)}
+
+
+def material_coverage(request: Mapping, text: str) -> bool | None:
+    """말해야 할 재료를 빠짐없이 말했으면 True. 재료가 하나도 없으면 None(분모에서 뺀다). END의 next는 재료가 아니다."""
+    need: list[str] = []
+    for f in _REQUIRED.get(request.get("action"), ()):
+        v = (request.get("next") or {}).get("text") if f == "next" else request.get(f)
+        if isinstance(v, str) and v:
+            need.append(v)
+    return all(_covered(m, text) for m in need) if need else None
+
+
 def check_response(request: Mapping, text: str) -> dict[str, bool]:
     """각 항목이 True면 규칙 위반이 아니라 '해당 현상이 있음'이 아니다: ends_ok, asks_next는 True가 좋고, 나머지 *_bad류는 True가 나쁘다."""
-    import json
     nxt = request.get("next") or {}
     ntype = nxt.get("type")
     if ntype in ("NEXT", "SAME"):
@@ -59,7 +89,7 @@ def check_response(request: Mapping, text: str) -> dict[str, bool]:
     sents = [x for x in re.split(r"(?<=[.?!])\s+", text.strip()) if x]
     limit = 5 if request.get("action") == "START" else 4
     return {"ends_ok": ends_ok, "asks_next": asks_next,
-            "new_number": bool(numbers(text) - numbers(json.dumps(request, ensure_ascii=False))),
+            "new_number": bool(numbers(text) - numbers(" ".join(materials(request)))),
             "banned": any(b in text for b in BANNED),
             "sentences_bad": not (1 <= len(sents) <= limit),
             "json_leak": text.lstrip().startswith("{")}

@@ -132,3 +132,8 @@
 
 ## 막힌 것
 없음.
+
+## 14차 (2026-10-28) 지표 v2 · TurnTrace 키 · I2 HTTP
+- 한 일: 평가 지표 METRICS.md v2(ADR 0011), 회귀 trace 키 D98 확정, I2 `kind: http` 설정과 시험 대역 서버(ADR 0012), CR-L009(unit chars). 시험 195건 통과, 1건 건너뜀.
+- 남은 일: 계약 v2.1.0 태그가 push되면 `requirements.txt`의 boundary-contracts를 올리고 재시험(건너뛴 `test_fetch_dataset_over_http_client`가 실제 클라이언트로 도는지 확인). 실제 학습 데이터 A 전수 기준 시험은 `MODEL_LAB_A_SAMPLES`로 돌려야 한다(실데이터로는 돌리지 않았다). 이 PC의 `.venv`에 설치된 turn-engine은 0.3.0이고 `requirements.txt`는 v0.4.0이다(ssh 설치를 하지 않았다).
+- 막힌 것: `unit=chars`(CR-L009). `material_coverage`의 필수 재료 표는 잠정.

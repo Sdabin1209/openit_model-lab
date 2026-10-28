@@ -5,8 +5,9 @@
 LORA_B면 ResponseRequest로, 정답은 ActionExtraction / ResponseText로 검증한다. 통과하지 못하면 건너뛰고 사유를 센다.
 임계치는 정하지 않는다. 일치 수 등 계산한 값만 보고서에 담는다(O11).
 
-[미정] 비식별 trace 안의 모델 입력 키 이름. v1은 parser_input/generator_input이었고 v2의 키는 survey-service가 정한다(지시서: extract_* 등).
-아래 _TRACE_KEYS는 추정이며 확정되면 바꾼다. 맞는 키가 없으면 trace_input_missing으로 건너뛰므로 reviewed_input 사례는 영향이 없다."""
+비식별 trace 안의 모델 입력 키(D98 확정): 문진 스키마 TurnTrace의 `extract_input`(A 입력), `extract_output`, `response_input`(B 입력), `response_output`.
+왜 이 이름: 문진 스키마가 정본이고 소비자는 스키마를 따른다(D21). 입력만 읽는다 — 출력 키는 '운영에서 낸 출력'이라 기대값(검토자가 확정)과 다르다.
+내부 스키마(ActionExtractionInput 등)는 아래에서 다시 검증하므로 맞지 않으면 input_invalid로 건너뛴다. 맞는 키가 없으면 trace_input_missing."""
 from __future__ import annotations
 
 import collections
@@ -19,7 +20,8 @@ from .evaluate import aggregate, evaluate_sample
 KIND_ROLE = {"LORA_A": "LORA_A", "LORA_B": "LORA_B"}
 _IN = {"LORA_A": "ActionExtractionInput", "LORA_B": "ResponseRequest"}
 _OUT = {"LORA_A": "ActionExtraction", "LORA_B": "ResponseText"}
-_TRACE_KEYS = {"LORA_A": ("extract_input",), "LORA_B": ("response_input", "respond_input")}   # 추정(미정)
+TRACE_KEYS = {"LORA_A": {"input": "extract_input", "output": "extract_output"},
+              "LORA_B": {"input": "response_input", "output": "response_output"}}
 
 
 def kind_of(case: dict) -> str | None:
@@ -66,7 +68,7 @@ def build_set(store, schema_dir: Path | None, *, limit: int | None = None, max_l
                 if e.code == "NOT_FOUND":
                     skipped["trace_not_found"].append(cid); continue
                 raise                  # UNAVAILABLE 등은 중단(재시도)
-            inp = next((trace[k] for k in _TRACE_KEYS[role] if isinstance(trace, dict) and isinstance(trace.get(k), dict)), None)
+            inp = trace.get(TRACE_KEYS[role]["input"]) if isinstance(trace, dict) else None
         if not isinstance(inp, dict):
             skipped["trace_input_missing"].append(cid); continue
         if list(validator(_IN[role]).iter_errors(inp)):

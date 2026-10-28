@@ -1,5 +1,10 @@
 # 변경 이력
 
+## 0.3.0 (제안; 태그 없음) - 지표 v2, TurnTrace 키, I2 HTTP (D94·D96~D98·D100)
+- 평가 지표를 METRICS.md v2로: `value_precision/recall`, `action/reason/status/next_item_accuracy`, `semantic_violation_rate`(turn-engine `validate_extraction`, 위반 코드별 slice), `output_invalid_rate`, `material_coverage`, 재료 기준 `ungrounded_number_rate`, `response_length_chars_p95`. v1 지표 폐기. 기존 score_a_v2 이름은 보조로 유지. ADR 0011. `unit=chars`는 스키마에 없어 count로 냄(CR-L009).
+- 회귀 평가의 trace 입력 키를 `extract_input`/`response_input`으로 확정(추정 키 제거, D98).
+- `inputs.dataset_store`에 `kind: http` 추가, `gpu-dev.yaml`을 HTTP로 전환(ADR 0012). 시험 195건 통과, 1건 건너뜀(계약 2.1.0 클라이언트 대기).
+
 ## 0.2.12 (제안; 태그 없음) - 3차 점검 반영
 - 시작 때 토큰 강도 검사(32자 이상, 서로 다른 글자 8개 이상, 미달이면 시작 거부, 값은 메시지에 없음). 실패 제한의 의미(로그·CPU 보호, 방어는 엔트로피)를 ADR 0009·boundary.md에 적음. 스모크는 무작위 토큰을 쓴다.
 - keep-alive 연결에서 요청별 상태(`_consumed`, `_sent_close`)를 요청마다 되돌림(앞 요청의 상태가 다음 거절의 본문 버리기를 건너뛰게 하던 문제). 1MiB 넘는 업로드 거절의 연결 초기화는 한계로 문서화.

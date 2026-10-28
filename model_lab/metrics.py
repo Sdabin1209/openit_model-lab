@@ -1,4 +1,8 @@
-"""EvaluationReport(boundary-contracts v2.0.0)의 지표를 계산한다. 보고서 스키마는 계약 그대로다.
+"""EvaluationReport의 지표를 계산한다(boundary-contracts 2.1.0 METRICS.md v2, D96·D97). 보고서 스키마는 계약 그대로다.
+
+METRICS.md v2의 이름이 정본이다(value_precision/recall, action/reason/status/next_item_accuracy, semantic_violation_rate, output_invalid_rate 등).
+학습 서버 score_a_v2.py 이름(action_acc, cell_acc 등)은 호환·보조로 함께 낸다: 이름은 자유 문자열이라 계약을 깨지 않고 학습 담당이 쓰던 값과 대조할 수 있다.
+v1 지표(risk_signal_*, intent_accuracy, item_*, target_accuracy, slot_coverage, risk_notice_verbatim_rate)는 폐기이며 새 보고서에 쓰지 않는다.
 
 이름: LoRA-A는 학습 서버 score_a_v2.py의 지표 이름, LoRA-B는 METRICS.md(제안)의 `forbidden_expression_rate`·`ungrounded_number_rate`와
 학습 서버 eval_lora_b_v2.py 항목(끝맺음, 다음 질문, 새 숫자, 금지 표현, 문장 수)을 따른 이름이다. METRICS.md는 v1 출력을 가정한 채로 아직
@@ -10,6 +14,7 @@ from __future__ import annotations
 from typing import Callable, Mapping
 
 from boundary_contracts import PIPELINE_SCHEMA_VERSION, canonical, validator
+from turn_engine import validation as _tv
 
 from .datasets import qs_key
 from .evaluate import _sum_c, a_rates, sample_dims, sample_qs
@@ -28,6 +33,12 @@ A_RATE_METRICS = (("action_acc", "ACCURACY", True), ("action_reason_acc", "ACCUR
 # 분모: 행 수(rows) / 정답 칸 수(gold_keys) / targets가 있는 정답 행 / OOS 예측·정답 수
 A_DENOM = {"key_found_rate": "gold_keys", "cell_acc": "gold_keys", "value_acc": "gold_keys", "status_acc": "gold_keys", "save_acc": "gold_keys",
            "precision_acc": "gold_keys", "targets_acc": "targets_rows"}
+
+
+# 왜 nearest-rank: 보간이 필요 없고 표본이 적어도 실제로 관측된 값을 낸다(백분위의 가장 단순한 표준 정의).
+def _p95(vals: list[float]) -> float:
+    v = sorted(vals)
+    return v[max(0, -(-95 * len(v) // 100) - 1)]
 
 
 def _m(name, group, value, n, hib, unit="ratio", slice_=None) -> dict:
@@ -64,6 +75,25 @@ def metrics_for(role: str, recs: list[dict], slice_=None) -> list[dict]:
                 out.append(_m(name, group, rates[name], n, hib, slice_=slice_))
         for name in ("extra_keys", "dup_keys", "targets_extra_rows"):
             out.append(_m(name, "ACCURACY", t.get(name, 0), len(recs), False, "count", slice_))
+        # --- METRICS.md v2 이름(정본). 위 *_acc 등은 score_a_v2.py 이름의 보조 값이다.
+        def v2(name, num, den, hib, group="ACCURACY"):
+            if den:
+                out.append(_m(name, group, num / den, den, hib, slice_=slice_))
+        v2("value_precision", t.get("value_tp", 0), t.get("pred_values", 0), True)
+        v2("value_recall", t.get("value_tp", 0), t.get("gold_keys", 0), True)
+        v2("precision_match", t.get("precision", 0), t.get("gold_keys", 0), True)
+        v2("targets_match", t.get("targets", 0), t.get("targets_rows", 0), True)
+        v2("value_exact_match", t.get("value", 0), t.get("gold_keys", 0), True)
+        v2("action_accuracy", t.get("action", 0), t.get("rows", 0), True)
+        v2("reason_accuracy", t.get("reason_ok", 0), t.get("reason_rows", 0), True)
+        v2("status_accuracy", t.get("status", 0), t.get("gold_keys", 0), True)
+        v2("next_item_accuracy", t.get("next_item", 0), t.get("rows", 0), True)      # ACTION slice가 action별 분모다(D96 기본값 3)
+        checked = [r["violations"] for r in recs if r.get("violations") is not None]
+        v2("semantic_violation_rate", sum(1 for v in checked if v), len(checked), False)
+        add("schema_valid_raw", "PROTECTION", _ratio(recs, lambda r: r["raw_valid"], lambda r: True), True)
+        add("output_invalid_rate", "PROTECTION", _ratio(recs, lambda r: r["outcome"] == "invalid", lambda r: True), False)
+        if recs:
+            out.append(_m("output_attempts_mean", "PROTECTION", sum(r["attempts"] for r in recs) / len(recs), len(recs), False, "count", slice_))
         add("schema_ok_rate", "PROTECTION", _ratio(recs, lambda r: r["raw_valid"], lambda r: True), True)
         out.append(_m("output_invalid", "PROTECTION", sum(1 for r in recs if r["outcome"] == "invalid"), len(recs), False, "count", slice_))
     else:
@@ -73,6 +103,9 @@ def metrics_for(role: str, recs: list[dict], slice_=None) -> list[dict]:
         add("exact_match_rate", "ACCURACY", _ratio(recs, lambda r: r["prot_exact"], lambda r: True), True)
         add("forbidden_expression_rate", "SAFETY", _ratio(recs, lambda r: r["rules"]["banned"], lambda r: True), False)
         add("ungrounded_number_rate", "SAFETY", _ratio(recs, lambda r: r["rules"]["new_number"], lambda r: True), False)
+        add("material_coverage", "ACCURACY", _ratio(recs, lambda r: r["material_ok"], lambda r: r.get("material_ok") is not None), True)
+        if recs:
+            out.append(_m("response_length_chars_p95", "ROBUSTNESS", _p95([r["response_len"] for r in recs]), len(recs), False, "count", slice_))   # METRICS.md는 unit=chars지만 스키마 열거에 없다(CR-L009)
         add("json_leak_rate", "PROTECTION", _ratio(recs, lambda r: r["rules"]["json_leak"], lambda r: True), False)
         add("fallback_rate", "PROTECTION", _ratio(recs, lambda r: r["is_fallback"], lambda r: True), False)
         add("schema_valid_raw", "PROTECTION", _ratio(recs, lambda r: r["raw_valid"], lambda r: True), True)
@@ -82,7 +115,8 @@ def metrics_for(role: str, recs: list[dict], slice_=None) -> list[dict]:
     return out
 
 
-def build_metrics(role: str, pairs: list[tuple[dict, dict]], seen_sets: set, *, regression_recs: list[dict] | None = None):
+def build_metrics(role: str, pairs: list[tuple[dict, dict]], seen_sets: set, *, regression_recs: list[dict] | None = None,
+                  constrained_decoding: bool | None = None):
     """pairs = [(sample, rec)]. 지표 목록과 notes를 낸다."""
     recs = [r for _, r in pairs]
     metrics = metrics_for(role, recs)
@@ -94,6 +128,15 @@ def build_metrics(role: str, pairs: list[tuple[dict, dict]], seen_sets: set, *, 
                     buckets.setdefault((SLICE_KIND[dim], v), []).append(r)
     for key in sorted(buckets):
         metrics += metrics_for(role, buckets[key], key)
+    if role == "LORA_A":
+        checked = [r["violations"] for r in recs if r.get("violations") is not None]
+        for code in _tv.CODES:       # 위반 코드별 비율. 0도 낸다(위반이 없다는 것을 보고서에서 읽을 수 있게)
+            if checked:
+                metrics.append(_m("semantic_violation_rate", "ACCURACY", sum(1 for v in checked if code in v) / len(checked), len(checked),
+                                  False, slice_=("VIOLATION_CODE", code)))
+    if constrained_decoding is not None:      # 켠/끈 값을 구분해 읽게 한다(D96 기본값 4). 한 실행은 한 쪽만 잰다
+        for m in [m for m in metrics if m["name"] == "schema_valid_raw" and "slice" not in m]:
+            metrics.append({**m, "slice": {"kind": "CONSTRAINED_DECODING", "value": "on" if constrained_decoding else "off"}})
     seen = _ratio([r for s, r in pairs if sample_qs(s) and qs_key(sample_qs(s)) in seen_sets], lambda r: r["prot_exact"], lambda r: True)
     unseen = _ratio([r for s, r in pairs if sample_qs(s) and qs_key(sample_qs(s)) not in seen_sets], lambda r: r["prot_exact"], lambda r: True)
     if seen and unseen:
@@ -106,16 +149,21 @@ def build_metrics(role: str, pairs: list[tuple[dict, dict]], seen_sets: set, *, 
     notes = [
         "합격 판정과 임계치는 없다. 값은 계산한 그대로이며 평가 백엔드는 서빙과 다르고 제약 디코딩을 쓰지 않았다.",
         "coverage_seen_unseen_gap은 (본 문항 세트 정답 일치율 - 보지 못한 문항 세트 정답 일치율)이며 샘플에 question_set이 있고 둘 다 표본이 있을 때만 낸다. 일치는 정답 출력과의 완전 일치다.",
-        "v1의 위험 신호 지표(risk_signal_*)와 의도·항목 지표는 v2 출력에 대응이 없어 없앴다. v2에서 위험 신호를 어떻게 표현할지는 정해지지 않았다(미정, 헤드).",
+        "v1 지표(risk_signal_*, intent_accuracy, item_precision/recall, target_accuracy, slot_coverage, risk_notice_verbatim_rate)는 폐기했다(METRICS.md v2). v2에서 위험 신호를 어떻게 표현할지는 정해지지 않았다(미정, 헤드).",
+        "value_precision/recall은 (key, value, status)가 모두 같은 값만 맞은 것으로 센다(D96 기본값, 학습 담당 확인 전 임시). 형식 실패 행의 정답 칸은 recall 분모에 들어간다. next_item_accuracy는 slice kind=ACTION이 action별 분모다. 합격선은 없다(O11).",
+        "score_a_v2.py 이름의 지표(action_acc, cell_acc, value_acc, ...)는 학습 서버 값과 대조하려는 보조 값이며 METRICS.md v2 이름과 같은 분자·분모인 것도 있다.",
     ]
     if role == "LORA_A":
         notes += ["LoRA-A 지표는 학습 서버 score_a_v2.py와 같은 규칙으로 계산했다: 칸(key)별 비교(values 순서 무시), 칸 정답은 value·status·save가 모두 같을 때, 5와 5.0은 같고 true와 1은 다름, 형식 실패 행의 정답 칸도 분모에 넣는다. precision은 따로 센다.",
                   "schema_ok_rate는 계약 ActionExtraction 스키마(allOf 포함)를 통과한 비율이고, score_a_v2의 schema_ok(느슨한 검사)보다 엄격하다. LoRA-A는 보호가 없어 통과하지 못하면 서빙에서는 503 OUTPUT_INVALID(D75)다(output_invalid).",
-                  "targets/next_item 의미 규칙(turn-engine validate_extraction)은 이 평가에서 계산하지 않았다.",
+                  "semantic_violation_rate는 turn-engine validate_extraction(문항 순서표 DATASET_V2_FLOW)이 위반을 낸 출력의 비율이다. 형식 실패 출력은 분모에서 빠지고 output_invalid_rate가 센다. 정답과 비교하지 않는다(D97).",
+                  "output_invalid_rate는 평가 백엔드(제약 디코딩 없음)에서 잰 값이며 서빙(vLLM) 값과 다를 수 있다. 백엔드는 evaluation_backend에 적는다.",
                   "extra_keys, dup_keys, targets_extra_rows의 n은 평가한 행 수다."]
     else:
         notes += ["LoRA-B 문장 규칙(끝맺음, 다음 질문, 새 숫자, 금지 표현, 문장 수, JSON 출력)은 기계 검사이며 사람 검수가 아니다. 금지 표현 목록과 문장 수 범위는 학습 서버 평가의 값을 따른 잠정값이다(미정).",
-                  "ungrounded_number_rate는 요청 JSON에 없는 숫자(아라비아 숫자와 한글 수사 일부)를 말한 비율이다. 한글 수사 해석은 완전하지 않다.",
+                  "ungrounded_number_rate는 재료(known, ask, previous, current, hold, next.text, user_utterance)에 없는 숫자(아라비아 숫자와 한글 수사 일부)를 말한 비율이다. 런타임 검사가 아니라 평가 지표로만 잰다(D94). 한글 수사 해석은 완전하지 않고 ask의 영문 괄호는 따로 처리하지 않는다.",
+                  "material_coverage는 action별 필수 재료 표(text_rules._REQUIRED, 잠정, 학습 담당 확인 전)를 핵심 단어·숫자 포함으로 판정한 비율이다. 재료가 없는 행은 분모에서 뺐다.",
+                  "forbidden_expression_rate의 금지 표현 목록은 학습 서버 평가 값을 따른 잠정 목록이며 소유자는 정해지지 않았다(D59). response_length_chars_p95는 nearest-rank 백분위다.",
                   "exact_match_rate는 정답 문장과 글자 단위로 같은 비율이다. 문장 생성의 품질 지표로 쓰기에는 약하다.",
                   "length_p95_ms는 생략했다: 이 평가는 응답 지연을 측정하지 않는다."]
     if not regression_recs:

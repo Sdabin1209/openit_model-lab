@@ -59,7 +59,13 @@ def _atomic_json(path: Path, obj) -> None:
 
 
 def make_dataset_store(cfg: dict):
-    return factories.build(cfg["inputs"]["dataset_store"])
+    """읽기 대상(I2). kind=http = 원격 dataset-store(D100, 기본), factory = 임의 구현(시험 대역·로컬 파일 읽기)."""
+    spec = cfg["inputs"]["dataset_store"]
+    if spec.get("kind") == "http":
+        if "base_url" not in spec and "base_url_env" not in spec:
+            raise ConfigError("inputs.dataset_store.kind=http에는 base_url 또는 base_url_env가 필요하다")
+        return factories.build_http("dataset_store", spec)
+    return factories.build(spec)
 
 
 def make_registry(cfg: dict):
@@ -332,7 +338,8 @@ class Run:
                                                        max_listed=self.cfg["evaluation"].get("max_listed_failures", 20))
             else:
                 rep["regression"] = {"enabled": False}
-            rep["evaluation_report_metrics"], rep["evaluation_report_notes"] = metrics.build_metrics(role, pairs, seen, regression_recs=rrecs)
+            rep["evaluation_report_metrics"], rep["evaluation_report_notes"] = metrics.build_metrics(role, pairs, seen, regression_recs=rrecs,
+                                                                                           constrained_decoding=ctx["evaluation_backend"]["constrained_decoding"])
             out = self.dir / "eval" / f"report-{role}.json"
             out.parent.mkdir(parents=True, exist_ok=True)
             out.write_bytes(evaluate.report_bytes(rep))

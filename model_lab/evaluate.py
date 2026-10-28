@@ -14,8 +14,10 @@ from __future__ import annotations
 import collections
 from typing import Any, Callable, Mapping
 
+from turn_engine import DATASET_V2_FLOW, ContractViolation, validate_extraction
+
 from .datasets import qs_key
-from .text_rules import check_response
+from .text_rules import check_response, material_coverage
 
 REPORT_VERSION = 2
 NOTICE = ("통과 임계치와 지표 선정은 정해지지 않았다(O11). 이 보고서는 계산한 값만 담으며 합격 여부를 판단하지 않는다.")
@@ -71,6 +73,7 @@ def score_a(gold: Mapping, pred: Mapping | None) -> dict[str, int]:
     c["gold_keys"] = len(gv)
     c["targets_rows"] = int(bool(gt))
     c["note_rows"] = 1
+    c["reason_rows"] = int(gold.get("reason") is not None)     # reason_accuracy의 분모: 정답에 reason이 있는 행(METRICS.md v2)
     if pred is None:
         c["schema_fail"] = 1
         c["oos_fn" if gact in OOS else "oos_fp"] += 1     # 못 읽으면 OOS 판정도 틀림(score_a_v2와 같은 규칙)
@@ -82,10 +85,15 @@ def score_a(gold: Mapping, pred: Mapping | None) -> dict[str, int]:
     c["reason"] = int(pact == gact and pred.get("reason") == gold.get("reason"))
     c["next_item"] = int(pred.get("next_item") == gold.get("next_item"))
     c["dup_keys"], c["extra_keys"] = dup, len(pv.keys() - gv.keys())
+    c["reason_ok"] = int(c["reason_rows"] and pred.get("reason") == gold.get("reason"))
+    # value_precision의 분모: 모델이 낸 values 항목 수(중복 key도 센다. 같은 칸을 두 번 내면 정밀도가 깎인다)
+    c["pred_values"] = dup + len(pv)
     for k, gc in gv.items():
         pc = pv.get(k)
         if pc is None:
             continue
+        # 왜: (key, value, status)가 모두 같아야 맞은 값이다. 키만 맞은 경우를 세면 오답을 놓친다(D96 기본값 1, 분류 평가의 표준 정의).
+        c["value_tp"] += same(pc.get("value"), gc["value"]) and pc.get("status") == gc["status"]
         v_ok, s_ok, sv_ok = same(pc.get("value"), gc["value"]), pc.get("status") == gc["status"], pc.get("save") is gc["save"]
         c["key_found"] += 1
         c["value"] += v_ok
@@ -135,7 +143,19 @@ def sample_dims(role: str, sample: Mapping, seen_sets: set) -> dict[str, set]:
     return d
 
 
-def evaluate_sample(role: str, session, sample: Mapping) -> dict:
+def semantic_violations(inp: Mapping, output, flow=DATASET_V2_FLOW) -> list[str] | None:
+    """turn-engine validate_extraction이 낸 위반 코드(중복 없이 정렬). 검사할 수 없으면 None(형식 실패 출력, 입력 계약 위반).
+    왜: 서비스가 쓰는 것과 같은 검증기로 재야 지표가 운영 실패율과 같은 뜻이다(D97). 형식 실패 행은 출력이 없어 분모에서 빠지고
+    output_invalid_rate가 따로 센다. flow의 기본값 DATASET_V2_FLOW는 학습 데이터셋 v2의 문항 순서·건너뛰기이며 서비스 동작의 근거는 아니다(D99)."""
+    if not isinstance(output, Mapping):
+        return None
+    try:
+        return sorted({v.code for v in validate_extraction(dict(inp), dict(output), flow)})
+    except ContractViolation:
+        return None
+
+
+def evaluate_sample(role: str, session, sample: Mapping, *, flow=DATASET_V2_FLOW) -> dict:
     """한 샘플의 기록. A는 extract_raw 한 번(서빙 경로와 같은 재시도), B는 raw와 보호 적용 결과."""
     inp, exp = sample["input"], sample["expected"]
     if role == "LORA_A":
@@ -145,6 +165,7 @@ def evaluate_sample(role: str, session, sample: Mapping) -> dict:
                                "outcome": "ok" if raw.valid else "invalid", "attempts": getattr(info, "attempts", 0),
                                "protections": []}
         rec["c"] = score_a(exp, raw.output if raw.valid and isinstance(raw.output, Mapping) else None)
+        rec["violations"] = semantic_violations(inp, raw.output, flow) if raw.valid else None
         rec["prot_exact"] = bool(rec["c"].get("exact"))
         return rec
     raw = session.respond_raw(inp)
@@ -157,6 +178,7 @@ def evaluate_sample(role: str, session, sample: Mapping) -> dict:
     rec["raw_exact"] = isinstance(raw.output, str) and raw.output == exp
     rec["prot_exact"] = text == exp
     rec["rules"] = check_response(inp, text)
+    rec["material_ok"] = material_coverage(inp, text)     # None = 말해야 할 재료가 없는 행(분모에서 뺀다)
     return rec
 
 
@@ -202,6 +224,9 @@ def aggregate(recs: list[dict], role: str) -> dict:
     if role == "LORA_A":
         t = _sum_c(recs)
         a["counts"] = dict(sorted(t.items()))
+        checked = [r["violations"] for r in recs if r.get("violations") is not None]
+        a["semantic_violations"] = {"checked": len(checked), "violating": sum(1 for v in checked if v),
+                                    "by_code": dict(sorted(collections.Counter(c for v in checked for c in v).items()))}
         a["rates"].update({k: v for k, v in a_rates(t).items() if v is not None})
     else:
         a["raw_exact"] = cnt(lambda r: r["raw_exact"])
@@ -215,8 +240,9 @@ def aggregate(recs: list[dict], role: str) -> dict:
 
 
 def build_report(role: str, session, samples: list[dict], *, seen_sets: set, eval_files: list[dict],
-                 max_listed_failures: int = 20, context: Mapping | None = None, return_records: bool = False):
-    recs: list[tuple[dict, dict]] = [(s, evaluate_sample(role, session, s)) for s in samples]
+                 max_listed_failures: int = 20, context: Mapping | None = None, return_records: bool = False,
+                 flow=DATASET_V2_FLOW):
+    recs: list[tuple[dict, dict]] = [(s, evaluate_sample(role, session, s, flow=flow)) for s in samples]
     all_recs = [r for _, r in recs]
     dims: dict[str, dict[str, list]] = collections.defaultdict(lambda: collections.defaultdict(list))
     for s, r in recs:

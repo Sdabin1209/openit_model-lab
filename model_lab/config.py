@@ -76,6 +76,10 @@ _BACKEND = {
 }
 _FACTORY = {"type": "object", "additionalProperties": False, "required": ["factory"],
             "properties": {"factory": {"type": "string", "pattern": r"^[\w.]+:\w+$"}, "args": {"type": "object"}}}
+# 왜: 영역 사이 호출은 HTTP다(D49). I2도 D100으로 HTTP가 되어 registry와 같은 {kind: http, base_url(_env), token_env, timeout} 모양을 쓴다.
+_HTTP_STORE = {"type": "object", "additionalProperties": False, "required": ["kind"],
+               "properties": {"kind": {"const": "http"}, "base_url": {"type": "string"}, "base_url_env": {"type": "string"},
+                              "token_env": {"type": "string"}, "timeout": {"type": "number", "exclusiveMinimum": 0}}}
 _SERVING = {"type": "object"}  # 형식은 model-runtime의 validate_serving_config가 검증한다
 
 CONFIG_SCHEMA: dict[str, Any] = {
@@ -97,7 +101,7 @@ CONFIG_SCHEMA: dict[str, Any] = {
                 "dataset": {"type": "object", "additionalProperties": False, "required": ["id"],
                             "properties": {"id": _ID, "version": {"type": "string", "minLength": 1}}},
                 # 이웃(synthetic-data)의 읽기 SDK를 만드는 함수. 'pkg.module:callable', args는 키워드 인자.
-                "dataset_store": _FACTORY,
+                "dataset_store": {"oneOf": [_FACTORY, _HTTP_STORE]},
                 # 아직 쓰지 않는 이웃 읽기 SDK. 같은 방식으로 고른다(HttpQuestionReader, HttpFailureStore 등).
                 "question_reader": _FACTORY, "failure_store": _FACTORY,
             },
