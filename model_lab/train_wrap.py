@@ -322,10 +322,13 @@ def doctor(cfg: dict) -> list[tuple[str, str, str]]:
             out.append(("OK", "파이썬 의존", f"{', '.join(mods)} 있음"))
     except (OSError, subprocess.SubprocessError):
         out.append(("FAIL", "파이썬 의존", f"{py}를 실행하지 못했다. server.python을 고친다"))
-    hub = Path(os.environ.get("HF_HUB_CACHE") or Path(os.environ.get("HF_HOME", Path.home() / ".cache" / "huggingface")) / "hub")
-    mdir = hub / ("models--" + cfg["base_model"]["id"].replace("/", "--"))
-    out.append(("OK", "기반 모델 캐시", str(mdir)) if mdir.is_dir() else
-               ("WARN", "기반 모델 캐시", f"{cfg['base_model']['id']} 캐시가 없다({hub}). 첫 실행 때 내려받는다(오프라인이면 미리 받아 둔다)"))
+    try:   # 캐시 조회는 huggingface_hub 공개 API로 한다(T24)
+        from .hf_cache import cached_snapshot
+        snap = cached_snapshot(cfg["base_model"]["id"], cfg["base_model"].get("revision"))
+        out.append(("OK", "기반 모델 캐시", str(snap)) if snap else
+                   ("WARN", "기반 모델 캐시", f"{cfg['base_model']['id']} 캐시가 없다. 첫 실행 때 내려받는다(오프라인이면 미리 받아 둔다)"))
+    except ImportError:
+        out.append(("WARN", "기반 모델 캐시", "huggingface_hub가 없어 캐시를 확인하지 못했다"))
     prof = cfg["base_model"].get("profile")
     if not prof:
         out.append(("WARN", "프로파일", "base_model.profile이 없다. package-adapters에 필요한 프로파일 이름을 적는다"))

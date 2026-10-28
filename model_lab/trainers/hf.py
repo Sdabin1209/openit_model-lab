@@ -72,16 +72,12 @@ def load_base(torch, transformers, base_model: dict, training: dict, *, for_trai
 
 
 def resolved_revision(model, base_model: dict) -> str:
-    """실제로 쓴 기반 모델의 커밋. transformers가 설정에 남긴 _commit_hash를 쓴다(없으면 요청한 revision)."""
-    cfg = getattr(model, "config", None)
-    h = getattr(cfg, "_commit_hash", None)
-    if not h:   # HF 캐시의 refs/<revision> 파일이 커밋 해시다
-        try:
-            root = Path(os.environ.get("HF_HOME", Path.home() / ".cache" / "huggingface")) / "hub"
-            ref = root / ("models--" + base_model["id"].replace("/", "--")) / "refs" / (base_model.get("revision") or "main")
-            h = ref.read_text().strip() if ref.is_file() else None
-        except OSError:
-            h = None
+    """실제로 쓴 기반 모델의 커밋. huggingface_hub 공개 API가 알려 주는 캐시 스냅샷의 커밋을 쓴다(없으면 요청한 revision, T24)."""
+    from ..hf_cache import cached_commit
+    try:
+        h = cached_commit(base_model["id"], base_model.get("revision"))
+    except ImportError:
+        h = None
     return h or base_model.get("revision", "unknown")
 
 
