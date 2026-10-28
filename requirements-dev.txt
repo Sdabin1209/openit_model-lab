@@ -1,0 +1,5 @@
+# 시험 환경 = 필수 의존(requirements.txt) + 시험 도구. 왜: huggingface_hub는 실행에 필수가 아니다(scripts/compare_base_models.py cache_gb는 없으면 파일 크기 합으로 대체).
+# 다만 tests/test_compare_base_models.py의 clean_model_cache 시험이 필요로 하고, 없으면 importorskip으로 조용히 건너뛴다. 버전은 requirements-train.lock과 같게 고정한다.
+-r requirements.txt
+pytest
+huggingface_hub==2.2.0

@@ -50,7 +50,7 @@
 ```
 # 1. 설치 (이 리포 안에서)
 python3 -m venv .venv
-.venv/bin/pip install -r requirements.txt pytest          # 태그 설치. 이웃 폴더 editable 설치는 docs/runbook.md "환경 (CPU)"
+.venv/bin/pip install -r requirements-dev.txt          # 태그 설치 + pytest + huggingface_hub(시험 필요, 없으면 1건이 건너뛰어진다). 이웃 폴더 editable 설치는 docs/runbook.md "환경 (CPU)"
 # 2. 시험
 .venv/bin/python -m pytest -q
 # 3. 모델 없이 파이프라인 끝까지 (CPU)
@@ -66,7 +66,7 @@ scripts/smoke_registry.sh
 .venv/bin/python -m model_lab package-adapters --help
 ```
 
-이 문서를 쓰면서 **돌려 본 것**: `.venv/bin/python -m pytest -q`(2026-10-28, 182건 통과, 0 실패, 건너뜀 0; 이 PC의 `.venv` 한 환경), `.venv/bin/python -m model_lab --help`(하위 명령 `run`, `run-once`, `status`, `package-adapters`, `train`, `train-doctor` 확인). **돌리지 않은 것**: 위 1~6 중 시험 실행 외 전부(설치, 파이프라인, 이미지 빌드·스모크, doctor, train, package-adapters), GPU 관련 전부.
+이 문서를 쓰면서 **돌려 본 것**: `.venv/bin/python -m pytest -q`(2026-10-28, 182건 통과, 0 실패, 건너뜀 0; 이 PC의 `.venv`와 위 설치 줄만 실행한 새 임시 venv 두 환경), `.venv/bin/python -m model_lab --help`(하위 명령 `run`, `run-once`, `status`, `package-adapters`, `train`, `train-doctor` 확인). **돌리지 않은 것**: 위 1~6 중 시험 실행 외 전부(설치, 파이프라인, 이미지 빌드·스모크, doctor, train, package-adapters), GPU 관련 전부.
 
 ## 현재 상태
 

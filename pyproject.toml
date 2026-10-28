@@ -11,7 +11,7 @@ dependencies = ["boundary-contracts", "turn-engine", "model-runtime", "jsonschem
 
 [project.optional-dependencies]
 train = ["torch", "transformers", "peft", "accelerate", "bitsandbytes"]
-dev = ["pytest"]
+dev = ["pytest", "huggingface_hub"]  # 왜: tests/test_compare_base_models.py의 clean_model_cache 시험이 필요(런타임은 선택 의존). 고정 버전은 requirements-dev.txt
 
 [project.scripts]
 model-lab = "model_lab.cli:main"
