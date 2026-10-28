@@ -10,14 +10,14 @@ from turn_engine import DATASET_V2_FLOW
 
 from model_lab import datasets, factories, metrics, pipeline, regression
 from model_lab.config import ConfigError, load_config
+from model_lab.metric_names import DEPRECATED_V1
 from model_lab.evaluate import build_report, score_a, semantic_violations
 from model_lab.text_rules import check_response, material_coverage
 from tests.doubles.dataset_server import DatasetServer
 from tests.doubles.fixtures import load_samples
 from tests.test_evaluate_v2 import QS, session_for, with_qs
 
-V1_NAMES = {"risk_signal_recall", "risk_signal_false_alarm", "intent_accuracy", "item_precision", "item_recall", "target_accuracy",
-            "risk_notice_verbatim_rate", "slot_coverage"}
+V1_NAMES = DEPRECATED_V1
 
 
 def mget(ms, name, kind=None, value=None):
@@ -218,7 +218,7 @@ def test_real_config_gpu_dev_uses_http_dataset_store():
 def test_fetch_dataset_over_http_client(fixture_store, tmp_path):
     clients = pytest.importorskip("boundary_contracts.clients")
     if not hasattr(clients, "HttpDatasetStore"):
-        pytest.skip("boundary-contracts에 I2 HttpDatasetStore가 아직 없다(v2.1.0 이상 필요)")
+        pytest.skip("boundary-contracts에 I2 HttpDatasetStore가 아직 없다(I2 HttpDatasetStore를 내는 버전 필요)")
     from tests.doubles.dataset_store import DirDatasetStore
     srv = DatasetServer(DirDatasetStore(str(fixture_store)), ["fx-golden"])
     try:

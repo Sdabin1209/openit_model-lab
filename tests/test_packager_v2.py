@@ -6,7 +6,7 @@ from pathlib import Path
 import model_runtime
 import pytest
 import yaml
-from boundary_contracts import BoundaryError, canonical, validator
+from boundary_contracts import PIPELINE_SCHEMA_VERSION, BoundaryError, canonical, validator
 
 from model_lab import datasets, packager
 from model_lab.config import ConfigError, ROLE_TO_FILE_ROLE, load_config, system_prompt_text
@@ -50,7 +50,7 @@ def test_prompt_file_is_in_adapter_dir_and_manifest_points_at_it(tmp_path):
     assert (ad / "system_prompt.txt").read_bytes() == text.encode("utf-8")              # 바이트 그대로(줄바꿈을 고치지 않는다)
     m = manifest(ad, sp)
     validator("ModelPackageManifest").validate(m)
-    assert m["system_prompt"] == sp and m["pipeline_schema_version"] == "2.0"
+    assert m["system_prompt"] == sp and m["pipeline_schema_version"] == PIPELINE_SCHEMA_VERSION
     assert m["adapter_hash"] == canonical.directory_hash(ad)                          # 프롬프트 파일이 어댑터 해시에 들어 있다
 
 

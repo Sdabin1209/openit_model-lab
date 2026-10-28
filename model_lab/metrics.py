@@ -17,6 +17,7 @@ from boundary_contracts import PIPELINE_SCHEMA_VERSION, canonical, validator
 from turn_engine import validation as _tv
 
 from .datasets import qs_key
+from .metric_names import DEPRECATED_V1
 from .evaluate import _sum_c, a_rates, sample_dims, sample_qs
 
 SLICE_KIND = {"seen": "SEEN_UNSEEN", "question_set": "QUESTION_SET", "action": "ACTION", "reason": "REASON", "question_id": "QUESTION",

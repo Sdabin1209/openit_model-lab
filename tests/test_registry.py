@@ -3,7 +3,9 @@ import copy
 import json
 
 import pytest
-from boundary_contracts import BoundaryError, canonical
+import model_runtime
+import turn_engine
+from boundary_contracts import PIPELINE_SCHEMA_VERSION, BoundaryError, canonical
 from boundary_contracts.sdk import ModelRegistry
 
 from model_lab.registry import FileModelRegistry, MemoryModelRegistry
@@ -45,12 +47,12 @@ def make(tmp_path, pid="pkg-a", ver="v1", payload=b"w", report=b"report-1", ref=
           "max_attempts": 3, "constraint": {"backend": "x", "backend_version": "1", "supported_features": [], "relax_policy_version": "relax-3"},
           "output_contract": 1, "protection_policy_version": "protect-1"}
     h = "sha256:" + "a" * 64
-    m = {"pipeline_schema_version": "2.0", "package_id": pid, "version": ver, "role": "LORA_A", "created_at": "2026-10-15T00:00:00Z",
+    m = {"pipeline_schema_version": PIPELINE_SCHEMA_VERSION, "package_id": pid, "version": ver, "role": "LORA_A", "created_at": "2026-10-15T00:00:00Z",
          "runtime_contract_version": 1, "base_model": {"id": "base", "revision": "r"}, "adapter_hash": canonical.directory_hash(ad),
          "serving_config": sc, "serving_config_hash": canonical.sha256_hash(sc),
          "system_prompt": {"path": "system_prompt.txt", "sha256": canonical.file_hash(ad / "system_prompt.txt")},
          "lineage": {"dataset": {"id": "d", "version": "1", "content_hash": h}, "training_run_id": "run-1",
-                     "turn_engine_version": "0.2.0", "model_runtime_version": "0.3.0"},
+                     "turn_engine_version": turn_engine.ENGINE_VERSION, "model_runtime_version": model_runtime.RUNTIME_VERSION},
          "eval_report_ref": ref}
     m["content_hash"] = canonical.content_hash(m)
     return m, ad, report

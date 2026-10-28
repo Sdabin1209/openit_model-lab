@@ -10,6 +10,7 @@ import hashlib
 import json
 from pathlib import Path
 
+import turn_engine
 from boundary_contracts import PIPELINE_SCHEMA_VERSION, canonical
 
 ROLES = ("LORA_A", "LORA_B")
@@ -173,7 +174,7 @@ def build_dataset(dest: Path, dataset_id: str, version: str, *, max_cases: int |
                           "content_hash": canonical.file_hash(root / name), "question_sets": [qs]})
     m = {"pipeline_schema_version": PIPELINE_SCHEMA_VERSION, "dataset_id": dataset_id, "version": version,
          "created_at": "2026-10-27T00:00:00Z", "runtime_contract_version": 1, "question_sets": [qs_train, qs_un],
-         "generator_version": "fixture-v2-1", "seed_case_ids": [], "turn_engine_version": "0.3.0",
+         "generator_version": "fixture-v2-1", "seed_case_ids": [], "turn_engine_version": turn_engine.ENGINE_VERSION,
          "scenario_disjoint_across_splits": True, "files": files}
     m["content_hash"] = canonical.content_hash(m)
     (root / "manifest.json").write_text(json.dumps(m, ensure_ascii=False, sort_keys=True), encoding="utf-8")

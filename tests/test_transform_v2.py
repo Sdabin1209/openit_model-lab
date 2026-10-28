@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 
 import pytest
-from boundary_contracts import validator
+from boundary_contracts import PIPELINE_SCHEMA_VERSION, validator
 
 from model_lab.transform import (ConversionError, from_server_row, read_server_file, render_input, sample_id_of,
                                  to_chat_example, to_messages, to_server_row, write_samples)
@@ -33,7 +33,7 @@ def test_fields_are_moved_not_invented():
     row = rows("LORA_A")[0]
     s, sysp = from_server_row("LORA_A", row)
     assert s["input"] == json.loads(row["messages"][1]["content"]) and s["expected"] == json.loads(row["messages"][2]["content"])
-    assert s["pipeline_schema_version"] == "2.0" and s["origin"] == "SYNTHETIC" and s["split"] == "TRAIN"
+    assert s["pipeline_schema_version"] == PIPELINE_SCHEMA_VERSION and s["origin"] == "SYNTHETIC" and s["split"] == "TRAIN"
     assert s["human_review"] == row["human_review"] and "question_set" not in s
     assert sysp == row["messages"][0]["content"] and sysp not in json.dumps(s, ensure_ascii=False)       # 프롬프트는 샘플에 없다
 

@@ -5,6 +5,8 @@ import json
 import pytest
 from boundary_contracts import canonical, validator
 
+from model_lab.metric_names import A_REQUIRED, B_REQUIRED, DEPRECATED_V1, DEPRECATED_V1_PREFIXES
+
 from model_lab.pipeline import Run
 from tests.conftest import FIXED
 from tests.test_regression import case, failure_world, reg_cfg  # noqa: F401  (픽스처 재사용)
@@ -42,9 +44,8 @@ def test_metric_names_groups_and_slices(cfg):
     _, a = published(r, rec, "LORA_A"); _, b = published(r, rec, "LORA_B")
     names_a = {x["name"] for x in a["metrics"]}
     # 학습 서버 score_a_v2.py와 같은 이름
-    assert {"schema_ok_rate", "action_acc", "action_reason_acc", "next_item_acc", "cell_acc", "value_acc", "status_acc", "save_acc",
-            "db_row_match_rate", "targets_acc", "exact_match_rate", "oos_f1", "key_found_rate", "precision_acc"} <= names_a
-    assert not {"risk_signal_recall", "intent_accuracy", "item_precision"} & names_a                   # v1 지표는 없다
+    assert A_REQUIRED <= names_a
+    assert not DEPRECATED_V1 & names_a                   # v1 지표는 없다
     for n in ("action_acc", "next_item_acc", "cell_acc", "exact_match_rate", "schema_ok_rate"):
         assert metric(a, n)["value"] == 1.0                                                            # 오라클 모델
     assert metric(a, "action_acc")["group"] == "ACCURACY" and metric(a, "schema_ok_rate")["group"] == "PROTECTION"
@@ -56,14 +57,13 @@ def test_metric_names_groups_and_slices(cfg):
     assert metric(a, "coverage_seen_unseen_gap")["group"] == "COVERAGE"
     # 생성기: 끝맺음·다음 질문·새 숫자·금지 표현·문장 수
     names_b = {x["name"] for x in b["metrics"]}
-    assert {"ends_ok_rate", "asks_next_rate", "ungrounded_number_rate", "forbidden_expression_rate", "sentence_count_violation_rate",
-            "json_leak_rate", "fallback_rate", "schema_valid_raw", "exact_match_rate"} <= names_b
+    assert B_REQUIRED <= names_b
     assert metric(b, "forbidden_expression_rate")["group"] == "SAFETY" and metric(b, "exact_match_rate")["value"] == 1.0
     assert metric(b, "ends_ok_rate")["value"] == 1.0 and metric(b, "fallback_rate")["value"] == 0
     assert "length_p95_ms" not in names_b and any("length_p95_ms" in n for n in b["notes"])
     assert not any(x["name"].startswith("regression_") for x in a["metrics"])
     assert any("regression_fixed" in n for n in a["notes"])
-    assert any("risk_signal" in n for n in a["notes"])
+    assert any(p in n for n in a["notes"] for p in DEPRECATED_V1_PREFIXES)
 
 
 def test_protection_metrics_move_with_corrupt_outputs(cfg):
