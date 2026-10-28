@@ -1,5 +1,8 @@
 # 변경 이력
 
+## 미배포 - 계약 v2.2.0 열차 핀 (헤드 지시 wo-bc220)
+- 핀만 바꿨다: boundary-contracts v2.1.1 -> v2.2.0(`requirements.txt`, `requirements.lock`, `requirements-service.txt`), turn-engine v0.4.2 -> v0.4.3, model-runtime v0.8.0 -> v0.8.1(`requirements.txt`, `requirements.lock`). 잠금 파일은 태그만 담고 커밋 해시가 없다. `pipeline_schema_version`은 코드·시험 모두 계약 상수 `PIPELINE_SCHEMA_VERSION`에서 읽어 바꿀 곳이 없었다. 계약 변경점은 boundary-contracts CHANGELOG 2.2.0절이 정본이다.
+
 ## 미배포 - model-runtime v0.7.7 -> v0.8.0 (헤드 지시 wo7)
 - `requirements.txt`, `requirements.lock`의 model-runtime 핀만 올렸다(다른 라이브러리 핀은 그대로). v0.8.0의 호환 깨짐(호출별 시간 상한 환경 변수, 인증 실패 401, 릴리스 매니페스트 `model_runtime_version` MAJOR.MINOR 일치)은 `model-runtime/docs/CHANGELOG.md`가 정본이다. 이 리포는 `model_runtime_version`을 `model_runtime.RUNTIME_VERSION`에서 읽으므로 코드 변경은 없다.
 
