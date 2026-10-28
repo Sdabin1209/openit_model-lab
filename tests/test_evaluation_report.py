@@ -5,7 +5,7 @@ import json
 import pytest
 from boundary_contracts import canonical, validator
 
-from model_lab.metric_names import A_REQUIRED, B_REQUIRED, DEPRECATED_V1, DEPRECATED_V1_PREFIXES
+from model_lab.metric_names import DEPRECATED_V1, SERVER_TO_REGISTRY, UNREGISTERED_A, UNREGISTERED_B, DEPRECATED_V1_PREFIXES
 
 from model_lab.pipeline import Run
 from tests.conftest import FIXED
@@ -43,23 +43,27 @@ def test_metric_names_groups_and_slices(cfg):
     r = Run(cfg, clock=FIXED, log=lambda s: None); rec = r.run()
     _, a = published(r, rec, "LORA_A"); _, b = published(r, rec, "LORA_B")
     names_a = {x["name"] for x in a["metrics"]}
-    # 학습 서버 score_a_v2.py와 같은 이름
-    assert A_REQUIRED <= names_a
+    # 최상위에는 계약 레지스트리 이름만 낸다(ML-01). 서버 이름 중 같은 계산은 레지스트리 이름으로, 대응 없는 것은 detail로 간다.
+    assert set(SERVER_TO_REGISTRY.values()) <= names_a and not (set(SERVER_TO_REGISTRY) | UNREGISTERED_A) & names_a
+    assert UNREGISTERED_A <= {x["name"] for x in a["ext"]["model-lab"]["detail"]["unregistered_metrics"]}
     assert not DEPRECATED_V1 & names_a                   # v1 지표는 없다
-    for n in ("action_acc", "next_item_acc", "cell_acc", "exact_match_rate", "schema_ok_rate"):
+    for n in ("action_accuracy", "next_item_accuracy", "value_exact_match", "schema_valid_raw"):
         assert metric(a, n)["value"] == 1.0                                                            # 오라클 모델
-    assert metric(a, "action_acc")["group"] == "ACCURACY" and metric(a, "schema_ok_rate")["group"] == "PROTECTION"
-    assert metric(a, "extra_keys")["value"] == 0 and metric(a, "extra_keys")["higher_is_better"] is False
+    assert metric(a, "action_accuracy")["group"] == "ACCURACY" and metric(a, "schema_valid_raw")["group"] == "PROTECTION"
+    ex = {x["name"]: x for x in a["ext"]["model-lab"]["detail"]["unregistered_metrics"] if "slice" not in x}
+    assert ex["extra_keys"]["value"] == 0 and ex["extra_keys"]["higher_is_better"] is False
     kinds = {x["slice"]["kind"] for x in a["metrics"] if "slice" in x}
     assert {"SEEN_UNSEEN", "QUESTION_SET", "ACTION", "REASON"} <= kinds
-    assert metric(a, "action_acc", "SEEN_UNSEEN", "unseen")["n"] > 0 and metric(a, "action_acc", "SEEN_UNSEEN", "seen")["n"] > 0
-    assert metric(a, "action_acc", "ACTION", "REDIRECT")["n"] > 0
+    assert metric(a, "action_accuracy", "SEEN_UNSEEN", "unseen")["n"] > 0 and metric(a, "action_accuracy", "SEEN_UNSEEN", "seen")["n"] > 0
+    assert metric(a, "action_accuracy", "ACTION", "REDIRECT")["n"] > 0
     assert metric(a, "coverage_seen_unseen_gap")["group"] == "COVERAGE"
     # 생성기: 끝맺음·다음 질문·새 숫자·금지 표현·문장 수
     names_b = {x["name"] for x in b["metrics"]}
-    assert B_REQUIRED <= names_b
-    assert metric(b, "forbidden_expression_rate")["group"] == "SAFETY" and metric(b, "exact_match_rate")["value"] == 1.0
-    assert metric(b, "ends_ok_rate")["value"] == 1.0 and metric(b, "fallback_rate")["value"] == 0
+    assert {"ungrounded_number_rate", "forbidden_expression_rate", "fallback_rate", "schema_valid_raw"} <= names_b and not UNREGISTERED_B & names_b
+    bd = {x["name"]: x for x in b["ext"]["model-lab"]["detail"]["unregistered_metrics"] if "slice" not in x}
+    assert UNREGISTERED_B <= set(bd)
+    assert metric(b, "forbidden_expression_rate")["group"] == "SAFETY" and bd["exact_match_rate"]["value"] == 1.0
+    assert bd["ends_ok_rate"]["value"] == 1.0 and metric(b, "fallback_rate")["value"] == 0
     assert "length_p95_ms" not in names_b and any("length_p95_ms" in n for n in b["notes"])
     assert not any(x["name"].startswith("regression_") for x in a["metrics"])
     assert any("regression_fixed" in n for n in a["notes"])
@@ -70,8 +74,8 @@ def test_protection_metrics_move_with_corrupt_outputs(cfg):
     c = copy.deepcopy(cfg); c["evaluation"]["backend"]["corrupt_every"] = 4
     r = Run(c, clock=FIXED, log=lambda s: None); rec = r.run()
     _, a = published(r, rec, "LORA_A"); _, b = published(r, rec, "LORA_B")
-    assert metric(a, "schema_ok_rate")["value"] < 1.0 and metric(a, "output_invalid")["value"] > 0
-    assert metric(a, "output_invalid")["unit"] == "count" and metric(a, "action_acc")["value"] < 1.0   # 형식 실패 행은 틀린 것으로 센다
+    assert metric(a, "schema_valid_raw")["value"] < 1.0 and metric(a, "output_invalid_rate")["value"] > 0
+    assert metric(a, "action_accuracy")["value"] < 1.0   # 형식 실패 행은 틀린 것으로 센다
     assert metric(b, "fallback_rate")["value"] > 0 and metric(b, "fallback_rate")["higher_is_better"] is False
     assert metric(b, "protection_intervened")["unit"] == "count"
 
@@ -98,3 +102,22 @@ def test_evaluation_report_is_reproducible(cfg, tmp_path):
     c2 = copy.deepcopy(cfg); c2["run"]["runs_dir"] = str(tmp_path / "r2"); c2["registry"]["path"] = str(tmp_path / "g2")
     b = Run(c2, clock=FIXED, log=lambda s: None); rb = b.run()
     assert published(a, ra, "LORA_A")[1]["content_hash"] == published(b, rb, "LORA_A")[1]["content_hash"]
+
+
+def test_report_metric_names_pass_contract_registry(cfg):
+    """기대값은 계약 레지스트리(boundary_contracts.metric_name_problems, METRICS.md)에서 온다(ML-01). 이 영역이 정한 이름 목록이 아니다."""
+    from boundary_contracts import metric_name_problems
+    r = Run(cfg, clock=FIXED, log=lambda s: None); rec = r.run()
+    for role in ("LORA_A", "LORA_B"):
+        _, rep = published(r, rec, role)
+        assert metric_name_problems(rep) == []
+
+
+def test_evaluation_report_refuses_unregistered_metric_name():
+    from model_lab import metrics as M
+    with pytest.raises(ValueError, match="registry"):
+        M.evaluation_report(role="LORA_A", report_id="x", created_at="2026-10-28T00:00:00Z",
+                            package={"id": "p", "version": "1", "content_hash": "sha256:" + "0" * 64},
+                            dataset={"id": "d", "version": "1", "content_hash": "sha256:" + "0" * 64}, question_sets=[],
+                            backend={"name": "n", "version": "1"}, decoding={"temperature": 0.0, "seed": 1}, notes=[], detail={},
+                            metrics=[M._m("not_in_registry_metric", "ACCURACY", 0.5, 3, True)])

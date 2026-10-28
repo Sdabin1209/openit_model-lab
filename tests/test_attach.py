@@ -60,6 +60,8 @@ def test_builds_valid_packages_publishes_and_is_idempotent(setup):
         assert canonical.directory_hash(dest) == m["adapter_hash"]
         rep = json.loads(reg.get_eval_report(m["eval_report_ref"]))
         validator("EvaluationReport").validate(rep)
+        from boundary_contracts import metric_name_problems
+        assert metric_name_problems(rep) == []                                           # 계약 레지스트리가 기대값(ML-01)
         assert rep["metrics"][0]["n"] == 0 and "평가하지 않았다" in rep["notes"][0]      # 평가한 것처럼 쓰지 않는다
     assert package_adapters(**kw) == res                                                 # 같은 입력은 같은 패키지(멱등)
 

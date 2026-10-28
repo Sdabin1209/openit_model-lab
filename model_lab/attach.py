@@ -69,7 +69,7 @@ def _not_evaluated_report(*, role, package, dataset, created_at, decoding, repor
          "package": package, "dataset": dataset, "question_sets": [],
          "evaluation_backend": {"name": "none", "version": "0", "constrained_decoding": False},
          "decoding": {k: decoding[k] for k in ("temperature", "seed") if k in decoding},
-         "metrics": [{"name": "evaluated", "group": "OTHER", "value": 0, "n": 0, "higher_is_better": True, "unit": "count"}],
+         "metrics": [{"name": "schema_valid_raw", "group": "PROTECTION", "value": 0.0, "n": 0, "higher_is_better": True, "unit": "ratio"}],   # 왜: 레지스트리에 '평가 안 함' 지표가 없어 n=0인 레지스트리 지표로 낸다(n=0은 계산하지 못함, METRICS.md). 요청: CR-L011
          "notes": ["평가하지 않았다: 학습 서버에서 만든 어댑터를 model-lab package-adapters로 패키징만 했다(n=0은 계산하지 못했다는 뜻)."],
          "ext": {"model-lab": {"attached": True}}}
     r["content_hash"] = canonical.content_hash(r)

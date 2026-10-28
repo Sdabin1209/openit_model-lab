@@ -27,7 +27,7 @@ def test_fake_run_emits_valid_reports(tmp_path):
     assert [x["name"] for x in s] == ["a", "b"] and s[0]["samples"] == 50
     rep = json.loads((tmp_path / "out/a.evaluation-report.json").read_text())
     validator("EvaluationReport").validate(rep)
-    assert rep["metrics"] and next(m for m in rep["metrics"] if m["name"] == "action_acc")["n"] == 50
+    assert rep["metrics"] and next(m for m in rep["metrics"] if m["name"] == "action_accuracy")["n"] == 50
     assert "threshold" not in json.dumps(rep).lower()
 
 

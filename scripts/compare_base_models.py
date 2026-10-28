@@ -127,6 +127,7 @@ def run_candidate(cand: dict, cfg: dict, samples: list[dict], schema_dir: Path, 
                                      expected_serving_config_hashes={"LORA_A": h, "LORA_B": h}, backend=backend)
         rep, pairs = build_report("LORA_A", session, samples, seen_sets={("compare", "1")}, eval_files=[], return_records=True)
     metrics, notes = M.build_metrics("LORA_A", pairs, {("compare", "1")})
+    metrics, unregistered = M.split_by_registry(metrics)      # 계약 레지스트리에 없는 이름은 최상위에 내지 않는다(ML-01)
     notes.append("기반 모델 그대로(미학습)이며 프롬프트를 채팅 템플릿의 사용자 메시지로 넣었다. 평가 백엔드는 transformers이고 서빙 vLLM이 아니다. "
                  f"양자화: {cfg['training']['quantization']['mode']}. 예시(few-shot) 수: {cfg.get('fewshot', 0)}.")
     elapsed = time.time() - t0
@@ -135,7 +136,7 @@ def run_candidate(cand: dict, cfg: dict, samples: list[dict], schema_dir: Path, 
         package={"id": f"base-{cand['name']}", "version": "0", "content_hash": canonical.sha256_hash({"model": cand["id"]})},
         dataset={"id": "lora-a-subset", "version": str(len(samples)), "content_hash": canonical.sha256_hash([s["sample_id"] for s in samples])},
         question_sets=[], backend={"name": backend.name, "version": backend.version, "constrained_decoding": False},
-        decoding=cfg["decoding"], metrics=metrics, notes=notes, detail={"overall": rep["overall"], "failures": rep["failures"]})
+        decoding=cfg["decoding"], metrics=metrics, notes=notes, detail={"overall": rep["overall"], "failures": rep["failures"], "unregistered_metrics": unregistered})
     (out / f"{cand['name']}{cfg.get('suffix', '')}.evaluation-report.json").write_text(json.dumps(ev, ensure_ascii=False, indent=2, sort_keys=True), encoding="utf-8")
     top = {m["name"]: (round(m["value"], 4), m["n"]) for m in metrics if "slice" not in m}
     res = {"name": cand["name"] + cfg.get("suffix", ""), "id": cand["id"], "metrics": top, "seconds": round(elapsed, 1), "samples": len(samples)}

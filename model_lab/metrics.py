@@ -13,11 +13,11 @@ from __future__ import annotations
 
 from typing import Callable, Mapping
 
-from boundary_contracts import PIPELINE_SCHEMA_VERSION, canonical, validator
+from boundary_contracts import PIPELINE_SCHEMA_VERSION, canonical, metric_name_problems, metrics as registry_metrics, validator
 from turn_engine import validation as _tv
 
 from .datasets import qs_key
-from .metric_names import DEPRECATED_V1
+from .metric_names import DEPRECATED_V1, SERVER_TO_REGISTRY
 from .evaluate import _sum_c, a_rates, sample_dims, sample_qs
 
 SLICE_KIND = {"seen": "SEEN_UNSEEN", "question_set": "QUESTION_SET", "action": "ACTION", "reason": "REASON", "question_id": "QUESTION",
@@ -116,6 +116,19 @@ def metrics_for(role: str, recs: list[dict], slice_=None) -> list[dict]:
     return out
 
 
+def split_by_registry(metrics: list[dict]) -> tuple[list[dict], list[dict]]:
+    """(최상위에 낼 레지스트리 지표, 레지스트리에 없는 보조 지표). 레지스트리와 같은 계산인 서버 이름은 버린다(레지스트리 이름이 이미 있다).
+    왜: 지표 이름의 정본은 계약 레지스트리다(METRICS.md, ML-01). 대응이 없는 이름을 만들어 최상위에 내지 않는다."""
+    reg = registry_metrics()
+    ok, extra = [], []
+    for m in metrics:
+        n = m["name"]
+        if n in SERVER_TO_REGISTRY:
+            continue
+        (ok if n in reg and reg[n]["status"] == "ACTIVE" else extra).append(m)
+    return ok, extra
+
+
 def build_metrics(role: str, pairs: list[tuple[dict, dict]], seen_sets: set, *, regression_recs: list[dict] | None = None,
                   constrained_decoding: bool | None = None):
     """pairs = [(sample, rec)]. 지표 목록과 notes를 낸다."""
@@ -180,6 +193,9 @@ def evaluation_report(*, role: str, report_id: str, created_at: str, package: Ma
                                 "constrained_decoding": bool(backend.get("constrained_decoding", False))},
          "decoding": {k: decoding[k] for k in ("temperature", "seed") if k in decoding},
          "metrics": metrics, "notes": notes, "ext": {"model-lab": {"detail": detail}}}
+    bad = metric_name_problems(r)       # 왜: 계약 레지스트리에 없는 이름의 보고서는 게시하지 않는다(ML-01, 게이트가 이름으로 맞댄다)
+    if bad:
+        raise ValueError(f"metric names not in contract registry (METRICS.md): {bad[:5]}")
     r["content_hash"] = canonical.content_hash(r)
     validator("EvaluationReport").validate(r)
     return r

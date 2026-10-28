@@ -338,8 +338,9 @@ class Run:
                                                        max_listed=self.cfg["evaluation"].get("max_listed_failures", 20))
             else:
                 rep["regression"] = {"enabled": False}
-            rep["evaluation_report_metrics"], rep["evaluation_report_notes"] = metrics.build_metrics(role, pairs, seen, regression_recs=rrecs,
-                                                                                           constrained_decoding=ctx["evaluation_backend"]["constrained_decoding"])
+            all_metrics, rep["evaluation_report_notes"] = metrics.build_metrics(role, pairs, seen, regression_recs=rrecs,
+                                                                                constrained_decoding=ctx["evaluation_backend"]["constrained_decoding"])
+            rep["evaluation_report_metrics"], rep["unregistered_metrics"] = metrics.split_by_registry(all_metrics)
             out = self.dir / "eval" / f"report-{role}.json"
             out.parent.mkdir(parents=True, exist_ok=True)
             out.write_bytes(evaluate.report_bytes(rep))
@@ -385,7 +386,7 @@ class Run:
                 package={"id": m["package_id"], "version": m["version"], "content_hash": m["content_hash"]},
                 dataset=self.dataset_ref, question_sets=m["lineage"]["question_sets"],
                 backend=detail["context"]["evaluation_backend"], decoding=self.cfg["serving"][role]["decoding"],
-                metrics=detail.pop("evaluation_report_metrics"), notes=detail.pop("evaluation_report_notes"), detail=detail)
+                metrics=detail.pop("evaluation_report_metrics"), notes=detail.pop("evaluation_report_notes"), detail=detail)   # detail.unregistered_metrics: 레지스트리에 없는 보조 지표(CR-L011)
             (self.dir / "package" / f"{role}.evaluation-report.json").write_bytes(canonical.canonicalize(ev))
             st[role] = {"status": "done", "package_id": m["package_id"], "version": version, "content_hash": m["content_hash"],
                         "adapter_hash": m["adapter_hash"]}
