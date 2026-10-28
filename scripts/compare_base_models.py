@@ -26,6 +26,7 @@ import model_runtime  # noqa: E402
 from boundary_contracts import canonical  # noqa: E402
 
 from model_lab import metrics as M  # noqa: E402
+from model_lab.config import load_yaml12  # noqa: E402
 from model_lab.evaluate import build_report  # noqa: E402
 from model_lab.transform import render_output  # noqa: E402
 from tests.doubles.fixtures import load_samples  # noqa: E402
@@ -153,7 +154,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--samples", help="ActionExtractionSample JSONL(없으면 시험용 합성 표본)")
     ap.add_argument("--system-prompt-file", default=str(Path(__file__).resolve().parents[1] / "prompts" / "lora_a.system.txt"))
     a = ap.parse_args(argv)
-    cfg = yaml.safe_load(Path(a.config).read_text())
+    cfg = load_yaml12(Path(a.config).read_text())
     out = Path(a.out); out.mkdir(parents=True, exist_ok=True)
     samples = pick_samples(cfg["samples"], Path(a.samples) if a.samples else None)
     system_prompt = Path(a.system_prompt_file).read_bytes().decode("utf-8")
