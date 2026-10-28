@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ModelPackageLayout.schema.json",
+  "title": "ModelPackageLayout",
+  "description": "model-lab이 게시하고(registry adapters/<package_id>/<version>/ 및 GET .../adapter 의 tar) release-gate·model-runtime이 읽는다. 이 문서는 어댑터 디렉터리의 파일 목록(상대 경로 -> 'sha256:' 파일 해시)이다. 필수 파일 3개: adapter_model.safetensors, adapter_config.json, system_prompt.txt(매니페스트 system_prompt.path와 같아야 한다, D75). 그 밖의 파일은 패키지에 넣지 않는다(package-adapters가 두 파일과 프롬프트만 복사). 불변식(스키마로 못 쓰는 것): adapter_hash = 이 디렉터리 전체의 canonical.directory_hash, system_prompt.sha256 = 목록의 system_prompt.txt 해시, adapter_config.base_model_name_or_path = 매니페스트 base_model.id, adapter_config.r <= serving_config.max_lora_rank.",
+  "type": "object",
+  "required": [
+    "role",
+    "adapter_files",
+    "adapter_hash",
+    "system_prompt"
+  ],
+  "properties": {
+    "role": {
+      "enum": [
+        "LORA_A",
+        "LORA_B"
+      ]
+    },
+    "adapter_files": {
+      "type": "object",
+      "required": [
+        "adapter_model.safetensors",
+        "adapter_config.json",
+        "system_prompt.txt"
+      ],
+      "properties": {
+        "adapter_model.safetensors": {
+          "$ref": "_common.schema.json#/$defs/Hash"
+        },
+        "adapter_config.json": {
+          "$ref": "_common.schema.json#/$defs/Hash"
+        },
+        "system_prompt.txt": {
+          "$ref": "_common.schema.json#/$defs/Hash"
+        }
+      },
+      "additionalProperties": false
+    },
+    "adapter_hash": {
+      "$ref": "_common.schema.json#/$defs/Hash"
+    },
+    "system_prompt": {
+      "type": "object",
+      "required": [
+        "path",
+        "sha256"
+      ],
+      "properties": {
+        "path": {
+          "const": "system_prompt.txt"
+        },
+        "sha256": {
+          "$ref": "_common.schema.json#/$defs/Hash"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

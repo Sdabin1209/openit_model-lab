@@ -1,0 +1,29 @@
+{
+  "note": "model-lab 계약 승격 준비(2026-10-29, D104). 코드 변경 없음. 읽기만 한 것: ../boundary-contracts의 _common.schema.json(Hash 재사용, 중복 정의 없음), TraceEnvelope, FailureCase, INTERFACES.md/HTTP.md의 get_trace 항목.",
+  "entries": [
+    {
+      "name": "ModelPackageLayout",
+      "source_draft": "docs/change-requests/schemas/model-package-layout.schema.json",
+      "producer": "model-lab",
+      "consumers": [
+        "release-gate",
+        "model-runtime"
+      ],
+      "unknown_keys": "reject",
+      "note": "어댑터 디렉터리의 파일 목록(상대 경로 -> sha256)과 adapter_hash. 스키마로 못 쓰는 불변식은 validate.py가 valid 예시에서 확인한다: adapter_hash == canonical.directory_hash 에 해당하는 값(adapter_files를 경로순 {path, sha256} 목록으로 만든 sha256_hash)이고 system_prompt.sha256 == adapter_files['system_prompt.txt']. 나머지 불변식(adapter_config.base_model_name_or_path == 매니페스트 base_model.id, adapter_config.r <= serving_config.max_lora_rank)은 파일 내용이 필요해 이 문서로 못 본다. valid 예시의 해시는 초안에 있던 값이며 이번에 새로 만든 어댑터 파일에서 계산한 것이 아니다. release-gate·model-runtime이 이 필드를 실제로 읽는지는 이웃 쪽 미확인."
+    }
+  ],
+  "not_promoted": [
+    {
+      "name": "RegressionTraceInput",
+      "source_draft": "docs/change-requests/schemas/regression-trace-input.schema.json",
+      "decision": "승격하지 않음. OpsFeedbackDeidentifiedTrace(ops-feedback이 내는 get_trace 결과)로 대체한다",
+      "note": "판단 근거(읽은 것): INTERFACES.md의 get_trace는 '비식별 TurnTrace(DeidentifiedTurnTrace)'를 돌려주고(TurnTrace 형태, 스키마 통과 보장 없음), model-lab은 그 안의 extract_input(LORA_A 입력)과 response_input(LORA_B 입력) 두 키만 읽는다(model_lab/regression.py TRACE_KEYS). 초안은 이 두 키만 본 읽는 쪽 부분집합이라 분류 원칙(읽는 쪽 부분집합 금지, 내는 쪽 스키마가 정본)에 해당한다. TraceEnvelope는 대체물이 아니다: 그것은 문진 서비스가 ops-feedback에 보내는 봉투(session_id, turn_id, trace)이지 get_trace의 응답이 아니다. 대체의 조건(이웃 쪽 미확인): OpsFeedbackDeidentifiedTrace가 extract_input·response_input을 이름 있는 선택 키로 싣고, 값이 ActionExtractionInput / ResponseRequest 형태이며, 모르는 키를 거부하지 않는 계약이어야 한다(거부하면 TurnTrace 변경이 회귀 평가를 깬다). 그 스키마의 내용은 이 영역이 읽지 못했다. 대체 뒤 model-lab은 값 검증을 지금처럼 ActionExtractionInput/ResponseRequest로 한다. 초안의 예시 3개(a.valid, b.valid, invalid)는 계약 시험 입력으로 쓰이지 않는다."
+    },
+    {
+      "name": "server-dataset-row, server-train-invocation, train-wrap-record",
+      "decision": "승격하지 않음. 학습 서버와의 형식이라 model-lab에 남긴다",
+      "note": "헤드 표 지시. 초안은 docs/change-requests/schemas/에 그대로 둔다."
+    }
+  ]
+}
