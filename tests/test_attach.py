@@ -133,3 +133,29 @@ def test_qwen3_8b_profile_rejects_4b_adapter_and_high_rank_without_publishing(se
     with pytest.raises(PipelineError, match="LORA_B.*max_lora_rank"):
         package_adapters(**kw8)
     assert not (tmp / "registry").exists() or not list((tmp / "registry").glob("manifests/*"))   # 하나도 게시되지 않았다
+
+
+def test_same_content_different_mtime_gives_same_content_hash(setup, tmp_path):
+    """T22: 같은 내용을 다른 방법(복사, mtime 다름)으로 만든 두 입력은 같은 content_hash를 낸다.
+    기대값은 콘텐츠 주소 지정의 정의에서 온다: 해시는 내용에만 달려야 하고 파일 시스템 mtime에 달리면 안 된다."""
+    import os, shutil
+    kw, tmp = setup
+    kw2 = dict(kw)
+    kw2["adapters"], kw2["prompts"] = {}, {}
+    for role, d in kw["adapters"].items():
+        c = tmp_path / "copy" / role
+        shutil.copytree(d, c)                                   # 복사: mtime은 복사 시각
+        for f in c.iterdir():
+            os.utime(f, (1_000_000_000, 1_000_000_000))        # 2001년으로 고정해 원본과 다르게 만든다
+        kw2["adapters"][role] = c
+    for role, p in kw["prompts"].items():
+        c = tmp_path / "copy" / f"{role}.txt"
+        shutil.copyfile(p, c)
+        os.utime(c, (1_100_000_000, 1_100_000_000))
+        kw2["prompts"][role] = c
+    kw2["out"] = tmp_path / "out2"
+    kw2["publish"] = False
+    kw["publish"] = False
+    r1, r2 = package_adapters(**kw), package_adapters(**kw2)
+    for role in r1:
+        assert r1[role]["content_hash"] == r2[role]["content_hash"]

@@ -13,7 +13,6 @@ import hashlib
 import json
 import re
 import shutil
-from datetime import datetime, timezone
 from pathlib import Path
 
 from boundary_contracts import PIPELINE_SCHEMA_VERSION, canonical, validator
@@ -59,9 +58,10 @@ def check_adapter(role: str, adapter_dir: Path, base_model: dict, max_rank: int 
     return conf
 
 
-def _newest_mtime(*paths: Path) -> str:
-    t = max(Path(p).stat().st_mtime for p in paths)
-    return datetime.fromtimestamp(t, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+# 왜: created_at이 content_hash에 들어가므로 파일 시스템 mtime(복사·rsync 방식에 따라 달라짐)에서 읽으면 같은 내용이 다른 패키지가 되어
+# 재게시가 CONFLICT가 된다(점검 T22). 콘텐츠 주소 지정과 재현 가능한 빌드의 원칙대로 시각은 입력(--created-at)에서만 온다.
+# 학습 시각은 이 영역이 알 수 없으므로 주지 않으면 고정 기준 시각(Unix epoch)을 쓴다. 이것은 "시각을 모른다"는 표지이며 실제 시각이 아니다.
+UNKNOWN_CREATED_AT = "1970-01-01T00:00:00Z"
 
 
 def _not_evaluated_report(*, role, package, dataset, created_at, decoding, report_id) -> dict:
@@ -135,7 +135,7 @@ def package_adapters(*, config: str | Path, adapters: dict, prompts: dict, out: 
             raise PipelineError(f"{r}: 시스템 프롬프트 파일을 읽을 수 없다") from None
         if not texts[r].strip():
             raise PipelineError(f"{r}: 시스템 프롬프트 파일이 비어 있다")
-    created = created_at or _newest_mtime(*[Path(adapters[r]) / f for r in ROLES for f in ADAPTER_FILES], *[prompts[r] for r in ROLES])
+    created = created_at or UNKNOWN_CREATED_AT
     lineage, warnings = {}, {}
     for r in ROLES:
         rp = (train_records or {}).get(r)
