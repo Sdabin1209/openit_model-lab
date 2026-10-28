@@ -75,7 +75,7 @@ D22 (2): 서비스가 없는 run-once 잡이라 Dockerfile 없이 `requirements.
 1. 코드 보내기(비밀 값 없음, 호스트에서 GitHub 접속 없음):
    `rsync -a --exclude .venv --exclude .git --exclude runs --exclude fixtures ./ gpu-dev:openit-gpu/model-lab/`
    호스트에는 이웃 폴더가 없다. 태그에서 만든 wheel과 문진 스키마 사본을 `vendor/`(gitignore)에 두고 보낸다:
-   `pip wheel --no-deps -w vendor/wheels "git+file://<경로>/boundary-contracts@v2.0.2"` (turn-engine@v0.4.0, model-runtime@v0.7.3도 같이; `requirements.txt` 기준), `vendor/survey-schema/{schemas,CONTRACT_VERSION}`.
+   `pip wheel --no-deps -w vendor/wheels "git+file://<경로>/boundary-contracts@v2.1.0"` (turn-engine@v0.4.1, model-runtime@v0.7.3도 같이; `requirements.txt` 기준), `vendor/survey-schema/{schemas,CONTRACT_VERSION}`.
 2. 호스트 환경(처음 한 번): `cd ~/openit-gpu/model-lab && python3 -m venv .venv && .venv/bin/pip install vendor/wheels/*.whl pyyaml pytest -r requirements-train.txt`
 3. 시험 데이터: `.venv/bin/python scripts/make_fixture_dataset.py fixtures/store`
 4. 실행(긴 작업은 분리하고 로그를 본다. GPU 명령은 반드시 락으로 감싼다):

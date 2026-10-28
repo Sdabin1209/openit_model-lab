@@ -5,7 +5,7 @@ FROM scratch AS wheels
 # 기본은 빈 컨텍스트. 로컬 확인에서는 --build-context wheels=vendor/wheels 로 바꾼다.
 
 FROM python:3.12-slim AS build
-ARG BC_SPEC="boundary-contracts @ git+ssh://git@github.com/Sdabin1209/openit_boundary-contracts.git@v2.0.2"
+ARG BC_SPEC="boundary-contracts @ git+ssh://git@github.com/Sdabin1209/openit_boundary-contracts.git@v2.1.0"
 RUN apt-get update && apt-get install -y --no-install-recommends git openssh-client && rm -rf /var/lib/apt/lists/* \
  && mkdir -p -m 0700 /root/.ssh && (ssh-keyscan github.com >> /root/.ssh/known_hosts 2>/dev/null || true)
 RUN python -m venv /opt/venv
@@ -26,7 +26,7 @@ EXPOSE 8080
 HEALTHCHECK --interval=15s --timeout=3s CMD python -c "import urllib.request as u; u.urlopen('http://127.0.0.1:8080/healthz', timeout=2)"
 LABEL io.openit.service="model-registry" \
       io.openit.revision="${REVISION}" \
-      io.openit.contracts.boundary="v2.0.2" \
+      io.openit.contracts.boundary="v2.1.0" \
       io.openit.contracts.survey-schema="n/a" \
       io.openit.turn-engine="n/a" \
       io.openit.model-runtime="n/a"
