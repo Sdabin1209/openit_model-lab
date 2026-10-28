@@ -9,7 +9,8 @@ import urllib.request
 import pytest
 from boundary_contracts import BoundaryError
 
-from model_lab.service.app import Service, make_server, parse_tokens, main
+from model_lab.service.app import Service, parse_tokens, main
+from tests.doubles.serve import serve, stop
 from boundary_contracts.clients import HttpModelRegistry
 from tests.test_registry import make
 
@@ -17,10 +18,9 @@ from tests.test_registry import make
 @pytest.fixture
 def server(tmp_path):
     svc = Service(tmp_path / "srv", {"rt": "release-gate", "ot": "ops"}, {"wt": "model-lab"}, log=lambda s: None)
-    srv = make_server(svc)
-    threading.Thread(target=srv.serve_forever, daemon=True).start()
-    yield f"http://127.0.0.1:{srv.server_address[1]}"
-    srv.shutdown()
+    srv, port = serve(svc)
+    yield f"http://127.0.0.1:{port}"
+    stop(srv)
 
 
 def raw(url, method="GET", token=None, body=None):
@@ -146,16 +146,16 @@ def test_rejected_upload_still_returns_real_error_not_connection_reset(server):
 
 
 def test_rejection_does_not_read_a_huge_body_and_closes_the_connection(server):
-    """거절(권한 없음)이 본문을 상한 없이 읽지 않는다(ML-1 재점검 L). 큰 본문이면 연결 초기화로 끝날 수 있고(재시도 가능한 UNAVAILABLE),
-    그 대신 서버는 DRAIN_CAP 넘게 읽지 않는다."""
+    """본문 상한(max_request_body_size)을 넘게 선언한 요청은 본문을 받지 않고 답하고 연결을 닫는다. 이전 서버는 권한 거절(403)도 본문 전에 했지만
+    waitress는 본문을 다 받은 뒤 앱을 부르므로 상한 초과만 본문 전에 거절된다(413, waitress 본문; ADR 0023)."""
     import socket
     import time
     host, port = server.replace("http://", "").split(":")
     s = socket.create_connection((host, int(port)))
-    s.sendall(b"POST /v1/packages HTTP/1.1\r\nHost: x\r\nAuthorization: Bearer rt\r\nContent-Length: " + str(4 << 30).encode() + b"\r\n\r\n")
+    s.sendall(b"POST /v1/packages HTTP/1.1\r\nHost: x\r\nAuthorization: Bearer rt\r\nContent-Length: " + str(8 << 30).encode() + b"\r\n\r\n")
     s.settimeout(5)
     t0 = time.time()
     data = s.recv(4096)
-    assert b" 403 " in data.split(b"\r\n")[0] and b"Connection: close" in data       # 본문을 한 바이트도 보내지 않았는데 답한다
+    assert b" 413 " in data.split(b"\r\n")[0] and b"Connection: close" in data       # 본문을 한 바이트도 보내지 않았는데 답한다
     assert time.time() - t0 < 5
     s.close()

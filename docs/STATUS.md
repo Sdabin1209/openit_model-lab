@@ -1,5 +1,11 @@
 # STATUS (2026-10-29)
 
+## 17차 갱신: 단위 4a, model-registry 서버를 waitress로, 브랜치 wo-u4
+- `service/app.py`를 WSGI 앱 + waitress로 바꿨다(ADR 0023, 0010 대체). 서버 성질 시험 `tests/test_server_properties.py`를 교체 전에 먼저 넣어 통과를 확인했다.
+- 동작이 바뀐 곳(본문 선수신, 413, 연결 상한 대기)은 ADR 0023 결과 절에 있다. 비인증 요청이 본문 상한까지 디스크에 쓸 수 있게 된 점은 헤드 판단이 필요하다.
+- 계약 핀을 v2.2.2로 올렸다: 클라이언트가 waitress의 413을 `INVALID_RECORD`로 읽는다(v2.2.1은 `UNAVAILABLE`로 읽어 재시도했다).
+- 미확인: 독립된 두 번째 머신.
+
 ## 16차 갱신: 단위 3, 계약 v2.2.1 핀 + 손코드 검증을 계약 스키마로, 브랜치 wo-u3
 - 핀: boundary-contracts v2.2.1, model-runtime v0.9.0, 문진 스키마 survey-schema-v1.1.0(태그는 헤드가 단다. 그 전까지 시험은 `survey-service/schema`를 `pip install --no-deps --force-reinstall`로 설치). turn-engine은 requirements·lock·pyproject·코드에서 모두 뺐다(ADR 0022).
 - 위반 검사를 계약 `check_action_extraction` + 문진 스키마 흐름표로 옮겼다(`model_lab/flow.py`). 이전 구현과의 차이 시험 `tests/test_semantic_diff.py`. 스키마를 통과한 출력은 위반 코드가 모두 같다.

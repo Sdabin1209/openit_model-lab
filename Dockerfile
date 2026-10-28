@@ -17,7 +17,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends git openssh-cli
 COPY docker/github_known_hosts /root/.ssh/known_hosts
 RUN python -m venv /opt/venv
 RUN --mount=type=ssh --mount=type=bind,from=wheels,target=/wheels \
-    /opt/venv/bin/pip install --no-cache-dir "${BC_SPEC}" "jsonschema==4.26.0"
+    /opt/venv/bin/pip install --no-cache-dir "${BC_SPEC}" "jsonschema==4.26.0" "waitress==3.0.2"
 
 FROM python:3.12-slim
 ARG REVISION

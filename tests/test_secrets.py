@@ -4,6 +4,7 @@ import urllib.error
 import urllib.request
 
 import pytest
+from tests.doubles.serve import serve, stop
 from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -19,7 +20,7 @@ def test_service_main_reads_tokens_from_files_and_prefers_them(tmp_path, monkeyp
     (tmp_path / "w").write_text(f"model-lab={WT}\n")
     started = {}
     import model_lab.service.app as app
-    monkeypatch.setattr(app, "make_server", lambda svc, host, port: started.setdefault("svc", svc) and (_ for _ in ()).throw(KeyboardInterrupt()))
+    monkeypatch.setattr(app, "make_server", lambda svc, host, port, **kw: started.setdefault("svc", svc) and (_ for _ in ()).throw(KeyboardInterrupt()))
     env = {"MODEL_REGISTRY_READ_TOKENS_FILE": str(tmp_path / "r"), "MODEL_REGISTRY_WRITE_TOKENS_FILE": str(tmp_path / "w"),
            "MODEL_REGISTRY_READ_TOKENS": "release-gate=ENV-LOSES", "MODEL_REGISTRY_ROOT": str(tmp_path / "root")}
     with pytest.raises(KeyboardInterrupt):
@@ -45,9 +46,8 @@ def test_malformed_token_spec_error_does_not_echo_value(tmp_path, capsys):
 def test_secrets_never_appear_in_logs_readyz_or_error_bodies(tmp_path):
     logs = []
     svc = Service(tmp_path / "srv", {RT: "release-gate"}, {WT: "model-lab"}, log=logs.append)
-    srv = make_server(svc)
-    threading.Thread(target=srv.serve_forever, daemon=True).start()
-    url = f"http://127.0.0.1:{srv.server_address[1]}"
+    srv, port = serve(svc)
+    url = f"http://127.0.0.1:{port}"
     bodies = []
     def get(path, token=None, method="GET", data=None):
         r = urllib.request.Request(url + path, method=method, data=data)
@@ -63,7 +63,7 @@ def test_secrets_never_appear_in_logs_readyz_or_error_bodies(tmp_path):
         get("/v1/packages", RT); get("/v1/packages", RT, "POST", b"x"); get("/v1/packages", WT, "POST", b"not-a-tar")
         get(f"/v1/packages?limit=x", RT)
     finally:
-        srv.shutdown()
+        stop(srv)
     text = "\n".join(bodies + logs)
     assert RT not in text and WT not in text and "wrong-token" not in text
 

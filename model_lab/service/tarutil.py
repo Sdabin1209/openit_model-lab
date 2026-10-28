@@ -26,12 +26,12 @@ def _safe(name: str) -> bool:
     return bool(name) and not p.is_absolute() and ".." not in p.parts and not name.startswith("/")
 
 
-def unpack(tar_path: Path, dest: Path, *, max_bytes: int) -> None:
-    """안전하게 푼다. 일반 파일만 허용한다(디렉터리 항목은 무시)."""
+def unpack(src, dest: Path, *, max_bytes: int) -> None:
+    """안전하게 푼다. 일반 파일만 허용한다(디렉터리 항목은 무시). src는 tar 경로 또는 읽을 수 있는 파일 객체(서버가 받아 둔 본문을 복사 없이 푼다)."""
     dest.mkdir(parents=True, exist_ok=True)
     total = 0
     try:
-        with tarfile.open(tar_path, "r") as tf:
+        with (tarfile.open(fileobj=src, mode="r|") if hasattr(src, "read") else tarfile.open(src, "r")) as tf:      # "r|": 되감지 않고 앞에서부터 읽는다
             for m in tf:
                 if m.isdir():
                     continue

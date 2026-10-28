@@ -1,5 +1,11 @@
 # 변경 이력
 
+## 미배포 - 단위 4a: model-registry를 WSGI 앱 + waitress로 (D111, ADR 0023)
+- 직접 만든 스레드 HTTP 서버(연결 세마포어, 소켓 timeout, 본문 버리기)를 지우고 waitress 설정으로 옮겼다. `MODEL_REGISTRY_THREADS` 추가.
+- 동작 변경: 본문을 다 받은 뒤 앱이 불린다(비인증 요청도 본문 상한까지 받는다), 상한 초과는 413(waitress 본문), 연결 상한 초과는 503 없이 대기. ADR 0023 결과 절.
+- 계약 핀 v2.2.2(413/414/431을 클라이언트가 INVALID_RECORD로 읽음).
+- 새 의존 `waitress==3.0.2`(requirements-service.txt, requirements.lock, Dockerfile).
+
 ## 미배포 - 단위 3: 계약 v2.2.1, turn-engine 코드 의존 제거, 계약 스키마 사용 (헤드 지시 D104·D107·D109, ADR 0022)
 - 핀: boundary-contracts v2.2.1, model-runtime v0.9.0, openit-survey-schema survey-schema-v1.1.0. turn-engine 제거.
 - `semantic_violations`/`semantic_violation_rate`: 계약 `check_action_extraction` + 문진 스키마 `question_flow`. 스키마를 어긴 출력에서는 `OUTPUT_SCHEMA`가 더 나오지 않는다(R7). 보고서 notes 문구 변경.

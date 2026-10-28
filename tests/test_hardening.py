@@ -22,7 +22,8 @@ from model_lab.attach import package_adapters
 from model_lab.errors import PipelineError
 from model_lab.registry import FileModelRegistry
 from model_lab.service import tarutil
-from model_lab.service.app import Service, make_server
+from model_lab.service.app import Service, drain
+from tests.doubles.serve import serve, stop
 from tests.conftest import ROOT
 from tests.test_attach import DS, setup  # noqa: F401  (fixture)
 from tests.test_registry import make
@@ -71,9 +72,8 @@ def test_recover_removes_interrupted_leftovers_and_service_start_cleans_tmp(tmp_
 # ---------- 서비스 도우미 ----------
 def start(tmp_path, **kw):
     svc = Service(tmp_path / "srv", {"rt": "release-gate"}, {"wt": "model-lab"}, log=lambda s: None, **kw)
-    srv = make_server(svc)
-    threading.Thread(target=srv.serve_forever, daemon=True).start()
-    return svc, srv, f"http://127.0.0.1:{srv.server_address[1]}"
+    srv, port = serve(svc)
+    return svc, srv, f"http://127.0.0.1:{port}"
 
 
 def post_pkg(url, tmp_path, token="wt", payload=b"w"):
@@ -104,7 +104,7 @@ def test_publisher_is_recorded_beside_manifest_and_not_overwritten(tmp_path):
         assert post_pkg(url, tmp_path)[0] == 200                                    # 멱등 재게시
         assert json.loads(p.read_text())["published_at"] == "첫 게시"
     finally:
-        srv.shutdown()
+        stop(srv)
 
 
 # ---------- ML-2 디스크 ----------
@@ -118,7 +118,7 @@ def test_publish_refused_when_free_space_is_short_and_leaves_no_tmp(tmp_path):
         free["v"] = 10 << 30
         assert post_pkg(url, tmp_path)[0] == 201                                    # 여유가 생기면 같은 요청이 된다
     finally:
-        srv.shutdown()
+        stop(srv)
 
 
 def test_link_on_commit_saves_a_copy_only_when_asked(tmp_path):
@@ -141,27 +141,30 @@ def test_second_concurrent_publish_gets_503(tmp_path):
         svc.publish_slots.release()
         assert post_pkg(url, tmp_path)[0] == 201
     finally:
-        srv.shutdown()
+        stop(srv)
 
 
-def test_connection_cap_answers_503_and_idle_connection_times_out(tmp_path):
+def test_connection_cap_queues_extra_connections_and_idle_connection_times_out(tmp_path):
+    """연결 상한(waitress connection_limit)을 넘은 연결은 503을 받지 않고 backlog에서 기다린다. 자리가 풀리면(유휴 timeout) 처리된다(ADR 0023)."""
     svc, srv, url = start(tmp_path, max_connections=1, socket_timeout=1.0)
-    host, port = "127.0.0.1", srv.server_address[1]
+    host, port = "127.0.0.1", srv.effective_port
     try:
         hold = socket.create_connection((host, port))                              # 요청을 보내지 않고 자리를 잡는다
         time.sleep(0.2)
-        over = socket.create_connection((host, port)); over.settimeout(3)
-        assert b"503" in over.recv(4096).split(b"\r\n")[0]
+        over = socket.create_connection((host, port)); over.settimeout(8)
+        over.sendall(b"GET /healthz HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n")
+        t0 = time.time()
+        assert b" 200 " in over.recv(4096).split(b"\r\n")[0] and time.time() - t0 < 7      # 자리가 풀린 뒤에 답을 받는다
         over.close()
         hold.settimeout(5)
         t0 = time.time()
-        assert hold.recv(10) == b"" and time.time() - t0 < 4                        # 소켓 timeout 뒤 서버가 연결을 닫는다
+        assert hold.recv(10) == b""                                                  # 소켓 timeout 뒤 서버가 연결을 닫는다
         hold.close()
         time.sleep(0.2)
         with urllib.request.urlopen(url + "/healthz") as r:                         # 자리가 풀리면 다시 받는다
             assert r.status == 200
     finally:
-        srv.shutdown()
+        stop(srv)
 
 
 def test_repeated_bad_tokens_are_throttled_but_valid_tokens_always_pass(tmp_path):
@@ -185,7 +188,7 @@ def test_repeated_bad_tokens_are_throttled_but_valid_tokens_always_pass(tmp_path
         time.sleep(0.01)
         assert get("bad") == 401
     finally:
-        srv.shutdown()
+        stop(srv)
 
 
 # ---------- ML-3 SIGTERM ----------
@@ -315,7 +318,7 @@ def test_sigterm_with_idle_keepalive_connection_exits_fast(tmp_path):
             p.kill()
 
 
-def test_drain_lets_in_flight_request_finish_with_connection_close(tmp_path):
+def test_drain_lets_in_flight_request_finish(tmp_path):
     svc, srv, url = start(tmp_path)
     started = threading.Event()
     real = svc.registry.list_ids
@@ -329,14 +332,13 @@ def test_drain_lets_in_flight_request_finish_with_connection_close(tmp_path):
     def call():
         r = urllib.request.Request(url + "/v1/packages"); r.add_header("Authorization", "Bearer rt")
         with urllib.request.urlopen(r) as resp:
-            out["status"], out["conn"] = resp.status, resp.headers.get("Connection")
+            out["status"] = resp.status
     t = threading.Thread(target=call); t.start()
     assert started.wait(5)
     t0 = time.time()
-    srv.drain(5.0)                                           # 진행 중 요청이 끝날 때까지 기다린다
+    drain(srv, 5.0)                                           # 진행 중 요청이 끝날 때까지 기다린다(drain이 서버도 닫는다)
     t.join(5)
-    assert out == {"status": 200, "conn": "close"} and 0.5 < time.time() - t0 < 4
-    srv.shutdown()
+    assert out["status"] == 200 and 0.5 < time.time() - t0 < 4
 
 
 # ---------- 3차 점검: 토큰 강도, 연결 재사용 상태 ----------
@@ -353,7 +355,7 @@ def test_start_refuses_short_or_monotone_tokens_without_echoing_them(tmp_path, c
 
 def test_start_accepts_strong_tokens_and_dev_can_lower_the_minimum(tmp_path, monkeypatch):
     import model_lab.service.app as app
-    monkeypatch.setattr(app, "make_server", lambda svc, host, port: (_ for _ in ()).throw(KeyboardInterrupt()))
+    monkeypatch.setattr(app, "make_server", lambda svc, host, port, **kw: (_ for _ in ()).throw(KeyboardInterrupt()))
     base = {"MODEL_REGISTRY_ROOT": str(tmp_path / "r")}
     with pytest.raises(KeyboardInterrupt):
         app.main({**base, "MODEL_REGISTRY_WRITE_TOKENS": "model-lab=" + os.urandom(16).hex()})            # 32자 16진수(128비트)
@@ -365,7 +367,7 @@ def test_start_accepts_strong_tokens_and_dev_can_lower_the_minimum(tmp_path, mon
 def test_per_request_state_is_reset_on_a_reused_connection(tmp_path):
     """같은 keep-alive 연결에서 앞 요청이 본문을 읽었어도(_consumed) 다음 거절이 본문을 버리고 실제 오류를 돌려준다."""
     svc, srv, url = start(tmp_path)
-    host, port = "127.0.0.1", srv.server_address[1]
+    host, port = "127.0.0.1", srv.effective_port
     try:
         m, ad, rep = make(tmp_path)
         with tempfile.TemporaryDirectory() as td:
@@ -393,4 +395,4 @@ def test_per_request_state_is_reset_on_a_reused_connection(tmp_path):
             assert b" 403 " in read_resp(s).split(b"\r\n")[0]
             s.close()
     finally:
-        srv.shutdown()
+        stop(srv)

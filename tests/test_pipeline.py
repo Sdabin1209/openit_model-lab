@@ -11,6 +11,7 @@ from model_lab.errors import PipelineError
 from model_lab.pipeline import Run, run_once
 from model_lab.trainers.dryrun import DryRunTrainer, Interrupted
 from tests.conftest import FIXED
+from tests.doubles.serve import stop
 from tests.doubles.dataset_store import DirDatasetStore
 
 
@@ -237,18 +238,19 @@ def test_publish_to_remote_registry_over_http(cfg, tmp_path, monkeypatch):
     import threading
     from model_lab.service.app import Service, make_server
     svc = Service(tmp_path / "remote", {"r": "release-gate"}, {"w": "model-lab"}, log=lambda s: None)
-    srv = make_server(svc); threading.Thread(target=srv.serve_forever, daemon=True).start()
+    from tests.doubles.serve import serve
+    srv, port = serve(svc)
     try:
         monkeypatch.setenv("TEST_REGISTRY_TOKEN", "w")
         c = copy.deepcopy(cfg)
-        c["registry"] = {"kind": "http", "base_url": f"http://127.0.0.1:{srv.server_address[1]}", "token_env": "TEST_REGISTRY_TOKEN"}
+        c["registry"] = {"kind": "http", "base_url": f"http://127.0.0.1:{port}", "token_env": "TEST_REGISTRY_TOKEN"}
         r = mk(c); rec = r.run()
         v = rec["result"]["packages"]["LORA_A"]["version"]
         assert svc.registry.get_manifest("lora-a-parser", v)["content_hash"] == rec["result"]["packages"]["LORA_A"]["content_hash"]
         assert svc.registry.list_ids()[0] == ["lora-a-parser", "lora-b-generator"]
         assert run_once(c, clock=FIXED, log=lambda s: None)["action"] == "skip"
     finally:
-        srv.shutdown()
+        stop(srv)
 
 
 class FlakyRegistry:

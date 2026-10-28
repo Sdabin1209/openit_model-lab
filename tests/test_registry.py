@@ -27,14 +27,13 @@ def reg(request, tmp_path):
         return MemoryModelRegistry()
     if request.param == "file":
         return FileModelRegistry(tmp_path / "reg")
-    import threading
-    from model_lab.service.app import Service, make_server
+    from model_lab.service.app import Service
+    from tests.doubles.serve import serve, stop
     from boundary_contracts.clients import HttpModelRegistry
     svc = Service(tmp_path / "srv", {"rt": "release-gate"}, {"wt": "model-lab"}, log=lambda s: None)
-    srv = make_server(svc)
-    threading.Thread(target=srv.serve_forever, daemon=True).start()
-    request.addfinalizer(srv.shutdown)
-    return _HttpReg(HttpModelRegistry(f"http://127.0.0.1:{srv.server_address[1]}", "wt"), svc.registry)
+    srv, port = serve(svc)
+    request.addfinalizer(lambda: stop(srv))
+    return _HttpReg(HttpModelRegistry(f"http://127.0.0.1:{port}", "wt"), svc.registry)
 
 
 def make(tmp_path, pid="pkg-a", ver="v1", payload=b"w", report=b"report-1", ref="eval-1"):

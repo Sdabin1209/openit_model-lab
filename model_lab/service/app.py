@@ -1,4 +1,4 @@
-"""model-registry 서비스(I3 서버). HTTP.md의 I3 표와 CONVENTIONS 9절을 따른다. 표준 라이브러리만 쓴다.
+"""model-registry 서비스(I3 서버). HTTP.md의 I3 표와 CONVENTIONS 9절을 따른다. WSGI(PEP 3333) 앱을 waitress로 서빙한다(ADR 0023).
 
 환경 변수(진입점 `python -m model_lab.service`가 읽는다). 비밀 두 개는 boundary_contracts.read_secret(D84)으로 읽는다:
   MODEL_REGISTRY_READ_TOKENS_FILE / MODEL_REGISTRY_READ_TOKENS    역할=토큰,역할=토큰  (읽기 경로만)
@@ -7,8 +7,9 @@
   MODEL_REGISTRY_ROOT          저장 볼륨(기본 /data)
   MODEL_REGISTRY_PORT          기본 8080 (0이면 빈 포트)
   MODEL_REGISTRY_MAX_BODY      게시 본문 최대 바이트(기본 4GiB)
-  MODEL_REGISTRY_SOCKET_TIMEOUT  연결 하나의 소켓 읽기/쓰기 timeout 초(기본 30; 느린 클라이언트가 스레드를 잡지 못하게 한다, ML-1)
-  MODEL_REGISTRY_MAX_CONNECTIONS 동시 연결 상한(기본 32; 넘으면 503 UNAVAILABLE)
+  MODEL_REGISTRY_SOCKET_TIMEOUT  waitress channel_timeout: 요청이 진행 중이지 않은 연결(유휴, 요청을 다 보내지 않은 연결)을 닫는 초(기본 30, ML-1)
+  MODEL_REGISTRY_MAX_CONNECTIONS waitress connection_limit: 동시 연결 상한(기본 32; 넘으면 새 연결은 받지 않고 backlog에서 기다린다. 503을 주지 않는다, ADR 0023)
+  MODEL_REGISTRY_THREADS         waitress 작업 스레드 수(기본 16, ADR 0023)
   MODEL_REGISTRY_MAX_PUBLISHES   동시 게시 상한(기본 1; 넘으면 503 UNAVAILABLE, 디스크와 .tmp를 지킨다)
   MODEL_REGISTRY_AUTH_FAIL_LIMIT 같은 주소의 인증 실패 상한(기본 10회 / 60초; 넘으면 그 주소는 잠시 503, 상수 시간 비교와 별개의 시도 제한)
   MODEL_REGISTRY_SHUTDOWN_GRACE  SIGTERM 뒤 진행 중 요청을 기다리는 초(기본 8; 유휴 연결은 즉시 닫는다, Docker 기본 정지 유예 10초보다 짧게)
@@ -22,16 +23,15 @@ import os
 import re
 import shutil
 import signal
-import socket
 import sys
 import tempfile
 import threading
 import time
 from collections import defaultdict, deque
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import parse_qs, unquote, urlparse
+from urllib.parse import parse_qs
 
+import waitress
 from boundary_contracts import BoundaryError, SecretError, read_secret
 
 from ..registry import FileModelRegistry
@@ -40,8 +40,6 @@ from . import tarutil
 STATUS = {"INVALID_RECORD": 400, "PERMISSION_DENIED": 403, "NOT_FOUND": 404, "CONFLICT": 409,
           "FAILED_PRECONDITION": 412, "UNSUPPORTED_VERSION": 422, "INTEGRITY_ERROR": 422, "UNAVAILABLE": 503}
 WRITE_ROLE = "model-lab"
-DRAIN_IDLE = 0.25        # 거절 전 본문을 버릴 때 다음 조각을 기다리는 최대 초. 근거 기록 없음(측정 안 함)
-DRAIN_CAP = 1 << 20      # 거절 응답 전에 버리는 요청 본문의 최대 바이트. 1MiB는 근거 기록 없음(측정 안 함), ADR 0007
 
 
 def parse_tokens(spec: str | None) -> dict[str, str]:
@@ -171,212 +169,147 @@ class Service:
 _PKG = re.compile(r"^/v1/packages/([^/]+)/versions/([^/]+)(/adapter)?$")
 _VERS = re.compile(r"^/v1/packages/([^/]+)/versions$")
 _REPORT = re.compile(r"^/v1/eval-reports/([^/]+)$")
+_REASON = {200: "OK", 201: "Created", 400: "Bad Request", 401: "Unauthorized", 403: "Forbidden", 404: "Not Found", 409: "Conflict",
+           412: "Precondition Failed", 422: "Unprocessable Entity", 503: "Service Unavailable"}
 
 
-def make_handler(svc: Service):
-    class H(BaseHTTPRequestHandler):
-        protocol_version = "HTTP/1.1"
-        server_version = "model-registry"
-        timeout = svc.socket_timeout           # StreamRequestHandler가 연결 소켓에 건다(느린 클라이언트 차단, ML-1)
+class _Closing:
+    """응답 본문 이터러블. WSGI 서버가 다 보낸 뒤(또는 연결이 끊겨도) close()를 불러 임시 폴더를 지운다."""
 
-        _sent_close = False
+    def __init__(self, path: Path, cleanup):
+        self._f, self._cleanup = open(path, "rb"), cleanup
 
-        def setup(self):
-            super().setup()
-            self.server.track(self.request)
+    def __iter__(self):
+        while chunk := self._f.read(1 << 20):
+            yield chunk
 
-        def finish(self):
-            try:
-                super().finish()
-            finally:
-                self.server.untrack(self.request)
+    def close(self) -> None:
+        self._f.close()
+        self._cleanup()
 
-        def end_headers(self):
-            # 종료 중이면 모든 응답에 Connection: close를 달아 클라이언트가 연결을 재사용하지 않게 한다(ML-2 재점검)
-            if (self.server.draining or self.close_connection) and not self._sent_close:
-                self._sent_close = True
-                self.send_header("Connection", "close")
-            super().end_headers()
 
-        def log_message(self, fmt, *args):   # 경로만(쿼리·토큰 제외)
-            svc.log(f"{self.command} {urlparse(self.path).path} {args[1] if len(args) > 1 else ''}")
+def make_app(svc: Service):
+    """WSGI 앱. 연결 상한·timeout·본문 상한·스레드는 서버(waitress) 설정이 맡고(ADR 0023), 여기는 라우팅과 인증, 게시만 한다."""
 
-        def _send(self, code: int, body: bytes, ctype: str = "application/json", headers: dict | None = None) -> None:
-            self.send_response(code)
-            for k, v in (headers or {}).items():
-                self.send_header(k, v)
-            self.send_header("Content-Type", ctype + ("; charset=utf-8" if ctype == "application/json" else ""))
-            self.send_header("Content-Length", str(len(body)))
-            self.end_headers()
-            if self.command != "HEAD":
-                self.wfile.write(body)
+    def app(environ, start_response):
+        method, path = environ["REQUEST_METHOD"], environ["PATH_INFO"]
+        # PATH_INFO는 이미 퍼센트 해제되어 있다. 이름에 '/'가 없다는 ID 규칙(CONVENTIONS 2절)이라 해제 뒤 분할해도 안전하다.
+        status, headers, out = 500, [], b""
+        try:
+            status, headers, out = _dispatch(environ, method, path)
+        except BoundaryError as e:
+            status, headers, out = _error(e)
+        except Exception as e:   # 내부 오류는 원문 없이 503으로 알리고 로그에는 형식만 남긴다
+            svc.log(f"내부 오류 {type(e).__name__}")
+            status, headers, out = _error(BoundaryError("UNAVAILABLE", "서비스 내부 오류"))
+        svc.log(f"{method} {path} {status}")      # 경로만(쿼리·토큰 제외)
+        start_response(f"{status} {_REASON.get(status, 'Error')}", headers)
+        return out
 
-        def _json(self, code: int, obj, headers: dict | None = None) -> None:
-            self._send(code, json.dumps(obj, ensure_ascii=False).encode(), headers=headers)
+    def _json(code: int, obj, headers=()):
+        b = json.dumps(obj, ensure_ascii=False).encode()
+        return code, [("Content-Type", "application/json; charset=utf-8"), ("Content-Length", str(len(b))), *headers], [b]
 
-        def _file(self, path: Path, ctype: str) -> None:
-            size = path.stat().st_size
-            self.send_response(200)
-            self.send_header("Content-Type", ctype)
-            self.send_header("Content-Length", str(size))
-            self.end_headers()
-            with open(path, "rb") as f:
-                shutil.copyfileobj(f, self.wfile)
+    def _error(e: BoundaryError):
+        if isinstance(e, Unauthenticated):
+            return _json(401, e.to_record(), [("WWW-Authenticate", "Bearer")])
+        return _json(STATUS[e.code], e.to_record())
 
-        def _fail(self, e: BoundaryError) -> None:
-            if self.command in ("POST", "PUT", "PATCH"):
-                self.close_connection = True      # 본문을 다 읽지 않았을 수 있다
-                self._drain()
+    def _bytes(code: int, b: bytes, ctype: str):
+        return code, [("Content-Type", ctype), ("Content-Length", str(len(b)))], [b]
+
+    def _dispatch(environ, method: str, path: str):
+        q = parse_qs(environ.get("QUERY_STRING", ""))
+        if path == "/healthz":
+            return _json(200, {"status": "ok"})
+        if path == "/readyz":
+            ok = svc.ready()
+            return _json(200 if ok else 503, {"status": "ready" if ok else "not-ready"})
+        addr = environ.get("REMOTE_ADDR", "")
+        try:
+            svc.authorize(method, environ.get("HTTP_AUTHORIZATION"))      # 토큰 검증이 먼저다: 유효한 토큰은 제한과 무관하게 통과한다
+        except BoundaryError as e:
             if isinstance(e, Unauthenticated):
-                return self._json(401, e.to_record(), {"WWW-Authenticate": "Bearer"})
-            self._json(STATUS[e.code], e.to_record())
-
-        _consumed = False
-
-        def _drain(self) -> None:
-            """오류로 답하기 전에 요청 본문을 버리면서 읽는다. 읽지 않고 답하면 아직 보내는 중인 클라이언트가 연결 초기화로
-            UNAVAILABLE을 받아 403/400 같은 실제 오류를 못 본다(간헐 실패의 원인이었다)."""
-            if self._consumed:
-                return
-            self._consumed = True
-            try:
-                # 거절 때 본문을 끝까지 읽지 않는다(최대 4GiB를 읽게 하면 거절이 자원 소모 경로가 된다). 작은 본문만 버려서
-                # 아직 보내는 클라이언트가 연결 초기화 대신 실제 오류를 보게 하고, 나머지는 연결을 닫는다(Connection: close).
-                left = min(int(self.headers.get("Content-Length") or 0), DRAIN_CAP)
-                self.connection.settimeout(DRAIN_IDLE)      # 클라이언트가 본문을 보내지 않으면 기다리지 않는다(느린 송신자가 스레드를 잡지 못하게)
-                while left > 0:
-                    chunk = self.rfile.read1(min(1 << 20, left)) if hasattr(self.rfile, "read1") else self.rfile.read(min(1 << 20, left))
-                    if not chunk:
-                        break
-                    left -= len(chunk)
-            except (OSError, ValueError):
-                pass
-
-        def _dispatch(self):
-            u = urlparse(self.path)
-            path, q = u.path, parse_qs(u.query)
-            if path == "/healthz":
-                return self._json(200, {"status": "ok"})
-            if path == "/readyz":
-                ok = svc.ready()
-                return self._json(200 if ok else 503, {"status": "ready" if ok else "not-ready"})
-            addr = self.client_address[0]
-            hdr = self.headers.get("Authorization")
-            try:
-                svc.authorize(self.command, hdr)             # 토큰 검증이 먼저다: 유효한 토큰은 제한과 무관하게 통과한다
-            except BoundaryError as e:
-                if isinstance(e, Unauthenticated):
-                    # 제한은 유효하지 않은(없거나 틀린) 토큰을 보낸 요청에만 건다. 프록시·Docker 뒤에서는 호출자가 모두 같은 주소로
-                    # 보이므로 주소만으로 막으면 정상 호출자까지 막힌다(ML-1 재점검).
-                    throttled = svc.auth_blocked(addr)
-                    svc.note_auth_failure(addr)
-                    if throttled:
-                        raise BoundaryError("UNAVAILABLE", "인증 시도가 너무 많다. 잠시 뒤 다시 시도한다") from None
-                raise
-            if self.command == "POST":
-                if path != "/v1/packages":
-                    raise BoundaryError("NOT_FOUND", "경로가 없다")
-                return self._publish()
-            if self.command != "GET":
+                # 제한은 유효하지 않은(없거나 틀린) 토큰을 보낸 요청에만 건다. 프록시·Docker 뒤에서는 호출자가 모두 같은 주소로
+                # 보이므로 주소만으로 막으면 정상 호출자까지 막힌다(ML-1 재점검).
+                throttled = svc.auth_blocked(addr)
+                svc.note_auth_failure(addr)
+                if throttled:
+                    raise BoundaryError("UNAVAILABLE", "인증 시도가 너무 많다. 잠시 뒤 다시 시도한다") from None
+            raise
+        if method == "POST":
+            if path != "/v1/packages":
                 raise BoundaryError("NOT_FOUND", "경로가 없다")
-            if path == "/v1/packages":
-                items, nxt = svc.registry.list_ids(cursor=_one(q, "cursor"), limit=_limit(q))
-                return self._json(200, {"items": items, "next_cursor": nxt})
-            m = _VERS.match(path)
-            if m:
-                vs = svc.registry.list_versions(unquote(m.group(1)))
-                items, nxt = FileModelRegistry._page(vs, _one(q, "cursor"), _limit(q))
-                return self._json(200, {"items": items, "next_cursor": nxt})
-            m = _PKG.match(path)
-            if m:
-                pid, ver = unquote(m.group(1)), unquote(m.group(2))
-                if not m.group(3):
-                    return self._json(200, svc.registry.get_manifest(pid, ver))
-                with tempfile.TemporaryDirectory(dir=svc.tmp) as td:
-                    ad = svc.registry.open_adapter(pid, ver, dest=Path(td) / "x")      # 해시를 검증한 뒤에만 낸다
-                    tar = Path(td) / "adapter.tar"
-                    tarutil.pack(tarutil.tree_files(ad), tar)
-                    return self._file(tar, "application/x-tar")
-            m = _REPORT.match(path)
-            if m:
-                return self._send(200, svc.registry.get_eval_report(unquote(m.group(1))), "application/octet-stream")
+            return _publish(environ, addr)
+        if method != "GET":
             raise BoundaryError("NOT_FOUND", "경로가 없다")
-
-        def _publish(self) -> None:
-            n = int(self.headers.get("Content-Length") or -1)
-            if n < 0:
-                raise BoundaryError("INVALID_RECORD", "Content-Length가 필요하다")
-            if n > svc.max_body:
-                raise BoundaryError("INVALID_RECORD", "본문이 너무 크다")
-            if not svc.publish_slots.acquire(blocking=False):      # 동시 게시 상한(ML-1): 기다리게 하지 않고 재시도하게 한다
-                raise BoundaryError("UNAVAILABLE", "다른 게시가 진행 중이다. 잠시 뒤 다시 시도한다")
+        if path == "/v1/packages":
+            items, nxt = svc.registry.list_ids(cursor=_one(q, "cursor"), limit=_limit(q))
+            return _json(200, {"items": items, "next_cursor": nxt})
+        m = _VERS.match(path)
+        if m:
+            vs = svc.registry.list_versions(m.group(1))
+            items, nxt = FileModelRegistry._page(vs, _one(q, "cursor"), _limit(q))
+            return _json(200, {"items": items, "next_cursor": nxt})
+        m = _PKG.match(path)
+        if m:
+            pid, ver = m.group(1), m.group(2)
+            if not m.group(3):
+                return _json(200, svc.registry.get_manifest(pid, ver))
+            td = tempfile.TemporaryDirectory(dir=svc.tmp)
             try:
-                self._publish_locked(n)
-            finally:
-                svc.publish_slots.release()
+                ad = svc.registry.open_adapter(pid, ver, dest=Path(td.name) / "x")      # 해시를 검증한 뒤에만 낸다
+                tar = Path(td.name) / "adapter.tar"
+                tarutil.pack(tarutil.tree_files(ad), tar)
+                body = _Closing(tar, td.cleanup)
+            except BaseException:
+                td.cleanup()
+                raise
+            return 200, [("Content-Type", "application/x-tar"), ("Content-Length", str(tar.stat().st_size))], body
+        m = _REPORT.match(path)
+        if m:
+            return _bytes(200, svc.registry.get_eval_report(m.group(1)), "application/octet-stream")
+        raise BoundaryError("NOT_FOUND", "경로가 없다")
 
-        def _publish_locked(self, n: int) -> None:
-            svc.check_free_space(n)
-            self._consumed = True            # 여기부터 이 함수가 본문을 읽는다. 이전 단계의 거절은 _fail이 제한된 만큼만 버리고 연결을 닫는다
-            with tempfile.TemporaryDirectory(dir=svc.tmp) as td:
-                td = Path(td)
-                body = td / "body.tar"
-                left = n
-                with open(body, "wb") as f:
-                    while left:
-                        chunk = self.rfile.read(min(1 << 20, left))
-                        if not chunk:
-                            raise BoundaryError("INVALID_RECORD", "본문이 중간에 끊겼다")
-                        f.write(chunk); left -= len(chunk)
-                tarutil.unpack(body, td / "in", max_bytes=svc.max_body)
-                body.unlink()                      # 풀었으면 본문 tar는 더 필요 없다(최대 사용량을 줄인다, ML-2)
-                mp, rp, ad = td / "in" / "manifest.json", td / "in" / "eval_report", td / "in" / "adapter"
-                if not mp.is_file() or not rp.is_file():
-                    raise BoundaryError("INVALID_RECORD", "tar에 manifest.json과 eval_report가 있어야 한다")
-                try:
-                    manifest = json.loads(mp.read_text(encoding="utf-8"))
-                except ValueError:
-                    raise BoundaryError("INVALID_RECORD", "manifest.json이 JSON이 아니다") from None
-                if not isinstance(manifest, dict):
-                    raise BoundaryError("INVALID_RECORD", "manifest.json이 객체가 아니다")
-                ad.mkdir(exist_ok=True)
-                existed = True
-                try:
-                    svc.registry.get_manifest(str(manifest.get("package_id")), str(manifest.get("version")))
-                except BoundaryError as e:
-                    if e.code != "NOT_FOUND":
-                        raise
-                    existed = False
-                got = svc.registry.publish(manifest, ad, rp.read_bytes(), publisher={
-                    "role": WRITE_ROLE, "remote": self.client_address[0],
-                    "published_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())})
-            self._json(200 if existed else 201, got)
+    def _publish(environ, addr: str):
+        # 본문 크기 상한은 서버(max_request_body_size)가 이미 지켰다. waitress는 본문을 다 받은 뒤 앱을 부른다(ADR 0023).
+        n = int(environ.get("CONTENT_LENGTH") or -1)
+        if n < 0:
+            raise BoundaryError("INVALID_RECORD", "Content-Length가 필요하다")
+        if not svc.publish_slots.acquire(blocking=False):      # 동시 게시 상한(ML-1): 기다리게 하지 않고 재시도하게 한다
+            raise BoundaryError("UNAVAILABLE", "다른 게시가 진행 중이다. 잠시 뒤 다시 시도한다")
+        try:
+            return _publish_locked(environ, n, addr)
+        finally:
+            svc.publish_slots.release()
 
-        def _handle(self):
-            # 핸들러 인스턴스는 keep-alive 연결 하나가 요청 여러 개에 재사용한다. 요청별 상태를 되돌리지 않으면 앞 요청의 _consumed=True가
-            # 남아 다음 거절에서 본문을 버리지 않는다(연결 초기화 위험).
-            self._consumed = False
-            self._sent_close = False
-            self.server.set_busy(self.request, True)
+    def _publish_locked(environ, n: int, addr: str):
+        svc.check_free_space(n)
+        with tempfile.TemporaryDirectory(dir=svc.tmp) as td:
+            td = Path(td)
+            tarutil.unpack(environ["wsgi.input"], td / "in", max_bytes=svc.max_body)
+            mp, rp, ad = td / "in" / "manifest.json", td / "in" / "eval_report", td / "in" / "adapter"
+            if not mp.is_file() or not rp.is_file():
+                raise BoundaryError("INVALID_RECORD", "tar에 manifest.json과 eval_report가 있어야 한다")
             try:
-                self._handle_inner()
-            finally:
-                self.server.set_busy(self.request, False)
-                if self.server.draining:
-                    self.close_connection = True
-
-        def _handle_inner(self):
+                manifest = json.loads(mp.read_text(encoding="utf-8"))
+            except ValueError:
+                raise BoundaryError("INVALID_RECORD", "manifest.json이 JSON이 아니다") from None
+            if not isinstance(manifest, dict):
+                raise BoundaryError("INVALID_RECORD", "manifest.json이 객체가 아니다")
+            ad.mkdir(exist_ok=True)
+            existed = True
             try:
-                self._dispatch()
+                svc.registry.get_manifest(str(manifest.get("package_id")), str(manifest.get("version")))
             except BoundaryError as e:
-                self._fail(e)
-            except Exception as e:   # 내부 오류는 원문 없이 UNAVAILABLE이 아니라 재시도 불가 오류로? -> 503으로 알리고 로그에는 형식만
-                svc.log(f"내부 오류 {type(e).__name__}")
-                self._fail(BoundaryError("UNAVAILABLE", "서비스 내부 오류"))
+                if e.code != "NOT_FOUND":
+                    raise
+                existed = False
+            got = svc.registry.publish(manifest, ad, rp.read_bytes(), publisher={
+                "role": WRITE_ROLE, "remote": addr, "published_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())})
+        return _json(200 if existed else 201, got)
 
-        do_GET = do_POST = do_PUT = do_DELETE = do_PATCH = _handle
-
-    return H
+    return app
 
 
 def _one(q: dict, k: str):
@@ -393,83 +326,55 @@ def _limit(q: dict) -> int:
     return min(v, 500)
 
 
-def make_server(svc: Service, host: str = "127.0.0.1", port: int = 0) -> ThreadingHTTPServer:
-    srv = _Server((host, port), make_handler(svc), svc.max_connections)
-    return srv
+def make_server(svc: Service, host: str = "127.0.0.1", port: int = 0, threads: int = 16):
+    """waitress 서버. 값의 출처와 한계는 ADR 0023. 호출자가 srv.run()으로 돌리고 srv.close()로 닫는다(`effective_port`가 실제 포트)."""
+    return waitress.create_server(
+        make_app(svc), host=host, port=port, threads=threads, ident="model-registry",
+        connection_limit=svc.max_connections + 2,      # 왜 +2: waitress는 리스너와 트리거(내부 소켓)도 연결 수에 센다. max_connections=1이면 하나도 받지 못하는 것을 시험으로 확인했다
+        channel_timeout=max(1, int(svc.socket_timeout)),
+        cleanup_interval=max(1, min(5, int(svc.socket_timeout))),      # 유휴 연결 점검 주기. timeout을 이 값만큼만 넘겨 닫는다
+        max_request_body_size=svc.max_body,
+        clear_untrusted_proxy_headers=True)
 
 
-class _Server(ThreadingHTTPServer):
-    """동시 연결 상한(ML-1)과 우아한 종료(ML-3). 진행 중 요청을 끊지 않도록 스레드는 daemon이 아니고 server_close가 기다린다."""
-    daemon_threads = False
-    block_on_close = True
-
-    def __init__(self, addr, handler, max_connections: int):
-        super().__init__(addr, handler)
-        self._slots = threading.BoundedSemaphore(max(1, max_connections))
-        self.draining = False
-        self._conns: dict = {}                  # 연결 소켓 -> 요청을 처리 중인가
-        self._conns_mu = threading.Lock()
-
-    def track(self, sock) -> None:
-        with self._conns_mu:
-            self._conns[sock] = False
-
-    def untrack(self, sock) -> None:
-        with self._conns_mu:
-            self._conns.pop(sock, None)
-
-    def set_busy(self, sock, busy: bool) -> None:
-        with self._conns_mu:
-            if sock in self._conns:
-                self._conns[sock] = busy
-
-    def _close_conns(self, only_idle: bool) -> int:
-        with self._conns_mu:
-            targets = [c for c, busy in self._conns.items() if not (only_idle and busy)]
-        for c in targets:
-            try:
-                c.shutdown(socket.SHUT_RDWR)    # 읽기 대기 중인 핸들러 스레드가 즉시 깨어나 끝난다
-            except OSError:
-                pass
-        return len(targets)
-
-    def drain(self, grace: float, log=lambda s: None) -> None:
-        """우아한 종료(ML-2): 새 응답은 Connection: close, 유휴 keep-alive 연결은 즉시 닫고, 진행 중 요청만 grace초 기다린 뒤 남은 연결을 끊는다.
-        accept 루프는 호출자가 shutdown()으로 멈춘다."""
-        self.draining = True
-        n = self._close_conns(only_idle=True)
-        deadline = time.monotonic() + grace
-        while time.monotonic() < deadline:
-            with self._conns_mu:
-                if not any(self._conns.values()):
-                    break
-            time.sleep(0.05)
-        left = self._close_conns(only_idle=False)
-        log(f"종료: 유휴 연결 {n}개를 닫았고 유예 시간 뒤 진행 중 {left}개를 끊었다" if left else f"종료: 유휴 연결 {n}개를 닫았다")
-
-    def process_request(self, request, client_address):
-        if not self._slots.acquire(blocking=False):
-            try:
-                request.settimeout(2)
-                body = json.dumps(BoundaryError("UNAVAILABLE", "연결이 너무 많다").to_record(), ensure_ascii=False).encode()
-                request.sendall(b"HTTP/1.1 503 Service Unavailable\r\nContent-Type: application/json\r\nContent-Length: "
-                                + str(len(body)).encode() + b"\r\nConnection: close\r\n\r\n" + body)
-            except OSError:
-                pass
-            self.shutdown_request(request)
-            return
-        super().process_request(request, client_address)
-
-    def process_request_thread(self, request, client_address):
-        try:
-            super().process_request_thread(request, client_address)
-        finally:
-            self._slots.release()
+def drain(srv, grace: float, log=lambda s: None) -> None:
+    """우아한 종료(ML-2): 새 연결을 받지 않고, 유휴 연결은 보낼 것을 보낸 뒤 닫고, 요청이 진행 중인 연결(받는 중 포함)은 grace초까지 기다린다.
+    남은 연결은 grace 뒤 끊는다. waitress에는 이 기능이 없어(SIGINT면 작업 스레드만 멈추고 응답을 흘려보내지 못한다) 서버의 채널 목록으로 한다."""
+    srv.accepting = False                                  # readable()이 False를 내 accept를 멈춘다. 이미 backlog에 있는 연결은 종료와 함께 끊긴다
+    deadline = time.monotonic() + grace
+    closed = 0
+    while True:
+        busy = 0
+        for ch in list(srv._map.values()):
+            if not hasattr(ch, "requests"):                 # 리스너·트리거는 채널이 아니다
+                continue
+            if ch.requests or ch.request is not None:
+                busy += 1
+            elif not ch.close_when_flushed:
+                ch.close_when_flushed = True                # 이미 만든 응답은 보낸 뒤 닫는다
+                closed += 1
+        srv.pull_trigger()
+        if not busy or time.monotonic() >= deadline:
+            break
+        time.sleep(0.05)
+    for ch in list(srv._map.values()):
+        if hasattr(ch, "requests"):
+            ch.will_close = True                            # 유예가 지나 남은 연결을 끊는다
+    srv.pull_trigger()
+    log(f"종료: 유휴 연결 {closed}개를 닫았고 진행 중 {busy}개는 " + ("끊었다" if busy else "없었다"))
+    # 채널이 닫혀 사라지길 잠시 기다린 뒤 리스너와 트리거를 맵에서 뺀다. 맵이 비면 srv.run()의 루프가 끝난다.
+    # 소켓을 닫는 일은 루프가 끝난 뒤 srv.close()가 한다: 루프가 select 중인 fd를 다른 스레드에서 닫으면 EBADF로 루프가 죽는다.
+    stop_by = time.monotonic() + 2.0
+    while time.monotonic() < stop_by and any(hasattr(ch, "requests") for ch in list(srv._map.values())):
+        time.sleep(0.02)
+    srv.del_channel()
+    srv.trigger.del_channel()
 
 
 # 아래 기본값의 근거(ADR 0007): 모두 측정하지 않은 보수적 시작값이다. 조정은 환경 변수로 한다. 근거 출처 없음 = 측정 안 함.
-#  소켓 timeout 30초: 정상 클라이언트는 1MiB 조각을 이어 보내므로 한 번의 읽기 대기가 길지 않다는 가정(측정 안 함); 느린 클라이언트가 스레드를 잡는 시간의 상한.
-#  동시 연결 32: 소비자가 release-gate 등 소수이고 게시는 1건뿐이라는 가정(측정 안 함); 스레드 서버의 자원 상한.
+#  channel_timeout 30초: 요청을 다 보내지 않았거나 유휴인 연결을 닫는 시간. 측정 안 함(기존 소켓 timeout 값을 그대로 옮김, ADR 0007·0023).
+#  동시 연결 32: 소비자가 release-gate 등 소수이고 게시는 1건뿐이라는 가정(측정 안 함); waitress connection_limit(기존 값을 그대로 옮김).
+#  스레드 16: 느린 다운로드가 스레드를 잡아도 /healthz가 막히지 않을 여유. waitress 기본 4는 너무 작다고 보았다. 측정 안 함(ADR 0023).
 #  동시 게시 1: 게시는 어차피 파일 잠금으로 직렬화되고(registry.py) 본문이 최대 4GiB라 대기시키면 디스크·스레드를 오래 잡는다.
 #  인증 실패 10회/60초: 사람이 토큰을 잘못 넣는 정도는 허용하고 반복 추측만 막는 값(측정 안 함, 표준 값 아님).
 #  여유 공간 = 본문 2배 + 1GB: 본문 tar와 풀어 둔 사본이 동시에 있는 최대 순간(저장은 하드 링크라 추가 사본 없음) + 여유 1GB(근거 기록 없음).
@@ -494,25 +399,26 @@ def main(env=os.environ) -> int:
     except (ValueError, OSError, SecretError) as e:
         print(f"시작 실패: {e}", file=sys.stderr, flush=True)
         return 2
-    srv = make_server(svc, env.get("MODEL_REGISTRY_HOST", "0.0.0.0"), int(env.get("MODEL_REGISTRY_PORT", 8080)))
+    srv = make_server(svc, env.get("MODEL_REGISTRY_HOST", "0.0.0.0"), int(env.get("MODEL_REGISTRY_PORT", 8080)),
+                      threads=int(env.get("MODEL_REGISTRY_THREADS", 16)))
     # SIGTERM(컨테이너 종료)에도 진행 중 요청을 마친 뒤 멈춘다. shutdown은 serve_forever를 돌리는 스레드가 아닌 곳에서 불러야 한다.
     def _stop(signum, frame):
         # 신호 처리기는 메인 스레드의 어느 지점에서든 끼어들므로(출력 중일 수도 있다) 여기서는 출력하지 않고 스레드를 시작만 한다
         def _go():
             svc.log("종료 신호: 유휴 연결을 닫고 진행 중 요청을 마친 뒤 멈춘다")
-            threading.Thread(target=srv.shutdown, daemon=True).start()    # accept 루프 정지
-            srv.drain(svc.shutdown_grace, svc.log)
+            drain(srv, svc.shutdown_grace, svc.log)
         threading.Thread(target=_go, daemon=True).start()
     try:
         signal.signal(signal.SIGTERM, _stop)
     except ValueError:      # 메인 스레드가 아니면(시험) 건너뛴다
         pass
-    print(f"model-registry 시작 포트 {srv.server_address[1]}", flush=True)     # 신호 처리기를 건 뒤에 알린다
+    print(f"model-registry 시작 포트 {srv.effective_port}", flush=True)     # 신호 처리기를 건 뒤에 알린다
     try:
-        srv.serve_forever()
+        srv.run()
     except KeyboardInterrupt:
         pass
     finally:
-        srv.server_close()                       # 진행 중 요청 스레드를 기다린다(block_on_close)
+        srv.close()
+        srv.task_dispatcher.shutdown()           # 작업 스레드를 멈춘다(drain이 응답을 다 보낸 뒤라 남은 일이 없다)
         shutil.rmtree(svc.tmp, ignore_errors=True)
     return 0
