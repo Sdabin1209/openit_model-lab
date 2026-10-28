@@ -18,7 +18,7 @@
 | `MODEL_REGISTRY_PORT` / `MODEL_REGISTRY_HOST` | 기본 8080 / 0.0.0.0 |
 | `MODEL_REGISTRY_MAX_BODY` | 게시 본문 상한 바이트(기본 4GiB) |
 비밀은 `boundary_contracts.read_secret`(D84)으로 읽는다: `NAME_FILE`(파일 경로)이 있으면 그 파일 내용(앞뒤 공백 제거), 없으면 `NAME` 환경 변수. 운영은 파일(`-v <비밀 폴더>:/run/secrets:ro`와 `…_FILE=/run/secrets/…`), 환경 변수는 개발용이다. 파일을 못 읽거나 비어 있으면 시작하지 않는다(종료 코드 2, 메시지에는 이름·경로만). 토큰이 하나도 없어도 시작하지 않는다. 토큰 값은 로그·`/readyz`·오류 본문에 나오지 않는다(`tests/test_secrets.py`). 경로·상태 코드는 `../boundary-contracts/HTTP.md`의 I3 절. `/readyz`는 저장소를 읽고 임시 파일을 쓸 수 있을 때 200.
-이미지 라벨: `io.openit.service=model-registry`, `io.openit.revision`(빌드 인자 `REVISION`), `io.openit.contracts.boundary=v2.0.2`, `io.openit.contracts.survey-schema`/`turn-engine`/`model-runtime`은 `n/a`(서비스에 포함하지 않음). 확인: `scripts/smoke_registry.sh`(빌드 -> 빈 포트로 실행 -> healthz/readyz/토큰/게시/조회).
+이미지 라벨: `io.openit.service=model-registry`, `io.openit.revision`(빌드 인자 `REVISION`), `io.openit.contracts.boundary`(빌드 인자 `BC_VERSION`, `requirements-service.txt`의 pin에서 뽑는다; 인자가 없으면 빌드 실패), `io.openit.contracts.survey-schema`/`turn-engine`/`model-runtime`은 `n/a`(서비스에 포함하지 않음). 확인: `scripts/smoke_registry.sh`(빌드 -> 빈 포트로 실행 -> healthz/readyz/토큰/게시/조회).
 
 ### 입력 저장소 선택 (설정의 `inputs.*`)
 | 입력 | 팩토리 | 인자 |
@@ -75,7 +75,7 @@ D22 (2): 서비스가 없는 run-once 잡이라 Dockerfile 없이 `requirements.
 1. 코드 보내기(비밀 값 없음, 호스트에서 GitHub 접속 없음):
    `rsync -a --exclude .venv --exclude .git --exclude runs --exclude fixtures ./ gpu-dev:openit-gpu/model-lab/`
    호스트에는 이웃 폴더가 없다. 태그에서 만든 wheel과 문진 스키마 사본을 `vendor/`(gitignore)에 두고 보낸다:
-   `pip wheel --no-deps -w vendor/wheels "git+file://<경로>/boundary-contracts@v2.1.0"` (turn-engine@v0.4.1, model-runtime@v0.7.3도 같이; `requirements.txt` 기준), `vendor/survey-schema/{schemas,CONTRACT_VERSION}`.
+   `pip wheel --no-deps -w vendor/wheels "git+file://<경로>/boundary-contracts@<requirements.txt의 태그>"` (turn-engine, model-runtime도 같이; 태그는 `requirements.txt`가 정본), `vendor/survey-schema/{schemas,CONTRACT_VERSION}`.
 2. 호스트 환경(처음 한 번): `cd ~/openit-gpu/model-lab && python3 -m venv .venv && .venv/bin/pip install vendor/wheels/*.whl pyyaml pytest -r requirements-train.txt`
 3. 시험 데이터: `.venv/bin/python scripts/make_fixture_dataset.py fixtures/store`
 4. 실행(긴 작업은 분리하고 로그를 본다. GPU 명령은 반드시 락으로 감싼다):

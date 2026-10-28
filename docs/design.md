@@ -85,7 +85,7 @@ publish:  {enabled}
 - 평가 백엔드는 설정으로 고른다(`hf` = transformers+peft, `fake-oracle` = 정답을 그대로 내는 CPU 시험용). 제약 디코딩 백엔드는 model-runtime에 아직 없다(CR-L003).
 - 회귀 평가(I7): `evaluation.regression`으로 켜고 끈다. 확정된(CONFIRMED) 정답 있는 FailureCase의 비식별 trace 입력으로 후보를 평가하고 보고서 `regression` 절에 값을 담는다(건너뛴 사례와 사유 포함, 임계치 없음). 턴 시뮬레이터는 만들지 않았다.
 
-### 6-1. EvaluationReport (boundary-contracts v2.0.0, D53) [확인: `tests/test_evaluation_report.py`, `tests/test_evaluate_v2.py`]
+### 6-1. EvaluationReport (boundary-contracts, D53) [확인: `tests/test_evaluation_report.py`, `tests/test_evaluate_v2.py`]
 레지스트리에 `eval_report`로 올라가는 바이트는 역할마다 `EvaluationReport`(JCS JSON, 스키마 검증 후)다. 스키마는 계약 그대로다. 지표 이름:
 - METRICS.md v2 이름(정본, ADR 0011): `value_precision/recall`, `precision_match`, `targets_match`, `value_exact_match`, `action/reason/status/next_item_accuracy`, `semantic_violation_rate`(turn-engine `validate_extraction`, slice `VIOLATION_CODE`), `output_invalid_rate`, `output_attempts_mean`, `schema_valid_raw`(slice `CONSTRAINED_DECODING`); B: `material_coverage`, `ungrounded_number_rate`(재료 기준), `response_length_chars_p95`. 회귀 평가가 읽는 TurnTrace 키는 `extract_input/output`, `response_input/output`(D98).
 - 보조: LoRA-A(학습 서버 `score_a_v2.py`와 같은 이름과 규칙): `action_acc`, `action_reason_acc`, `next_item_acc`, `key_found_rate`, `cell_acc`(value·status·save 모두 일치), `value_acc`, `status_acc`, `save_acc`, `precision_acc`, `db_row_match_rate`, `targets_acc`, `note_presence_acc`, `exact_match_rate`, `oos_precision/recall/f1`, `extra_keys`·`dup_keys`·`targets_extra_rows`(count), PROTECTION `schema_ok_rate`·`output_invalid`(count). 형식 실패 행도 분모에 들어간다.

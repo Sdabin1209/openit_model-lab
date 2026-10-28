@@ -10,7 +10,7 @@ mkdir -p vendor/wheels
 # requirements-service.txt가 고정한 태그(vX.Y.Z)의 wheel을 쓴다(다른 버전 wheel이 같이 있어도 섞이지 않는다).
 BC_VER=$(sed -n 's/.*openit_boundary-contracts.git@v\([0-9.]*\).*/\1/p' requirements-service.txt | head -1)
 WHL=$(ls vendor/wheels/boundary_contracts-"$BC_VER"-*.whl | head -1)
-docker build -q --build-context wheels=vendor/wheels --build-arg "BC_SPEC=/wheels/$(basename "$WHL")" \
+docker build -q --build-context wheels=vendor/wheels --build-arg "BC_SPEC=/wheels/$(basename "$WHL")" --build-arg "BC_VERSION=v$BC_VER" \
   --build-arg "REVISION=$(git rev-parse --short HEAD 2>/dev/null || echo unknown)" -t "$TAG" .
 docker volume create "$NAME-data" >/dev/null
 # 토큰은 환경 변수가 아니라 파일로 준다(D84, NAME_FILE). 컨테이너 사용자(uid 10001)가 읽도록 0644, 끝나면 지운다.

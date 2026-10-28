@@ -72,7 +72,7 @@ scripts/smoke_registry.sh
 
 확인된 것(근거 문서): CPU에서 가짜 모델로 파이프라인 끝까지, 레지스트리 파일·메모리·HTTP 적합성 시험, 이미지 스모크는 옛 계약 버전 때 통과(`docs/STATUS.md` 9차). 시험 개수는 5절만 정본이다. 평가 지표는 METRICS.md v2로 바뀌었고(ADR 0011) 데이터셋은 HTTP 클라이언트로 읽는다(ADR 0012, 실제 클라이언트로는 아직 시험하지 못함). GPU 호스트(gpu-dev)에서 작은 시험 데이터로 학습→게시 한 바퀴와 재실행 skip을 확인한 기록이 있으나 오래된 버전 기준이다(`docs/STATUS.md` 2차). 학습 품질과 학습 감싸기 결과는 의미 있는 값이 없다.
 
-확인 못 한 것: 서버 학습 스크립트의 `--help` 실제 출력·인자 타입 검사 방식·산출물 위치(인자 이름은 헤드가 서버 코드의 `add_argument`를 읽어 확인했고 `args_verified: true`이다. 근거는 `configs/train.yaml`의 `args_evidence`), 진짜 어댑터의 서빙, 실제 모델 평가 값(지금까지 오라클 가짜 모델), 재개한 학습의 비트 단위 재현(`docs/design.md` 4절), 현재 버전(boundary-contracts v2.0.2, turn-engine v0.4.0, model-runtime v0.7.0)에서의 이미지 스모크와 새 환경 설치(`docs/STATUS.md` 11차의 pip 해결 미시도 기록). 두 번째 독립 머신 확인은 U12로 열려 있다.
+확인 못 한 것: 서버 학습 스크립트의 `--help` 실제 출력·인자 타입 검사 방식·산출물 위치(인자 이름은 헤드가 서버 코드의 `add_argument`를 읽어 확인했고 `args_verified: true`이다. 근거는 `configs/train.yaml`의 `args_evidence`), 진짜 어댑터의 서빙, 실제 모델 평가 값(지금까지 오라클 가짜 모델), 재개한 학습의 비트 단위 재현(`docs/design.md` 4절), 현재 `requirements.txt` 버전에서의 이미지 스모크와 새 환경 설치(`docs/STATUS.md` 11차의 pip 해결 미시도 기록). 두 번째 독립 머신 확인은 U12로 열려 있다.
 
 ## 이 영역의 열린 항목
 
@@ -132,3 +132,4 @@ scripts/smoke_registry.sh
 | [0010](docs/adr/0010-서버-구현은-표준-라이브러리-HTTP.md) | 서버는 표준 라이브러리 HTTP |
 | [0011](docs/adr/0011-평가-지표-v2와-turn-engine-의존.md) | 평가 지표 METRICS.md v2, 의미 위반율은 turn-engine `validate_extraction` |
 | [0012](docs/adr/0012-데이터셋-저장소는-HTTP-클라이언트.md) | I2 데이터셋 읽기는 HTTP 클라이언트 |
+| [0013](docs/adr/0013-설정의-package_id를-바꾸지-않는다.md) | 설정의 `package_id`(`lora-a-parser`, `lora-b-generator`)는 옛 이름이지만 바꾸지 않는다 |

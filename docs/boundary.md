@@ -10,8 +10,11 @@
 읽기 전용 SDK를 따로 만들지 않았다: 소비자(release-gate)는 같은 Protocol의 읽기 메서드를 쓴다. 읽기 토큰·원격 구현은 게이트와 배포 방식이 정해진 뒤 [미정].
 
 ## 서비스 형태 (D49): model-registry
-같은 I3를 HTTP로 낸다(`../boundary-contracts/HTTP.md` I3 절): `GET /v1/packages`, `/v1/packages/{id}/versions`, `/v1/packages/{id}/versions/{version}`, `.../adapter`(tar), `/v1/eval-reports/{ref}`, `POST /v1/packages`(tar: `manifest.json`, `adapter/…`, `eval_report`; 201 새로 / 200 같은 내용 / 409 다른 내용). 읽기 토큰(`MODEL_REGISTRY_READ_TOKENS`, 예: `release-gate`)과 쓰기 토큰(`MODEL_REGISTRY_WRITE_TOKENS`, 역할 `model-lab`만)을 분리하고, 둘 다 `boundary_contracts.read_secret`로 읽는다(`…_FILE` 경로 우선, 없으면 환경 변수, D84). 학습 서버가 만든 어댑터를 패키지로 얹는 길은 `docs/runbook.md` 맨 끝. 읽기 토큰의 쓰기 호출은 403. 어댑터는 서버가 해시를 검증한 뒤에만 내고 클라이언트도 다시 계산한다. 상세는 `docs/runbook.md` 맨 위.
-클라이언트는 `boundary_contracts.clients.HttpModelRegistry`(v1.2.0)다. `tests/test_service.py::test_i3_server_conformance_with_real_client`가 서버 적합성 시험이다(게시 tar -> 조회 -> 어댑터 내려받기 -> 해시 검증, 200/201/409/403).
+같은 I3를 HTTP로 낸다(`../boundary-contracts/HTTP.md` I3 절): `GET /v1/packages`, `/v1/packages/{id}/versions`, `/v1/packages/{id}/versions/{version}`, `.../adapter`(tar), `/v1/eval-reports/{ref}`, `POST /v1/packages`(tar: `manifest.json`, `adapter/…`, `eval_report`; 201 새로 / 200 같은 내용 / 409 다른 내용). 읽기 토큰(`MODEL_REGISTRY_READ_TOKENS`, 예: `release-gate`)과 쓰기 토큰(`MODEL_REGISTRY_WRITE_TOKENS`, 역할 `model-lab`만)을 분리하고, 둘 다 `boundary_contracts.read_secret`로 읽는다(`…_FILE` 경로 우선, 없으면 환경 변수, D84).
+
+사용하는 비밀의 `NAME_FILE` 이름(배선의 정본은 `deploy/compose.yaml`의 model-registry 서비스, 여기에 값은 없다): 서비스 `MODEL_REGISTRY_READ_TOKENS_FILE`, `MODEL_REGISTRY_WRITE_TOKENS_FILE`. 잡(run-once)의 HTTP 클라이언트는 설정의 `token_env: NAME`이 `NAME_FILE`을 먼저 읽는다: 데이터셋 저장소 `DATASET_STORE_TOKEN_FILE`(주소 `DATASET_STORE_URL`은 비밀이 아니라 환경 변수), 레지스트리 게시 `MODEL_REGISTRY_WRITE_TOKEN_FILE`, 실패 사례 저장소 `FAILURE_STORE_TOKEN_FILE`(`configs/gpu-dev.yaml`).
+ 학습 서버가 만든 어댑터를 패키지로 얹는 길은 `docs/runbook.md` 맨 끝. 읽기 토큰의 쓰기 호출은 403. 어댑터는 서버가 해시를 검증한 뒤에만 내고 클라이언트도 다시 계산한다. 상세는 `docs/runbook.md` 맨 위.
+클라이언트는 `boundary_contracts.clients.HttpModelRegistry`다. `tests/test_service.py::test_i3_server_conformance_with_real_client`가 서버 적합성 시험이다(게시 tar -> 조회 -> 어댑터 내려받기 -> 해시 검증, 200/201/409/403).
 
 ## 소비
 | 대상 | 방법 | 버전 |
