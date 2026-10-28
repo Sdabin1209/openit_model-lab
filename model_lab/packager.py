@@ -31,8 +31,8 @@ def training_question_sets(dataset_manifest: dict, role: str) -> list[dict]:
 
 SYSTEM_PROMPT_FILE = "system_prompt.txt"
 # 왜: 계약 기록(DatasetManifest, ModelPackageManifest.lineage)에 turn_engine_version 필드가 남아 있다(D109). turn-engine 코드를 쓰지 않으므로
-# 값은 실행한 코드에서 읽을 수 없고, 마지막 릴리스 v0.4.3을 고정 표지로 쓴다(3.0.0에서 필드가 바뀐다). 설정 lineage.turn_engine_version으로 바꿀 수 있다.
-DEFAULT_TURN_ENGINE_MARK = "v0.4.3"
+# 값은 실행한 코드에서 읽을 수 없고, 마지막 릴리스 0.4.3을 고정 표지로 쓴다(v 없음: release-gate CONTRACT_COMPAT가 설치 패키지 버전 문자열과 전체 문자열로 비교한다)(3.0.0에서 필드가 바뀐다). 설정 lineage.turn_engine_version으로 바꿀 수 있다.
+DEFAULT_TURN_ENGINE_MARK = "0.4.3"
 
 
 def install_system_prompt(adapter_dir: Path, text: str, filename: str = SYSTEM_PROMPT_FILE) -> dict:

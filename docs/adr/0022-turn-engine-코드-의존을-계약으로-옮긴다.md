@@ -8,7 +8,7 @@
 
 ## 결정
 - 위반 검사: `boundary_contracts.action_rules.check_action_extraction(input, output, flow)`. 흐름표는 문진 스키마 `question_flow`(`survey_schema.load_data`)에서 order·skips만 뽑아 계약 `QuestionFlowTable`로 검증해 쓴다(`model_lab/flow.py`). 사본을 두지 않는다. 위반 코드 목록은 계약 규칙 데이터에서 읽는다.
-- 계보 값: `turn_engine_version` 필드는 계약 기록에 남아 있으므로 채운다. 값은 설정 `lineage.turn_engine_version`, 없으면 `v0.4.3`(마지막 릴리스를 가리키는 고정 표지). 실행한 코드에서 읽은 값이 아니다.
+- 계보 값: `turn_engine_version` 필드는 계약 기록에 남아 있으므로 채운다. 값은 설정 `lineage.turn_engine_version`, 없으면 `0.4.3`(마지막 릴리스를 가리키는 고정 표지, v 없음: release-gate CONTRACT_COMPAT가 설치 패키지 버전 문자열과 전체 문자열로 비교한다). 실행한 코드에서 읽은 값이 아니다.
 - 어댑터 디렉터리: 게시와 패키지 생성이 `ModelPackageLayout` 스키마로 검사한다(필수 3개 파일, 모르는 파일 거부). 모의 학습기의 어댑터 파일 이름을 `adapter_model.safetensors`로 맞췄다(내용은 safetensors가 아니다).
 - 회귀 평가 trace: `OpsFeedbackDeidentifiedTrace`로 검증한다(모르는 키 거부). 어기면 `trace_invalid`로 건너뛴다. `RegressionTraceInput`은 승격되지 않았다. trace 안의 입력은 `ActionExtractionInput`/`ResponseRequest`로 따로 본다(trace 스키마는 입력 모양을 느슨하게만 본다).
 

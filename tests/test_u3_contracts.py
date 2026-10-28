@@ -87,17 +87,27 @@ def test_trace_that_breaks_the_contract_is_skipped(name, mutate):
 
 def test_turn_engine_mark_comes_from_config(cfg, tmp_path):
     from tests.test_pipeline import mk, with_dirs
-    c = with_dirs(cfg, tmp_path, "mark"); c["lineage"] = {"turn_engine_version": "v9.8.7"}
+    c = with_dirs(cfg, tmp_path, "mark"); c["lineage"] = {"turn_engine_version": "9.8.7"}
     r = mk(c); rec = r.run()
     m = r.registry.get_manifest("lora-a-parser", rec["result"]["packages"]["LORA_A"]["version"])
-    assert m["lineage"]["turn_engine_version"] == "v9.8.7"
+    assert m["lineage"]["turn_engine_version"] == "9.8.7"
 
 
-def test_turn_engine_mark_defaults_to_v0_4_3(cfg, tmp_path):
+def test_turn_engine_mark_defaults_to_v0_4_3_without_v_prefix(cfg, tmp_path):
     from tests.test_pipeline import mk, with_dirs
     r = mk(with_dirs(cfg, tmp_path, "default")); rec = r.run()
     m = r.registry.get_manifest("lora-a-parser", rec["result"]["packages"]["LORA_A"]["version"])
-    assert m["lineage"]["turn_engine_version"] == "v0.4.3"
+    assert m["lineage"]["turn_engine_version"] == "0.4.3"
+    # 왜 v 없음: release-gate CONTRACT_COMPAT가 설치 패키지 버전 문자열과 전체 문자열로 비교한다. model_runtime_version과 같은 형식이다(D109).
+    assert re.fullmatch(r"\d+\.\d+\.\d+", m["lineage"]["turn_engine_version"])
+
+
+def test_default_mark_format_and_config_pattern():
+    from model_lab.packager import DEFAULT_TURN_ENGINE_MARK
+    from model_lab.config import CONFIG_SCHEMA
+    assert re.fullmatch(r"\d+\.\d+\.\d+", DEFAULT_TURN_ENGINE_MARK)
+    pat = CONFIG_SCHEMA["properties"]["lineage"]["properties"]["turn_engine_version"]["pattern"]
+    assert re.fullmatch(pat, "0.4.3") and not re.fullmatch(pat, "v0.4.3")
 
 
 # ---- 이미지 라벨: 계약 ImageLabels ---------------------------------------------------------------------------------------------
