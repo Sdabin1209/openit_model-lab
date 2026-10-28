@@ -8,9 +8,16 @@ from tests.doubles.dataset_store import DirDatasetStore, MemoryDatasetStore
 from tests.doubles.fixtures import build_dataset
 
 ROOT = Path(__file__).resolve().parents[1]
-_sib = (ROOT / ".." / "survey-service" / "schema" / "schemas").resolve()
-# GPU 호스트에는 이웃 폴더가 없어 vendor/에 복사해 둔 문진 스키마(읽기 전용 사본)를 쓴다.
-SCHEMA_DIR = _sib if _sib.is_dir() else (ROOT / "vendor" / "survey-schema" / "schemas")
+# vendor/survey-schema 사본이 있으면 먼저 쓰고(GPU 호스트), 없으면 태그로 설치된 survey_schema 패키지의 스키마 폴더를 쓴다.
+_vendor = ROOT / "vendor" / "survey-schema" / "schemas"
+
+
+def _installed_schema_dir() -> Path:
+    import survey_schema
+    return Path(survey_schema.contract_version_dir(1)) / "schemas"
+
+
+SCHEMA_DIR = _vendor if _vendor.is_dir() else _installed_schema_dir()
 
 
 @pytest.fixture(scope="session")

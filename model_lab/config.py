@@ -219,6 +219,10 @@ def load_config(path: str | Path) -> dict:
 
 
 def resolved_path(cfg: dict, value: str) -> Path:
+    # 왜: 문진 스키마는 태그로 설치한 패키지(requirements.lock의 openit-survey-schema)에서 읽는다. 이웃 폴더나 사본 경로를 설정에 박지 않기 위한 접두어.
+    if value == "installed:survey-schema":
+        import survey_schema
+        return Path(survey_schema.contract_version_dir(1)) / "schemas"
     p = Path(value)
     return p if p.is_absolute() else (Path(cfg["_base_dir"]) / p).resolve()
 

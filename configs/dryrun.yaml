@@ -3,7 +3,7 @@
 config_version: 1
 run: {name: dryrun, seed: 1234, runs_dir: ../runs}
 inputs:
-  schema_dir: ../../survey-service/schema/schemas
+  schema_dir: installed:survey-schema   # 태그 설치된 openit-survey-schema(requirements.lock)의 v1 스키마
   dataset: {id: fx-golden}               # version을 생략하면 가장 최근 버전(run-once가 쓰는 방식)
   dataset_store: {factory: "tests.doubles.dataset_store:from_dir", args: {root: fixtures/store}}
 base_model: {id: Qwen/Qwen2.5-1.5B-Instruct, revision: dry-run}

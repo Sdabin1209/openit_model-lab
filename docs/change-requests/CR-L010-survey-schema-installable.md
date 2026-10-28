@@ -1,3 +1,5 @@
+[철회: 이미 태그 설치 가능(requirements.lock 참조). `openit-survey-schema`가 survey-schema-v1.0.0 태그로 설치된다. 아래 전제는 틀렸다.]
+
 # CR-L010: 문진 스키마를 태그로 설치할 수 있게
 
 ## 무엇이 부족한가
