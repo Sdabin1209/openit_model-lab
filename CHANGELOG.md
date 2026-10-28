@@ -1,5 +1,8 @@
 # 변경 이력
 
+## 미배포 - model-runtime v0.7.7 -> v0.8.0 (헤드 지시 wo7)
+- `requirements.txt`, `requirements.lock`의 model-runtime 핀만 올렸다(다른 라이브러리 핀은 그대로). v0.8.0의 호환 깨짐(호출별 시간 상한 환경 변수, 인증 실패 401, 릴리스 매니페스트 `model_runtime_version` MAJOR.MINOR 일치)은 `model-runtime/docs/CHANGELOG.md`가 정본이다. 이 리포는 `model_runtime_version`을 `model_runtime.RUNTIME_VERSION`에서 읽으므로 코드 변경은 없다.
+
 ## 0.3.0 (제안; 태그 없음) - 지표 v2, TurnTrace 키, I2 HTTP (D94·D96~D98·D100)
 - 평가 지표를 METRICS.md v2로: `value_precision/recall`, `action/reason/status/next_item_accuracy`, `semantic_violation_rate`(turn-engine `validate_extraction`, 위반 코드별 slice), `output_invalid_rate`, `material_coverage`, 재료 기준 `ungrounded_number_rate`, `response_length_chars_p95`. v1 지표 폐기. 기존 score_a_v2 이름은 보조로 유지. ADR 0011. `unit=chars`는 스키마에 없어 count로 냄(CR-L009).
 - 회귀 평가의 trace 입력 키를 `extract_input`/`response_input`으로 확정(추정 키 제거, D98).
