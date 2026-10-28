@@ -77,15 +77,7 @@ scripts/smoke_registry.sh
 
 시험 개수의 정본은 이 절이다. 다른 문서는 개수를 복사하지 않고 여기를 가리킨다.
 
-확인한 것(2026-10-28, 이웃 폴더가 없는 새 `git clone`, Linux, Python 3.12.3, `bash scripts/setup-env.sh`를 두 번 실행해 둘 다 종료 코드 0, 그 뒤 `.venv/bin/python -m pytest -q`):
-
-| 조건 | 통과 | 실패 | 건너뜀 |
-| --- | --- | --- | --- |
-| 문진 스키마 없음(이웃 `../survey-service/schema`도 `vendor/survey-schema/`도 없음) | 151 | 45 | 0 |
-| `vendor/survey-schema/{schemas,CONTRACT_VERSION}`에 문진 스키마를 둠 | 196 | 0 | 0 |
-
-45건 실패의 원인은 `schema_dir 상위의 CONTRACT_VERSION을 읽을 수 없다`(`model_lab/schemas.py`)다. 문진 스키마는 태그로 설치되는 패키지가 아니어서 `setup-env.sh`가 가져올 수 없다. 이웃이 없는 새 머신에서 혼자 시험이 돌려면 문진 스키마를 태그 설치 가능하게 해야 하며 변경 요청 `docs/change-requests/CR-L010-survey-schema-installable.md`로 헤드에게 냈다(미해결). 그때까지는 `vendor/survey-schema/`에 읽기 전용 사본을 두면 통과한다(위 둘째 줄이 그 경우).
-
+확인한 것(2026-10-28, 이웃 폴더와 `vendor/`가 없는 새 `git clone`, Linux, Python 3.12.3): `bash scripts/setup-env.sh`를 두 번 실행해 둘 다 종료 코드 0, 그 뒤 `.venv/bin/python -m pytest -q` 결과는 **196 통과 / 0 실패 / 0 건너뜀**이다. 문진 스키마는 `requirements.lock`의 `openit-survey-schema`(태그 설치)에서 읽는다(`tests/conftest.py`, `configs/dryrun.yaml`의 `installed:survey-schema`). 한 환경(이 PC의 새 clone)에서만 확인했다.
 
 ## 이 영역의 열린 항목
 
