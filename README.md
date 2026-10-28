@@ -48,9 +48,8 @@
 전제(문서 근거): Python 3.10 이상(`pyproject.toml`), 의존 설치에 GitHub ssh 접근(태그 설치, `Dockerfile` 머리말), 이미지 스모크에 Docker. 학습·GPU 평가는 GPU 호스트 몫이고 이 README는 접속 방법을 다루지 않는다(`docs/runbook.md`의 GPU 호스트 절). 비밀(토큰)은 설정이나 명령줄에 쓰지 않고 `NAME_FILE`(파일 경로)로 받는다. 파일이 없을 때만 개발용으로 `NAME` 환경 변수를 쓴다(D84). 설정에 비밀을 직접 적으면 시작을 거부한다.
 
 ```
-# 1. 설치 (이 리포 안에서)
-python3 -m venv .venv
-.venv/bin/pip install -r requirements-dev.txt          # 태그 설치 + pytest + huggingface_hub(시험 필요, 없으면 1건이 건너뛰어진다). 이웃 폴더 editable 설치는 docs/runbook.md "환경 (CPU)"
+# 1. 설치 (이 리포 안에서; 멱등, 정본은 scripts/setup-env.sh. 핀은 requirements.lock·requirements-dev.txt)
+bash scripts/setup-env.sh
 # 2. 시험
 .venv/bin/python -m pytest -q
 # 3. 모델 없이 파이프라인 끝까지 (CPU)
@@ -73,6 +72,12 @@ scripts/smoke_registry.sh
 확인된 것(근거 문서): CPU에서 가짜 모델로 파이프라인 끝까지, 레지스트리 파일·메모리·HTTP 적합성 시험, 이미지 스모크는 옛 계약 버전 때 통과(`docs/STATUS.md` 9차). 시험 개수는 5절만 정본이다. 평가 지표는 METRICS.md v2로 바뀌었고(ADR 0011) 데이터셋은 HTTP 클라이언트로 읽는다(ADR 0012, 실제 클라이언트로는 아직 시험하지 못함). GPU 호스트(gpu-dev)에서 작은 시험 데이터로 학습→게시 한 바퀴와 재실행 skip을 확인한 기록이 있으나 오래된 버전 기준이다(`docs/STATUS.md` 2차). 학습 품질과 학습 감싸기 결과는 의미 있는 값이 없다.
 
 확인 못 한 것: 서버 학습 스크립트의 `--help` 실제 출력·인자 타입 검사 방식·산출물 위치(인자 이름은 헤드가 서버 코드의 `add_argument`를 읽어 확인했고 `args_verified: true`이다. 근거는 `configs/train.yaml`의 `args_evidence`), 진짜 어댑터의 서빙, 실제 모델 평가 값(지금까지 오라클 가짜 모델), 재개한 학습의 비트 단위 재현(`docs/design.md` 4절), 현재 `requirements.txt` 버전에서의 이미지 스모크와 새 환경 설치(`docs/STATUS.md` 11차의 pip 해결 미시도 기록). 두 번째 독립 머신 확인은 U12로 열려 있다.
+
+## 시험 상태 (5절)
+
+시험 개수의 정본은 이 절이다. 다른 문서는 개수를 복사하지 않고 여기를 가리킨다.
+
+PLACEHOLDER
 
 ## 이 영역의 열린 항목
 

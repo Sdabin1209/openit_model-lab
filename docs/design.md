@@ -103,7 +103,7 @@ CONVENTIONS 4절 멱등·CONFLICT, 게시 전 스키마·`content_hash`·`adapte
 
 ## 8-1. 게시 대상과 서비스 (D49)
 
-게시 단계는 `registry` 설정으로 로컬 파일 레지스트리 또는 원격 model-registry(HTTP)를 고른다. 원격은 `kind: http`이고 `boundary_contracts.clients.HttpModelRegistry`(v1.2.0)를 쓴다. 게시가 `UNAVAILABLE`로 실패해도 학습·평가·패키징 결과는 run 디렉터리에 남고 run 기록의 단계 상태가 `done`이라, 같은 명령을 다시 실행하면 게시만 다시 한다(시험: `test_registry_outage_keeps_training_result_and_retries_only_publish`). 패키지의 `ext."model-lab"`에 `resumed`, `resumed_from_step`을 남기고(D51), 평가 보고서 `context.evaluation_backend`에 평가 백엔드(이름·버전·제약 디코딩 여부)를 남긴다. 서버는 같은 파일 레지스트리를 HTTP로 낼 뿐이라 규칙(멱등·CONFLICT·해시 검증)이 한 곳에 있다. 서비스 쪽도 클라이언트와 같은 적합성 시험(`tests/test_registry.py`의 `http` 매개변수)을 통과한다. 이웃 읽기(I1·I2·I7)도 `inputs.*`의 팩토리 명세로 HTTP 클라이언트를 고른다.
+게시 단계는 `registry` 설정으로 로컬 파일 레지스트리 또는 원격 model-registry(HTTP)를 고른다. 원격은 `kind: http`이고 `boundary_contracts.clients.HttpModelRegistry`를 쓴다(계약 버전은 `requirements.txt`가 정본). 게시가 `UNAVAILABLE`로 실패해도 학습·평가·패키징 결과는 run 디렉터리에 남고 run 기록의 단계 상태가 `done`이라, 같은 명령을 다시 실행하면 게시만 다시 한다(시험: `test_registry_outage_keeps_training_result_and_retries_only_publish`). 패키지의 `ext."model-lab"`에 `resumed`, `resumed_from_step`을 남기고(D51), 평가 보고서 `context.evaluation_backend`에 평가 백엔드(이름·버전·제약 디코딩 여부)를 남긴다. 서버는 같은 파일 레지스트리를 HTTP로 낼 뿐이라 규칙(멱등·CONFLICT·해시 검증)이 한 곳에 있다. 서비스 쪽도 클라이언트와 같은 적합성 시험(`tests/test_registry.py`의 `http` 매개변수)을 통과한다. 이웃 읽기(I1·I2·I7)도 `inputs.*`의 팩토리 명세로 HTTP 클라이언트를 고른다.
 
 ## 9. 자동 실행 (D39)
 

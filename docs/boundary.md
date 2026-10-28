@@ -6,7 +6,7 @@
 모델 레지스트리(불변 패키지). I3 `ModelRegistry`. 쓰기는 이 영역만 한다. 구현: `model_lab.registry.FileModelRegistry`(디스크), `MemoryModelRegistry`(메모리). 둘 다 `boundary_contracts.sdk.ModelRegistry` Protocol을 만족하고 `tests/test_registry.py`의 같은 적합성 시험을 통과한다(오류 코드·멱등·해시 검증 포함).
 
 ## 제공 (I3)
-`publish`, `get_manifest`, `list_ids`, `list_versions`(오래된 것부터), `open_adapter`(해시 검증), `get_eval_report`. 생산 계약: `ModelPackageManifest`(역할마다 하나, 서빙 설정은 역할별). 2.0.0부터 `system_prompt{path, sha256}`가 필수이고 파일은 어댑터 디렉터리 안에 있다(`adapter_hash`에 포함, D75). `publish`는 파일이 있고 해시가 맞는지 확인한다(아니면 `INTEGRITY_ERROR`). 프롬프트의 출처는 설정의 `roles.<역할>.system_prompt_file`이다[제안, CR-L007]. 평가 리포트는 `eval_report_ref`(`eval-<package_id>.<version>`)로 가져오는 바이트이며 `EvaluationReport`(boundary-contracts v2.0.2, 지표 체계, 합격 판정·임계치 없음)다(`docs/design.md` 6-1). 이전의 자세한 보고서는 `ext."model-lab".detail`에 있다.
+`publish`, `get_manifest`, `list_ids`, `list_versions`(오래된 것부터), `open_adapter`(해시 검증), `get_eval_report`. 생산 계약: `ModelPackageManifest`(역할마다 하나, 서빙 설정은 역할별). 2.0.0부터 `system_prompt{path, sha256}`가 필수이고 파일은 어댑터 디렉터리 안에 있다(`adapter_hash`에 포함, D75). `publish`는 파일이 있고 해시가 맞는지 확인한다(아니면 `INTEGRITY_ERROR`). 프롬프트의 출처는 설정의 `roles.<역할>.system_prompt_file`이다[제안, CR-L007]. 평가 리포트는 `eval_report_ref`(`eval-<package_id>.<version>`)로 가져오는 바이트이며 `EvaluationReport`(boundary-contracts, 버전은 `requirements.txt`가 정본; 지표 체계, 합격 판정·임계치 없음)다(`docs/design.md` 6-1). 이전의 자세한 보고서는 `ext."model-lab".detail`에 있다.
 읽기 전용 SDK를 따로 만들지 않았다: 소비자(release-gate)는 같은 Protocol의 읽기 메서드를 쓴다. 읽기 토큰·원격 구현은 게이트와 배포 방식이 정해진 뒤 [미정].
 
 ## 서비스 형태 (D49): model-registry

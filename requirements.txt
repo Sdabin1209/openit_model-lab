@@ -1,4 +1,4 @@
-# 경계 계약·라이브러리는 Git 태그로 고정한다(D18, D22). 개발은 pip install -e ../boundary-contracts ../turn-engine ../model-runtime
+# 경계 계약·라이브러리는 Git 태그로 고정한다(D18, D22). 환경은 scripts/setup-env.sh 한 명령으로 만든다(이웃 폴더 editable 설치는 쓰지 않는다)
 boundary-contracts @ git+ssh://git@github.com/Sdabin1209/openit_boundary-contracts.git@v2.1.1
 turn-engine @ git+ssh://git@github.com/Sdabin1209/openit_turn-engine.git@v0.4.2
 model-runtime @ git+ssh://git@github.com/Sdabin1209/openit_model-runtime.git@v0.7.6

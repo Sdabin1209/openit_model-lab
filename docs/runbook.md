@@ -51,10 +51,8 @@
 
 ## 환경 (CPU)
 ```
-python3 -m venv .venv
-.venv/bin/pip install -e ../boundary-contracts -e ../turn-engine -e ../model-runtime pytest pyyaml
-# 태그로 설치(CI·이미지): .venv/bin/pip install -r requirements.txt   (requirements.lock이 확인된 전체 버전)
-.venv/bin/python -m pytest -q                      # 152건 통과
+bash scripts/setup-env.sh                          # 정본. requirements.lock + requirements-dev.txt(태그 설치), 멱등
+.venv/bin/python -m pytest -q                      # 통과·건너뜀 개수는 README 5절(시험 상태)만 정본
 ```
 D22 (2): 서비스가 없는 run-once 잡이라 Dockerfile 없이 `requirements.lock`으로 환경을 고정한다.
 
