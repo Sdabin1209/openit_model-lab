@@ -133,7 +133,7 @@ D22 (2): 서비스가 없는 run-once 잡이라 Dockerfile 없이 `requirements.
   --adapter-a <A의 adapter_dir> --adapter-b <B의 adapter_dir> \
   --prompt-a prompts/lora_a.system.txt --prompt-b prompts/lora_b.system.txt \
   --dataset-id <dataset.id> --dataset-version <dataset.version> --dataset-hash <sha256:...> \
-  --out runs/attach-<날짜> --no-publish
+  --created-at <UTC 시각, 예: 2026-10-29T00:00:00Z> --out runs/attach-<날짜> --no-publish
 ```
 
 ### 프로파일 표와 model-runtime 연결
@@ -161,8 +161,9 @@ D22 (2): 서비스가 없는 run-once 잡이라 Dockerfile 없이 `requirements.
   --adapter-a attach/LORA_A --adapter-b attach/LORA_B \
   --prompt-a prompts/lora_a.system.txt --prompt-b prompts/lora_b.system.txt \
   --dataset-id <id> --dataset-version <version> --dataset-hash <sha256:...> \
-  --out runs/attach-<날짜> --no-publish
+  --created-at <UTC 시각, 예: 2026-10-29T00:00:00Z> --out runs/attach-<날짜> --no-publish
 ```
+   **시각**: `--created-at`(예: `2026-10-29T00:00:00Z`) 또는 환경 변수 `SOURCE_DATE_EPOCH`(UTC 에포크 초의 10진 정수, reproducible-builds.org 규격)가 반드시 필요하다. 둘 다 있으면 `--created-at`이 이긴다. 둘 다 없거나 `SOURCE_DATE_EPOCH`가 정수가 아니면 아무것도 만들지 않고 종료 코드 2로 거부한다(파일 mtime으로 시각을 정하지 않는다, ADR 0014·0020). 같은 내용이라도 시각이 다르면 `content_hash`가 달라지므로 재실행할 때 같은 값을 준다.
    출력은 역할별 `package_id`, `version`(`attach-<어댑터 해시 앞 12자>`), `content_hash`, `adapter_hash`다. 매니페스트·평가 보고서는 `--out/package/`, 어댑터(두 파일 + `system_prompt.txt`만 복사)는 `--out/adapters/`에 있다.
 4. 게시한다: 위 명령에서 `--no-publish`를 뺀다. 게시 대상은 설정의 `registry`다(`configs/gpu-dev.yaml`은 `MODEL_REGISTRY_URL`, 쓰기 토큰 `MODEL_REGISTRY_WRITE_TOKEN_FILE` 또는 개발용 `MODEL_REGISTRY_WRITE_TOKEN`). 같은 입력으로 다시 실행해도 안전하다(같은 패키지는 200으로 그대로, 다른 내용이 같은 버전이면 `CONFLICT`).
 5. 검사(실패하면 아무것도 게시하지 않고 종료 코드 2): 어댑터 디렉터리에 `adapter_model.safetensors`와 `adapter_config.json`이 있어야 한다. `adapter_config.json`의 `base_model_name_or_path`가 프로파일의 `base_model.id`와 같아야 한다(다르면 거부). 프로파일에 `checks.max_lora_rank`가 있으면 어댑터의 `r`이 그 이하여야 한다. 기반 모델 `revision`은 프로파일 값(`main`)이거나 `--base-revision`으로 준 값이다. 어댑터 안에는 해석된 커밋이 없어서, 학습 run 기록의 `base_model_revision`을 알면 `--base-revision`으로 주는 것이 정확하다.

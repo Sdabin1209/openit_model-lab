@@ -11,8 +11,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import shutil
+from datetime import datetime, timezone
 from pathlib import Path
 
 from boundary_contracts import PIPELINE_SCHEMA_VERSION, canonical, validator
@@ -58,10 +60,23 @@ def check_adapter(role: str, adapter_dir: Path, base_model: dict, max_rank: int 
     return conf
 
 
-# 왜: created_at이 content_hash에 들어가므로 파일 시스템 mtime(복사·rsync 방식에 따라 달라짐)에서 읽으면 같은 내용이 다른 패키지가 되어
-# 재게시가 CONFLICT가 된다(점검 T22). 콘텐츠 주소 지정과 재현 가능한 빌드의 원칙대로 시각은 입력(--created-at)에서만 온다.
-# 학습 시각은 이 영역이 알 수 없으므로 주지 않으면 고정 기준 시각(Unix epoch)을 쓴다. 이것은 "시각을 모른다"는 표지이며 실제 시각이 아니다.
-UNKNOWN_CREATED_AT = "1970-01-01T00:00:00Z"
+# 왜: created_at이 content_hash에 들어가므로 파일 시스템 mtime(복사 방식에 따라 달라짐)에서 읽으면 같은 내용이 다른 패키지가 되어
+# 재게시가 CONFLICT가 된다(점검 T22). 시각은 입력에서만 온다: --created-at > SOURCE_DATE_EPOCH(reproducible-builds.org 규격: UTC 에포크 초의
+# 10진 정수) > 없으면 거부. 학습 시각을 이 영역은 알 수 없으므로 지어내지 않는다(ADR 0014, 0020).
+def resolve_created_at(created_at: str | None, environ=os.environ) -> str:
+    if created_at:
+        return created_at
+    raw = environ.get("SOURCE_DATE_EPOCH")
+    if raw is None:
+        raise ConfigError("created_at을 정할 수 없다. `--created-at 2026-10-29T00:00:00Z`로 주거나 환경 변수 "
+                          "`SOURCE_DATE_EPOCH`(UTC 에포크 초, 예: 1793232000)를 설정한다. 시각을 지어내지 않는다")
+    if not re.fullmatch(r"[0-9]+", raw.strip()):
+        raise ConfigError("SOURCE_DATE_EPOCH는 UTC 에포크 초의 10진 정수여야 한다(reproducible-builds.org 규격). "
+                          "무시하지 않고 거부한다. `--created-at`으로 직접 줄 수도 있다")
+    try:
+        return datetime.fromtimestamp(int(raw), timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    except (OverflowError, OSError, ValueError):
+        raise ConfigError("SOURCE_DATE_EPOCH가 시각 범위를 벗어났다") from None
 
 
 def _not_evaluated_report(*, role, package, dataset, created_at, decoding, report_id) -> dict:
@@ -124,6 +139,7 @@ def package_adapters(*, config: str | Path, adapters: dict, prompts: dict, out: 
         if r not in cfg.get("serving", {}) or r not in cfg["roles"]:
             raise ConfigError(f"설정에 serving.{r}와 roles.{r}가 필요하다")
     _check_ref(dataset)
+    created = resolve_created_at(created_at)      # 아무것도 만들기 전에 정한다
     max_rank = cfg.get("checks", {}).get("max_lora_rank")
     base = {"id": cfg["base_model"]["id"], "revision": base_revision or cfg["base_model"].get("revision") or "unspecified"}
     confs = {r: check_adapter(r, Path(adapters[r]), base, max_rank) for r in ROLES}
@@ -135,7 +151,6 @@ def package_adapters(*, config: str | Path, adapters: dict, prompts: dict, out: 
             raise PipelineError(f"{r}: 시스템 프롬프트 파일을 읽을 수 없다") from None
         if not texts[r].strip():
             raise PipelineError(f"{r}: 시스템 프롬프트 파일이 비어 있다")
-    created = created_at or UNKNOWN_CREATED_AT
     lineage, warnings = {}, {}
     for r in ROLES:
         rp = (train_records or {}).get(r)

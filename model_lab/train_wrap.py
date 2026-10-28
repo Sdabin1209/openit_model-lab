@@ -287,6 +287,7 @@ def next_step(cfg: dict) -> str:
     ds = cfg["dataset"]
     return ("다음: A와 B 어댑터가 모두 있으면 docs/runbook.md의 `package-adapters` 절 명령을 쓴다. 이 역할 몫: "
             f"{mine} --dataset-id {ds['id']} --dataset-version {ds['version']} --dataset-hash {ds.get('content_hash') or '<sha256:... 서버 run 기록의 dataset>'} "
+            f"--created-at <UTC 시각> 또는 환경 변수 SOURCE_DATE_EPOCH가 필요하다 "
             f"(다른 역할 {other}은 같은 방식으로 학습)")
 
 

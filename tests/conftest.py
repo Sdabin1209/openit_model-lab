@@ -49,3 +49,10 @@ def store(fixture_store):
 
 
 FIXED = lambda: "2026-10-15T00:00:00Z"  # noqa: E731
+
+
+@pytest.fixture(autouse=True)
+def _source_date_epoch(monkeypatch):
+    """package-adapters는 created_at의 출처가 없으면 거부한다(ADR 0020). 다른 시험은 고정 시각을 SOURCE_DATE_EPOCH로 준다.
+    출처가 없을 때를 시험하는 tests/test_source_date_epoch.py는 이 값을 지운다."""
+    monkeypatch.setenv("SOURCE_DATE_EPOCH", "1700000000")

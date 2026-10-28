@@ -61,7 +61,7 @@ scripts/smoke_registry.sh
 # 5. 학습 감싸기 (학습 서버에서): 점검 -> 명령 미리 보기 (A: train.yaml, B: train-b.yaml)
 .venv/bin/python -m model_lab train-doctor --config configs/train.yaml
 .venv/bin/python -m model_lab train --config configs/train.yaml --dry-run
-# 6. 학습 서버 어댑터 얹기 (게시 안 함; 인자 전체는 docs/runbook.md D84 절)
+# 6. 학습 서버 어댑터 얹기 (게시 안 함; 인자 전체는 docs/runbook.md D84 절; 시각은 --created-at 또는 SOURCE_DATE_EPOCH 필수, ADR 0020)
 .venv/bin/python -m model_lab package-adapters --help
 ```
 
