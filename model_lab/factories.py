@@ -33,7 +33,18 @@ def resolve_args(args: Mapping, env: Mapping = os.environ) -> dict:
     return out
 
 
+# 왜(점검 C6, ADR 0017): 설정의 `module:callable`은 import 가능한 아무 호출 대상을 실행하게 한다. 설정 작성자는 운영자(신뢰 대상)이지만
+# 오타·복사 실수·잘못된 설정 파일이 임의 호출이 되지 않도록 이름을 허용 목록으로 제한한다. 이름을 늘리려면 이 목록과 ADR을 고친다.
+ALLOWED_FACTORIES = frozenset({
+    *HTTP_CLIENTS.values(),
+    "model_lab.file_dataset_store:file_dataset_store",      # 로컬 개발용 I2 읽기
+    "tests.doubles.dataset_store:from_dir",                # 시험·CPU 스모크용 가짜 데이터(운영 이미지에는 tests 패키지가 없다)
+})
+
+
 def load_callable(path: str):
+    if path not in ALLOWED_FACTORIES:
+        raise ConfigError(f"허용 목록에 없는 팩토리다: {path}. 허용: {', '.join(sorted(ALLOWED_FACTORIES))}")
     mod, fn = path.split(":")
     try:
         return getattr(importlib.import_module(mod), fn)
