@@ -1,7 +1,9 @@
 # CR-L012: 영역 경계를 넘는 형식의 JSON Schema 초안 (작업 지시서 1의 B)
 
+> **처리됨 (U49, 2026-10-30).** 5개 중 `model-package-layout`은 계약 `ModelPackageLayout`으로 승격(D107)되어, `regression-trace-input`은 계약 `OpsFeedbackDeidentifiedTrace`로 대체되어 이 리포의 사본을 지웠다(정본은 boundary-contracts). 나머지 3개(`server-dataset-row`, `server-train-invocation`, `train-wrap-record`)는 학습 서버와의 형식이라 영역 소유로 남기고 `docs/schemas/`로 옮겼다. 아래 본문은 요청 당시의 기록이며 경로는 옮긴 위치로 고쳤다. 분류 표는 `CHANGELOG.md`.
+
 - 상태: 헤드에게 보낸다(2026-10-28, model-lab). **초안이다. 코드는 아직 이 스키마를 쓰지 않는다**(헤드가 계약에 올린 뒤의 다음 단계).
-- 스키마: `docs/change-requests/schemas/*.schema.json` (JSON Schema 2020-12), 예시: `schemas/examples/`. 예시는 실제 코드가 만든 문서다(생성 방법은 형식마다 적음).
+- 스키마: `docs/schemas/*.schema.json` (JSON Schema 2020-12), 예시: `schemas/examples/`. 예시는 실제 코드가 만든 문서다(생성 방법은 형식마다 적음).
 - 근거: `docs/audit/structure-rules-2026-10-28.md` 6절 "계약에 없는 경계 형식" 1·2·4·5와 README D-E.
 
 ## 1. server-dataset-row (학습 서버 JSONL 한 줄)
@@ -40,7 +42,7 @@
 - 참고: 레지스트리 서버 내부 배치(`manifests/`, `adapters/`, `eval_reports/`, `ids.json`)는 model-lab의 저장 구조이며 이웃이 알 필요가 없어 스키마에 넣지 않았다(HTTP로만 읽는다).
 
 ## 검증 (jsonschema, 이 리포의 .venv)
-명령(`/tmp/validate.py`는 아래 스크립트): `.venv/bin/python -I /tmp/validate.py docs/change-requests/schemas`
+명령(`/tmp/validate.py`는 아래 스크립트): `.venv/bin/python -I /tmp/validate.py docs/schemas`
 ```
 OK   model-package-layout.invalid.json: rejected ('system_prompt.txt' is a required property)
 OK   model-package-layout.valid.json: accepted

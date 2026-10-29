@@ -1,5 +1,16 @@
 # 변경 이력
 
+## 미배포 - U49: 계약으로 승격된 스키마의 영역 사본 정리
+| 파일(docs/change-requests/ 아래) | 분류 | 처리 | 근거 |
+| --- | --- | --- | --- |
+| `contract-ready/schemas/ModelPackageLayout.schema.json`, `contract-ready/examples/**`(8), `contract-ready/validate.py`, `contract-ready/MANIFEST.json` | (가) 계약 `ModelPackageLayout` 승격본의 사본과 검증 도구 | 삭제 | 계약 패키지에 같은 이름의 스키마와 예시가 있다. 코드는 `validator("ModelPackageLayout")`를 쓴다(`model_lab/registry.py`) |
+| `schemas/model-package-layout.schema.json`, `schemas/examples/model-package-layout.*`(2) | (가) 같은 형식의 초안 | 삭제 | 위와 같다 |
+| `schemas/regression-trace-input.schema.json`, `schemas/examples/regression-trace-input.*`(3) | (나) 계약에 없음, 쓰지 않는 초안 | 삭제 | 승격하지 않고 계약 `OpsFeedbackDeidentifiedTrace`로 대체했다(MANIFEST 결정). 코드는 그것으로 trace를 검증한다(`model_lab/regression.py`). 읽는 쪽 부분집합이라 정본이 될 수 없다 |
+| `schemas/server-dataset-row.schema.json` + 예시 3 | (나) 영역 소유(학습 서버와의 형식) | `docs/schemas/`로 이동 | D107: 영역 밖 당사자와의 형식이라 계약에 올리지 않았다. 변경 요청 폴더는 요청의 기록이므로 쓰는 스키마의 위치로 맞지 않다. 시험이 실제 서버 행(`tests/data/server_rows_lora_*.jsonl`)을 이 스키마로 검증한다 |
+| `schemas/server-train-invocation.schema.json` + 예시 2 | (나) 영역 소유 | `docs/schemas/`로 이동 | 위와 같다. 예시 수락/거부를 시험이 본다 |
+| `schemas/train-wrap-record.schema.json` + 예시 2 | (나) 영역 소유 | `docs/schemas/`로 이동 | 위와 같다 |
+- 삭제 18개(`contract-ready` 11 + `schemas` 7), 이동 10개(스키마 3 + 예시 7), 남긴 스키마 3개. 시험 `tests/test_owned_schemas.py`가 남은 스키마에 계약 사본이 없음, 예시 수락/거부, 실제 서버 행 통과를 지킨다.
+
 ## 미배포 - 계약 v2.7.0 핀 (코드 변경 없음)
 - requirements.txt, requirements.lock, requirements-service.txt. 시험·build-image.sh 통과.
 
