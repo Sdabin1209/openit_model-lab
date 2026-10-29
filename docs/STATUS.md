@@ -1,5 +1,8 @@
 # STATUS (2026-10-29)
 
+## 19차 갱신: U43, 브랜치 wo-43
+- 계약 v2.6.0 핀, `setup-env.sh`의 SetupEnvReport(ADR 0025), 시험 `tests/test_setup_env.py`.
+
 ## 18차 갱신: U42, 브랜치 wo-42
 - 빌드 진입점 `scripts/build-image.sh`(ADR 0024), 계약 v2.5.1, 서빙 설정 계약 검증(설정 읽을 때 한 번). 시험은 `tests/test_build_image.py`.
 

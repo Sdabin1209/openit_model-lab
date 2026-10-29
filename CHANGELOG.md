@@ -1,5 +1,8 @@
 # 변경 이력
 
+## 미배포 - U43: 계약 v2.6.0, setup-env 보고 (ADR 0025)
+- `scripts/setup-env.sh`가 표준 출력 마지막 줄에 SetupEnvReport를 낸다(진행 기록은 표준 오류). 계약 핀 v2.6.0.
+
 ## 미배포 - U42: 빌드 진입점 + 계약 v2.5.0 (ADR 0024)
 - `scripts/build-image.sh`(BuildImageRequest/Result). 계약 v2.5.1 핀. 서빙 설정은 설정을 읽을 때 계약 `ServingConfig`로 한 번 검증하고 패키저·파이프라인의 `model_runtime.validate_serving_config` 호출을 지웠다(R7).
 
