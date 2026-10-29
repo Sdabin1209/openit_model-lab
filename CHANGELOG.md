@@ -1,5 +1,8 @@
 # 변경 이력
 
+## 미배포 - model-runtime v0.11.1 핀 (v0.11.0에서 올림; 코드 변경 없음)
+- requirements.txt, requirements.lock. 새로 만드는 매니페스트의 lineage.model_runtime_version은 "0.11.1"(상수에서 읽음).
+
 ## 미배포 - model-runtime v0.11.0 핀 (v0.10.0에서 올림; 코드 변경 없음)
 - requirements.txt, requirements.lock. 새로 만드는 매니페스트의 lineage.model_runtime_version은 "0.11.0"(상수에서 읽음).
 
