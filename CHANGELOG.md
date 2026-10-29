@@ -1,5 +1,8 @@
 # 변경 이력
 
+## 미배포 - 열차 D115: 계약 v2.4.1, model-runtime v0.10.0 (코드 변경 없음)
+- 핀만 바꿨다(requirements.txt, requirements.lock, requirements-service.txt). 새로 만드는 매니페스트의 pipeline_schema_version은 "2.4", lineage.model_runtime_version은 "0.10.0"이 된다(상수에서 읽음). 시험·이미지 smoke 통과.
+
 ## 미배포 - 계약 v2.3.0 핀 (v2.2.2에서 올림; 코드 변경 없음)
 - requirements.txt, requirements.lock, requirements-service.txt. 시험·이미지 smoke 통과.
 
