@@ -1,5 +1,8 @@
 # 변경 이력
 
+## 미배포 - 계약 v2.3.0 핀 (v2.2.2에서 올림; 코드 변경 없음)
+- requirements.txt, requirements.lock, requirements-service.txt. 시험·이미지 smoke 통과.
+
 ## 미배포 - 단위 4a: model-registry를 WSGI 앱 + waitress로 (D111, ADR 0023)
 - 직접 만든 스레드 HTTP 서버(연결 세마포어, 소켓 timeout, 본문 버리기)를 지우고 waitress 설정으로 옮겼다. `MODEL_REGISTRY_THREADS` 추가.
 - 동작 변경: 본문을 다 받은 뒤 앱이 불린다(비인증 요청도 본문 상한까지 받는다), 상한 초과는 413(waitress 본문), 연결 상한 초과는 503 없이 대기. ADR 0023 결과 절.
