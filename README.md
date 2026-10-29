@@ -150,3 +150,4 @@ scripts/smoke_registry.sh
 | [0023](docs/adr/0023-WSGI-앱을-waitress로-서빙한다.md) | 서버를 WSGI 앱 + waitress로 (0010 대체) |
 | [0024](docs/adr/0024-영역-빌드-진입점-build-image.md) | 이미지 빌드는 계약 진입점 `scripts/build-image.sh` |
 | [0025](docs/adr/0025-setup-env는-마지막-줄에-SetupEnvReport를-낸다.md) | `scripts/setup-env.sh`는 마지막 줄에 SetupEnvReport |
+| [0026](docs/adr/0026-노출-선언은-전부-denied.md) | 노출 선언 라벨 `io.openit.exposure`, 이 서비스는 전부 denied |

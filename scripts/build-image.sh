@@ -31,6 +31,17 @@ PY
 )" || exit 2
 [ -f "$SOURCE_DIR/Dockerfile" ] || { echo "source_dir에 Dockerfile이 없다" >&2; exit 2; }
 
+# 노출 선언(U47): 리포의 deploy-exposure.json을 계약 Exposure로 검증해 이미지 라벨 io.openit.exposure(JSON 문자열)로 단다.
+# 왜 정렬·공백 없는 JSON: 같은 표는 같은 라벨 값이어야 같은 요청이 같은 이미지가 된다(멱등).
+EXPOSURE=$("$PY" - "$SOURCE_DIR/deploy-exposure.json" <<'PY'
+import json, sys
+from boundary_contracts import validator
+doc = json.load(open(sys.argv[1], encoding="utf-8"))
+validator("Exposure").validate(doc)
+print(json.dumps(doc, ensure_ascii=False, sort_keys=True, separators=(",", ":")))
+PY
+) || { echo "deploy-exposure.json이 계약 Exposure를 어긴다" >&2; exit 2; }
+
 # 2. boundary-contracts wheel: 빌드 중 네트워크(SSH) 대신 dependency_sources 소스 트리에서 만든다(Dockerfile의 wheels 컨텍스트).
 #    SOURCE_DATE_EPOCH 고정: wheel 안 시각이 달라 같은 요청이 다른 이미지가 되지 않게 한다(멱등, 같은 소스의 wheel 두 번이 바이트까지 같은 것을 확인).
 WORK=$(mktemp -d); trap 'rm -rf "$WORK"' EXIT
@@ -41,7 +52,7 @@ case "$WHL" in boundary_contracts-"${BC_VERSION#v}"-*) ;; *) echo "dependency_so
 
 # 3. 빌드
 # 왜 --provenance=false: BuildKit이 붙이는 출처 증명(attestation)에 빌드마다 다른 시각·ID가 들어가 이미지 ID(인덱스 digest)가 매번 달라진다. 같은 요청이 같은 이미지가 되려면 끈다(실측: 끄기 전 3회 모두 다른 ID).
-"$DOCKER" build -q --provenance=false -t "$IMAGE_TAG" --build-context "wheels=$WORK/wheels" --build-arg "BC_SPEC=/wheels/$WHL" \
+"$DOCKER" build -q --provenance=false --label "io.openit.exposure=$EXPOSURE" -t "$IMAGE_TAG" --build-context "wheels=$WORK/wheels" --build-arg "BC_SPEC=/wheels/$WHL" \
   --build-arg "BC_VERSION=$BC_VERSION" --build-arg "REVISION=$REVISION" "$SOURCE_DIR" >&2
 
 # 4. 결과: 이미지에 실제로 붙은 라벨을 docker inspect로 읽어 계약으로 검증하고 요청 값과 대조한다.

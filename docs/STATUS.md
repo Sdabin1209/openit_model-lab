@@ -1,5 +1,8 @@
 # STATUS (2026-10-29)
 
+## 20차 갱신: U47, 브랜치 wo-47
+- 노출 선언 `deploy-exposure.json` + 라벨 `io.openit.exposure`(ADR 0026), 시험 `tests/test_exposure.py`.
+
 ## 19차 갱신: U43, 브랜치 wo-43
 - 계약 v2.6.0 핀, `setup-env.sh`의 SetupEnvReport(ADR 0025), 시험 `tests/test_setup_env.py`.
 

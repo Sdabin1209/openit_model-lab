@@ -1,5 +1,8 @@
 # 변경 이력
 
+## 미배포 - U47: 노출 선언 라벨 (ADR 0026)
+- `deploy-exposure.json`(계약 Exposure)을 `scripts/build-image.sh`가 이미지 라벨 `io.openit.exposure`로 단다. model-registry는 게이트웨이 밖에 내지 않으므로 모든 경로 denied.
+
 ## 미배포 - U43: 계약 v2.6.0, setup-env 보고 (ADR 0025)
 - `scripts/setup-env.sh`가 표준 출력 마지막 줄에 SetupEnvReport를 낸다(진행 기록은 표준 오류). 계약 핀 v2.6.0.
 

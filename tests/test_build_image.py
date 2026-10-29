@@ -84,6 +84,10 @@ def test_build_image_end_to_end(tmp_path):
         lab = out["labels"]
         assert lab["io.openit.revision"] == req["revision"] and lab["io.openit.contracts.boundary"] == "v2.6.0"
         assert lab["io.openit.service"] == "model-registry"
+        # U47: 노출 선언 라벨. 값은 deploy-exposure.json과 같고 계약 Exposure를 통과한다
+        exposure = json.loads(lab["io.openit.exposure"])
+        validator("Exposure").validate(exposure)
+        assert exposure == json.loads((ROOT / "deploy-exposure.json").read_text(encoding="utf-8"))
         again = run(p)                                       # 멱등: 같은 요청은 같은 이미지(wheel 안 시각을 고정해 두었다)
         assert again.returncode == 0 and json.loads(again.stdout.strip().splitlines()[-1])["image_id"] == out["image_id"]
         LOG_DIR.mkdir(exist_ok=True)

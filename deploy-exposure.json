@@ -1,0 +1,9 @@
+{
+  "service": "model-registry",
+  "routes": [
+    {
+      "paths": ["/v1/packages", "/v1/packages/*", "/v1/eval-reports/*", "/healthz", "/readyz"],
+      "auth": {"kind": "denied"}
+    }
+  ]
+}
