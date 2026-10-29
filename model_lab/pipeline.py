@@ -200,7 +200,6 @@ class Run:
             out = self.dir / "data" / role
             out.mkdir(parents=True, exist_ok=True)
             serving = self.cfg["serving"][role]
-            model_runtime.validate_serving_config(serving)
             sysp = system_prompt_text(self.cfg, role)
             tv_samples, splits = [], {}
             for split in ("TRAIN", "VALIDATION", "EVAL"):

@@ -1,5 +1,8 @@
 # STATUS (2026-10-29)
 
+## 18차 갱신: U42, 브랜치 wo-42
+- 빌드 진입점 `scripts/build-image.sh`(ADR 0024), 계약 v2.5.1, 서빙 설정 계약 검증(설정 읽을 때 한 번). 시험은 `tests/test_build_image.py`.
+
 ## 17차 갱신: 단위 4a, model-registry 서버를 waitress로, 브랜치 wo-u4
 - `service/app.py`를 WSGI 앱 + waitress로 바꿨다(ADR 0023, 0010 대체). 서버 성질 시험 `tests/test_server_properties.py`를 교체 전에 먼저 넣어 통과를 확인했다.
 - 동작이 바뀐 곳(본문 선수신, 413, 연결 상한 대기)은 ADR 0023 결과 절에 있다. 비인증 요청이 본문 상한까지 디스크에 쓸 수 있게 된 점은 헤드 판단이 필요하다.

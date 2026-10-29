@@ -13,7 +13,7 @@ from typing import Any
 
 import jsonschema
 import yaml
-from boundary_contracts import canonical
+from boundary_contracts import canonical, validator
 
 from .errors import ConfigError
 
@@ -80,7 +80,7 @@ _FACTORY = {"type": "object", "additionalProperties": False, "required": ["facto
 _HTTP_STORE = {"type": "object", "additionalProperties": False, "required": ["kind"],
                "properties": {"kind": {"const": "http"}, "base_url": {"type": "string"}, "base_url_env": {"type": "string"},
                               "token_env": {"type": "string"}, "timeout": {"type": "number", "exclusiveMinimum": 0}}}
-_SERVING = {"type": "object"}  # 형식은 model-runtime의 validate_serving_config가 검증한다
+_SERVING = {"type": "object"}  # 형식은 validate_config가 계약 ServingConfig 스키마로 검증한다(model-runtime 사본을 쓰지 않는다, U42)
 
 CONFIG_SCHEMA: dict[str, Any] = {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -256,6 +256,11 @@ def validate_config(cfg: dict) -> None:
     if errs:
         msg = "; ".join(f"/{'/'.join(map(str, e.absolute_path))}: {e.message[:120]}" for e in errs[:8])
         raise ConfigError(f"설정 형식 위반: {msg}")
+    # 왜 여기서 한 번: 서빙 설정의 형식은 계약 ServingConfig가 정한다(모르는 키 거부). 여기서 보증한 값을 패키저·파이프라인이 다시 검사하지 않는다(R7).
+    for role, sc in (cfg.get("serving") or {}).items():
+        serr = sorted(validator("ServingConfig").iter_errors(sc), key=lambda e: list(map(str, e.absolute_path)))
+        if serr:
+            raise ConfigError(f"설정 형식 위반: /serving/{role}/{'/'.join(map(str, serr[0].absolute_path))}: {serr[0].message[:120]}")
 
 
 def load_config(path: str | Path) -> dict:

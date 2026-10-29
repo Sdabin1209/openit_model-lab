@@ -54,7 +54,6 @@ def build_manifest(*, role: str, package_id: str, version: str, created_at: str,
                    dataset_manifest: dict, run_id: str, ext: dict, system_prompt: dict,
                    turn_engine_version: str = DEFAULT_TURN_ENGINE_MARK) -> dict:
     """system_prompt: install_system_prompt가 낸 {path, sha256}. 어댑터 디렉터리 안의 파일과 맞아야 한다."""
-    model_runtime.validate_serving_config(serving_config)
     verify_system_prompt(adapter_dir, system_prompt)
     layout_of(adapter_dir, role)      # 게시 때 거절될 디렉터리를 만들기 전에 알린다(같은 검사, 게시 쪽이 정본)
     m = {

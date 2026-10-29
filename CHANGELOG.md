@@ -1,5 +1,8 @@
 # 변경 이력
 
+## 미배포 - U42: 빌드 진입점 + 계약 v2.5.0 (ADR 0024)
+- `scripts/build-image.sh`(BuildImageRequest/Result). 계약 v2.5.1 핀. 서빙 설정은 설정을 읽을 때 계약 `ServingConfig`로 한 번 검증하고 패키저·파이프라인의 `model_runtime.validate_serving_config` 호출을 지웠다(R7).
+
 ## 미배포 - 열차 D115: 계약 v2.4.1, model-runtime v0.10.0 (코드 변경 없음)
 - 핀만 바꿨다(requirements.txt, requirements.lock, requirements-service.txt). 새로 만드는 매니페스트의 pipeline_schema_version은 "2.4", lineage.model_runtime_version은 "0.10.0"이 된다(상수에서 읽음). 시험·이미지 smoke 통과.
 
