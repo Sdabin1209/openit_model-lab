@@ -1,5 +1,8 @@
 # 변경 이력
 
+## 미배포 - 계약 v2.7.0 핀 (코드 변경 없음)
+- requirements.txt, requirements.lock, requirements-service.txt. 시험·build-image.sh 통과.
+
 ## 미배포 - U47: 노출 선언 라벨 (ADR 0026)
 - `deploy-exposure.json`(계약 Exposure)을 `scripts/build-image.sh`가 이미지 라벨 `io.openit.exposure`로 단다. model-registry는 게이트웨이 밖에 내지 않으므로 모든 경로 denied.
 

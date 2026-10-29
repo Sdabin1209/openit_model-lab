@@ -33,7 +33,7 @@ def test_config_rejects_serving_config_that_breaks_the_contract(cfg):
 
 # ---- 진입점 ------------------------------------------------------------------------------------------------------------------
 
-def bc_source(tmp_path, tag="v2.6.0") -> Path:
+def bc_source(tmp_path, tag="v2.7.0") -> Path:
     """deploy가 하는 것처럼 태그 시점 소스 트리를 꺼낸다(git archive)."""
     d = tmp_path / "bc-src"
     d.mkdir(exist_ok=True)
@@ -43,7 +43,7 @@ def bc_source(tmp_path, tag="v2.6.0") -> Path:
 
 
 def request(tmp_path, **over):
-    req = {"source_dir": str(ROOT), "revision": "abcdef1", "versions": {"boundary": "v2.6.0"},
+    req = {"source_dir": str(ROOT), "revision": "abcdef1", "versions": {"boundary": "v2.7.0"},
            "dependency_sources": {"boundary": str(bc_source(tmp_path))}, "image_tag": f"model-lab-registry-test/{uuid.uuid4().hex[:8]}:t"}
     req.update(over)
     p = tmp_path / "req.json"
@@ -82,7 +82,7 @@ def test_build_image_end_to_end(tmp_path):
         validator("BuildImageResult").validate(out)
         assert out["image"] == req["image_tag"]
         lab = out["labels"]
-        assert lab["io.openit.revision"] == req["revision"] and lab["io.openit.contracts.boundary"] == "v2.6.0"
+        assert lab["io.openit.revision"] == req["revision"] and lab["io.openit.contracts.boundary"] == "v2.7.0"
         assert lab["io.openit.service"] == "model-registry"
         # U47: 노출 선언 라벨. 값은 deploy-exposure.json과 같고 계약 Exposure를 통과한다
         exposure = json.loads(lab["io.openit.exposure"])
