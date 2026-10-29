@@ -1,5 +1,8 @@
 # 변경 이력
 
+## 미배포 - 문진 스키마 survey-schema-v2.0.0 핀 (코드 변경 없음)
+- requirements.txt, requirements.lock(v1.1.0에서 올림). 흐름표(question_flow) 읽기와 평가 시험 그대로 통과.
+
 ## 미배포 - 계약 3.0.0 전환 (ADR 0027)
 - boundary-contracts v3.0.0. `lineage.turn_engine_version` -> `lineage.action_rules_version`(계약 규칙 데이터에서 읽음), 설정 `lineage` 키와 `DEFAULT_TURN_ENGINE_MARK` 삭제, 이미지 라벨 `io.openit.turn-engine` 삭제. build-image.sh는 라벨을 실제 설치 버전에서 찍고 고정 버전과 다르면 실패한다(U50).
 
