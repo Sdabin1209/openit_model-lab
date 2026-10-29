@@ -21,7 +21,7 @@
 ## 3. 소비하는 것
 
 - 소비하는 계약: `ActionExtractionSample`, `ResponseSample`, `DatasetManifest`(I2), `ActionExtractionInput`, `ActionExtraction`, `ResponseRequest`, `ResponseText`(회귀 평가와 패키징의 입출력 검증). 내보내는 계약은 `ModelPackageManifest`, `EvaluationReport`. 코드가 `validator(...)`로 읽는 것만 적었다(`model_lab` grep). `FailureCase`(I7)는 HTTP 클라이언트가 검증해 돌려주는 값을 쓴다.
-- 소비하는 SDK: 데이터셋 읽기 SDK(synthetic-data), 실패 사례 읽기 SDK(ops-feedback), 문항 읽기 SDK(question-authoring, D13), 판정 조회 SDK(release-gate). 라이브러리로 turn-engine, model-runtime, 문진 스키마.
+- 소비하는 SDK: 데이터셋 읽기 SDK(synthetic-data), 실패 사례 읽기 SDK(ops-feedback), 문항 읽기 SDK(question-authoring, D13), 판정 조회 SDK(release-gate). 라이브러리로 model-runtime, 문진 스키마.
 - 지원하는 계약 버전: 문진 스키마 정수 버전, 경계 계약 `MAJOR.MINOR`.
 
 ## 3-1. 경계 명세 (블랙박스 기준)
@@ -37,7 +37,7 @@
 ## 4. 상위 수용 기준
 
 - 패키지는 불변이다. 어댑터 해시, 기반 모델, 서빙 설정, 학습 계보(데이터셋 버전과 실험), 평가 리포트 참조가 매니페스트에 있다.
-- 평가는 서비스와 같은 model-runtime·turn-engine으로 수행해 서빙 동작을 재현한다.
+- 평가는 서비스와 같은 model-runtime과 계약의 LoRA-A 출력 규칙으로 수행해 서빙 동작을 재현한다.
 - 평가를 문항 유형·단위·범위별로 쪼개 볼 수 있다(D13).
 - 회귀 평가가 실패 사례(정답 있는 것)를 포함한다.
 - 학습 데이터에 평가셋이 섞이지 않는다.

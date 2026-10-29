@@ -11,7 +11,7 @@ PY=${PYTHON:-}
 [ -n "$PY" ] || { [ -x .venv/bin/python ] && PY=.venv/bin/python || PY=python3; }
 
 # 1. 요청 검증(영역 경계 입력): 계약 validator. 이 영역이 쓰는 키(versions.boundary, dependency_sources.boundary)가 없으면 실패한다.
-#    왜 기본값이 없나: 기준표(deploy lib.sh)와 어긋난 버전이 조용히 빌드되지 않게 한다. 이 이미지는 model-runtime·문진 스키마·turn-engine을 쓰지 않아 해당 키는 무시한다.
+#    왜 기본값이 없나: 기준표(deploy lib.sh)와 어긋난 버전이 조용히 빌드되지 않게 한다. 이 이미지는 model-runtime·문진 스키마를 쓰지 않아 해당 키는 무시한다.
 eval "$("$PY" - "$1" <<'PY'
 import json, shlex, sys
 from boundary_contracts import validator
@@ -48,12 +48,21 @@ WORK=$(mktemp -d); trap 'rm -rf "$WORK"' EXIT
 mkdir "$WORK/wheels"
 SOURCE_DATE_EPOCH=0 "$PY" -m pip wheel -q --no-deps -w "$WORK/wheels" "$BC_SRC" >&2
 WHL=$(basename "$(ls "$WORK"/wheels/boundary_contracts-*.whl | head -1)")
-case "$WHL" in boundary_contracts-"${BC_VERSION#v}"-*) ;; *) echo "dependency_sources.boundary($WHL)가 versions.boundary($BC_VERSION)와 다르다" >&2; exit 2;; esac
+# U50 라벨 정직성: 라벨 값은 요청 문자열이 아니라 실제로 설치할 wheel의 버전에서 만든다. 요청·소스·이 영역의 고정 버전이 하나라도 다르면 이미지를 만들지 않고 실패한다.
+WHL_VERSION="v$(printf '%s' "$WHL" | sed -n 's/^boundary_contracts-\([0-9][0-9.]*\)-.*/\1/p')"
+PINNED=$(sed -n 's/^boundary-contracts @ .*@\(v[0-9][0-9.]*\)$/\1/p' "$SOURCE_DIR/requirements-service.txt" | head -1)
+[ -n "$PINNED" ] || { echo "requirements-service.txt에서 boundary-contracts 고정 버전을 읽지 못했다" >&2; exit 2; }
+[ "$BC_VERSION" = "$PINNED" ] || { echo "요청 versions.boundary($BC_VERSION)가 이 영역의 고정 버전($PINNED, requirements-service.txt)과 다르다. 라벨을 찍지 않는다" >&2; exit 2; }
+[ "$WHL_VERSION" = "$BC_VERSION" ] || { echo "dependency_sources.boundary의 실제 버전($WHL_VERSION)이 요청 versions.boundary($BC_VERSION)와 다르다. 라벨을 찍지 않는다" >&2; exit 2; }
 
 # 3. 빌드
 # 왜 --provenance=false: BuildKit이 붙이는 출처 증명(attestation)에 빌드마다 다른 시각·ID가 들어가 이미지 ID(인덱스 digest)가 매번 달라진다. 같은 요청이 같은 이미지가 되려면 끈다(실측: 끄기 전 3회 모두 다른 ID).
 "$DOCKER" build -q --provenance=false --label "io.openit.exposure=$EXPOSURE" -t "$IMAGE_TAG" --build-context "wheels=$WORK/wheels" --build-arg "BC_SPEC=/wheels/$WHL" \
-  --build-arg "BC_VERSION=$BC_VERSION" --build-arg "REVISION=$REVISION" "$SOURCE_DIR" >&2
+  --build-arg "BC_VERSION=$WHL_VERSION" --build-arg "REVISION=$REVISION" "$SOURCE_DIR" >&2
+
+# 설치된 것 확인: 이미지 안에서 실제로 읽은 boundary-contracts 버전이 라벨과 같아야 한다(다르면 이미지를 지우고 실패).
+INSTALLED=$("$DOCKER" run --rm --entrypoint python "$IMAGE_TAG" -c "import importlib.metadata as m; print(m.version('boundary-contracts'))")
+[ "v$INSTALLED" = "$WHL_VERSION" ] || { "$DOCKER" rmi -f "$IMAGE_TAG" >/dev/null 2>&1 || true; echo "이미지에 설치된 boundary-contracts(v$INSTALLED)가 라벨($WHL_VERSION)과 다르다" >&2; exit 1; }
 
 # 4. 결과: 이미지에 실제로 붙은 라벨을 docker inspect로 읽어 계약으로 검증하고 요청 값과 대조한다.
 IMAGE_ID=$("$DOCKER" image inspect -f '{{.Id}}' "$IMAGE_TAG")

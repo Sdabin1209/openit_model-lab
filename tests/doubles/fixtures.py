@@ -11,7 +11,7 @@ import json
 from pathlib import Path
 
 from boundary_contracts import PIPELINE_SCHEMA_VERSION, canonical
-from model_lab.packager import DEFAULT_TURN_ENGINE_MARK
+from model_lab.packager import action_rules_version
 
 ROLES = ("LORA_A", "LORA_B")
 ROLE_FILE = {"LORA_A": "lora_a", "LORA_B": "lora_b"}
@@ -174,7 +174,7 @@ def build_dataset(dest: Path, dataset_id: str, version: str, *, max_cases: int |
                           "content_hash": canonical.file_hash(root / name), "question_sets": [qs]})
     m = {"pipeline_schema_version": PIPELINE_SCHEMA_VERSION, "dataset_id": dataset_id, "version": version,
          "created_at": "2026-10-27T00:00:00Z", "runtime_contract_version": 1, "question_sets": [qs_train, qs_un],
-         "generator_version": "fixture-v2-1", "seed_case_ids": [], "turn_engine_version": DEFAULT_TURN_ENGINE_MARK,
+         "generator_version": "fixture-v2-1", "seed_case_ids": [], "action_rules_version": action_rules_version(),
          "scenario_disjoint_across_splits": True, "files": files}
     m["content_hash"] = canonical.content_hash(m)
     (root / "manifest.json").write_text(json.dumps(m, ensure_ascii=False, sort_keys=True), encoding="utf-8")

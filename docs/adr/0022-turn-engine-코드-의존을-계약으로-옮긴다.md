@@ -1,7 +1,7 @@
 # 0022. turn-engine 코드 의존을 계약(action_rules, 문진 스키마 흐름표, 승격 스키마)으로 옮긴다
 
 ## 상태
-채택 (2026-10-29, 헤드 지시 단위 3, 결정 D104·D107·D109). ADR 0011의 "의미 위반율은 turn-engine `validate_extraction`" 부분을 대체한다(나머지는 유효).
+채택 (2026-10-29, `turn_engine_version` 표지 부분은 [ADR 0027](0027-계약-3-0-0-전환과-라벨-정직성.md)이 대체, 헤드 지시 단위 3, 결정 D104·D107·D109). ADR 0011의 "의미 위반율은 turn-engine `validate_extraction`" 부분을 대체한다(나머지는 유효).
 
 ## 맥락
 평가의 `semantic_violation_rate`가 turn-engine `validate_extraction`과 그 안의 `DATASET_V2_FLOW`(시험용 고정 문항 순서)를 불렀고, 패키지 계보 값(`turn_engine_version`)도 turn-engine에서 읽었다. turn-engine은 퇴역 예정이고, LoRA-A 출력 규칙은 계약의 데이터(`action_extraction_rules.json`)와 기준 검사기로 옮겨졌다(D104). 또 어댑터 디렉터리 구성과 회귀 평가가 읽는 trace는 손으로 키를 보던 것을 계약 스키마(D107)가 대신한다.

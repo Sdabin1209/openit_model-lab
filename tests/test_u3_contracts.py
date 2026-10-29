@@ -83,31 +83,24 @@ def test_trace_that_breaks_the_contract_is_skipped(name, mutate):
     assert got["samples"]["LORA_A"] == [] and got["skipped"]["trace_invalid"]["count"] == 1
 
 
-# ---- turn_engine_version 표지(D109) ------------------------------------------------------------------------------------------
+# ---- action_rules_version (계약 3.0.0, D109) ------------------------------------------------------------------------------
 
-def test_turn_engine_mark_comes_from_config(cfg, tmp_path):
+def test_manifest_lineage_has_action_rules_version_from_the_contract_rules_data(cfg, tmp_path):
+    """값은 코드의 리터럴이 아니라 설치된 계약 규칙 데이터(ActionExtractionRules.rules_version)다. turn_engine_version 필드는 없다."""
+    from boundary_contracts.action_rules import load_rules
     from tests.test_pipeline import mk, with_dirs
-    c = with_dirs(cfg, tmp_path, "mark"); c["lineage"] = {"turn_engine_version": "9.8.7"}
-    r = mk(c); rec = r.run()
+    r = mk(with_dirs(cfg, tmp_path, "rules")); rec = r.run()
     m = r.registry.get_manifest("lora-a-parser", rec["result"]["packages"]["LORA_A"]["version"])
-    assert m["lineage"]["turn_engine_version"] == "9.8.7"
+    assert m["lineage"]["action_rules_version"] == load_rules()["rules_version"]
+    assert "turn_engine_version" not in m["lineage"]
 
 
-def test_turn_engine_mark_defaults_to_v0_4_3_without_v_prefix(cfg, tmp_path):
-    from tests.test_pipeline import mk, with_dirs
-    r = mk(with_dirs(cfg, tmp_path, "default")); rec = r.run()
-    m = r.registry.get_manifest("lora-a-parser", rec["result"]["packages"]["LORA_A"]["version"])
-    assert m["lineage"]["turn_engine_version"] == "0.4.3"
-    # 왜 v 없음: release-gate CONTRACT_COMPAT가 설치 패키지 버전 문자열과 전체 문자열로 비교한다. model_runtime_version과 같은 형식이다(D109).
-    assert re.fullmatch(r"\d+\.\d+\.\d+", m["lineage"]["turn_engine_version"])
-
-
-def test_default_mark_format_and_config_pattern():
-    from model_lab.packager import DEFAULT_TURN_ENGINE_MARK
-    from model_lab.config import CONFIG_SCHEMA
-    assert re.fullmatch(r"\d+\.\d+\.\d+", DEFAULT_TURN_ENGINE_MARK)
-    pat = CONFIG_SCHEMA["properties"]["lineage"]["properties"]["turn_engine_version"]["pattern"]
-    assert re.fullmatch(pat, "0.4.3") and not re.fullmatch(pat, "v0.4.3")
+def test_config_no_longer_accepts_a_lineage_turn_engine_mark(cfg):
+    from model_lab.config import validate_config
+    bad = copy.deepcopy({k: v for k, v in cfg.items() if k != "_base_dir"})
+    bad["lineage"] = {"turn_engine_version": "0.4.3"}
+    with pytest.raises(Exception, match="lineage"):
+        validate_config(bad)
 
 
 # ---- 이미지 라벨: 계약 ImageLabels ---------------------------------------------------------------------------------------------
@@ -120,8 +113,8 @@ def _dockerfile_labels(args: dict) -> dict:
 
 
 def test_dockerfile_labels_satisfy_image_labels_contract():
-    labels = _dockerfile_labels({"REVISION": "3bfd0d7", "BC_VERSION": "v2.2.1"})
-    assert len(labels) == 6
+    labels = _dockerfile_labels({"REVISION": "3bfd0d7", "BC_VERSION": "v3.0.0"})
+    assert len(labels) == 5                                   # turn-engine 라벨은 계약 3.0.0에서 없어졌다
     validator("ImageLabels").validate(labels)
 
 
@@ -130,5 +123,5 @@ def test_dockerfile_build_args_have_no_placeholder_defaults():
     text = (ROOT / "Dockerfile").read_text(encoding="utf-8")
     for line in re.findall(r"^ARG .*$", text, re.M):
         assert "=" not in line, f"ARG 기본값이 있다: {line}"
-    for bad in ("revision-unknown", "turn-engine-none", "model-runtime-unset"):
+    for bad in ("revision-unknown", "model-runtime-unset"):
         assert not validator("ImageLabels").is_valid(ex("examples_invalid", f"ImageLabels.{bad}.json"))

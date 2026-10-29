@@ -16,7 +16,7 @@
 | 입력 | 학습 서버(영역 밖) | 학습한 어댑터 | 사람이 파일로 가져옴 (`docs/runbook.md` D84 절) |
 | 출력 | release-gate | 모델 패키지 조회 | I3 `ModelRegistry`, HTTP: `GET /v1/packages…`, `.../adapter`, `/v1/eval-reports/{ref}`, `POST /v1/packages`(model-lab만 쓰기) |
 
-라이브러리로 boundary-contracts, model-runtime, 문진 스키마(openit-survey-schema)를 태그로 쓴다. turn-engine은 쓰지 않는다(ADR 0022)(버전은 `requirements.txt`가 정본). 서비스 이미지는 boundary-contracts와 waitress(WSGI 서버, ADR 0023)만 넣는다(`requirements-service.txt`). 판정 조회 I4는 이 단계에서 쓰지 않는다(`docs/boundary.md`).
+라이브러리로 boundary-contracts, model-runtime, 문진 스키마(openit-survey-schema)를 태그로 쓴다. turn-engine은 쓰지 않는다(ADR 0022, 계약 3.0.0에서 표지·라벨도 없어졌다, ADR 0027)(버전은 `requirements.txt`가 정본). 서비스 이미지는 boundary-contracts와 waitress(WSGI 서버, ADR 0023)만 넣는다(`requirements-service.txt`). 판정 조회 I4는 이 단계에서 쓰지 않는다(`docs/boundary.md`).
 
 ## 구조
 
@@ -151,3 +151,4 @@ scripts/smoke_registry.sh
 | [0024](docs/adr/0024-영역-빌드-진입점-build-image.md) | 이미지 빌드는 계약 진입점 `scripts/build-image.sh` |
 | [0025](docs/adr/0025-setup-env는-마지막-줄에-SetupEnvReport를-낸다.md) | `scripts/setup-env.sh`는 마지막 줄에 SetupEnvReport |
 | [0026](docs/adr/0026-노출-선언은-전부-denied.md) | 노출 선언 라벨 `io.openit.exposure`, 이 서비스는 전부 denied |
+| [0027](docs/adr/0027-계약-3-0-0-전환과-라벨-정직성.md) | 계약 3.0.0 전환, 라벨은 실제 설치 버전 |

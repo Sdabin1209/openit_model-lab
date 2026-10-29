@@ -8,7 +8,7 @@ from boundary_contracts import PIPELINE_SCHEMA_VERSION, BoundaryError, canonical
 from boundary_contracts.sdk import ModelRegistry
 
 from model_lab.registry import FileModelRegistry, MemoryModelRegistry
-from model_lab.packager import DEFAULT_TURN_ENGINE_MARK
+from model_lab.packager import action_rules_version
 
 
 class _HttpReg:
@@ -51,7 +51,7 @@ def make(tmp_path, pid="pkg-a", ver="v1", payload=b"w", report=b"report-1", ref=
          "serving_config": sc, "serving_config_hash": canonical.sha256_hash(sc),
          "system_prompt": {"path": "system_prompt.txt", "sha256": canonical.file_hash(ad / "system_prompt.txt")},
          "lineage": {"dataset": {"id": "d", "version": "1", "content_hash": h}, "training_run_id": "run-1",
-                     "turn_engine_version": DEFAULT_TURN_ENGINE_MARK, "model_runtime_version": model_runtime.RUNTIME_VERSION},
+                     "action_rules_version": action_rules_version(), "model_runtime_version": model_runtime.RUNTIME_VERSION},
          "eval_report_ref": ref}
     m["content_hash"] = canonical.content_hash(m)
     return m, ad, report

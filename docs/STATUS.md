@@ -1,5 +1,8 @@
 # STATUS (2026-10-29)
 
+## 21차 갱신: 계약 3.0.0 전환, 브랜치 wo-300
+- ADR 0027. 시험은 `tests/test_u3_contracts.py`, `tests/test_build_image.py`.
+
 ## 20차 갱신: U47, 브랜치 wo-47
 - 노출 선언 `deploy-exposure.json` + 라벨 `io.openit.exposure`(ADR 0026), 시험 `tests/test_exposure.py`.
 

@@ -38,6 +38,5 @@ LABEL io.openit.service="model-registry" \
       io.openit.revision="${REVISION}" \
       io.openit.contracts.boundary="${BC_VERSION}" \
       io.openit.contracts.survey-schema="n/a" \
-      io.openit.turn-engine="n/a" \
       io.openit.model-runtime="n/a"
 CMD ["python", "-m", "model_lab.service"]

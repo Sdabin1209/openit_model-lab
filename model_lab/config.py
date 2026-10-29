@@ -142,9 +142,6 @@ CONFIG_SCHEMA: dict[str, Any] = {
         },
         "checks": {"type": "object", "additionalProperties": False,
                    "properties": {"max_lora_rank": {"type": "integer", "minimum": 1}}},
-        # 계약 기록의 turn_engine_version 표지(D109). 코드 의존이 아니므로 기본은 packager.DEFAULT_TURN_ENGINE_MARK.
-        "lineage": {"type": "object", "additionalProperties": False,
-                    "properties": {"turn_engine_version": {"type": "string", "pattern": r"^\d+\.\d+\.\d+$"}}},
         "publish": {"type": "object", "additionalProperties": False,
                     "properties": {"enabled": {"type": "boolean"}}},
     },

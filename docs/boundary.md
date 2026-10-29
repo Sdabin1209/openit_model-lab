@@ -21,7 +21,7 @@
 | --- | --- | --- |
 | 문진 스키마 | `schema_dir`(`.../schema/schemas`) 경로. `CONTRACT_VERSION`이 데이터셋의 `runtime_contract_version`과 다르면 `UNSUPPORTED_VERSION` | 정수 1 |
 | boundary-contracts | `canonical`(모든 해시), `validator`(쓰기 전 검증), `sdk` Protocol, `BoundaryError`. 데이터셋 샘플은 `ActionExtractionSample`(LORA_A)·`ResponseSample`(LORA_B) | `requirements.txt` |
-| (turn-engine 없음) | 코드 의존을 없앴다(ADR 0022). 위반 검사는 계약 `action_rules.check_action_extraction` + 문진 스키마 `question_flow`(`openit-survey-schema`)이고, 계보의 `turn_engine_version`은 설정 `lineage.turn_engine_version`(기본 `0.4.3` 표지)이다 | `requirements.txt` |
+| (turn-engine 없음) | 코드 의존을 없앴다(ADR 0022). 위반 검사는 계약 `action_rules.check_action_extraction` + 문진 스키마 `question_flow`(`openit-survey-schema`)이고, 계보의 `action_rules_version`은 설치된 계약 규칙 데이터의 `rules_version`에서 읽는다(계약 3.0.0, ADR 0027) | `requirements.txt` |
 | model-runtime | `render_prompt`(system_prompt 인자), `load`(system_prompts 인자), `extract_raw/respond_raw/respond`, `validate_serving_config`, `serving_config_hash`, `RUNTIME_VERSION`. 서빙 설정 버전은 model-runtime이 내보내는 상수 | `requirements.txt` |
 | I2 데이터셋 읽기 | HTTP 클라이언트 `boundary_contracts.clients.HttpDatasetStore`(D100, HTTP.md `## I2`, 계약 2.1.0). 쓰는 호출은 `list_versions`, `get_manifest`, `open_file`. 로컬 개발용 `file_dataset_store`는 남아 있다(ADR 0012) | 경계 계약 1.1 |
 | I7 실패 사례 읽기 | 회귀 평가(`evaluation.regression`, 기본 꺼짐)를 켜면 `inputs.failure_store`(`boundary_contracts.clients:HttpFailureStore`)로 읽는다(`model_lab/regression.py`, `configs/gpu-dev.yaml`, `docs/runbook.md` 회귀 평가 절) | `requirements.txt` |

@@ -18,7 +18,7 @@
 | `MODEL_REGISTRY_PORT` / `MODEL_REGISTRY_HOST` | 기본 8080 / 0.0.0.0 |
 | `MODEL_REGISTRY_MAX_BODY` | 게시 본문 상한 바이트(기본 4GiB) |
 비밀은 `boundary_contracts.read_secret`(D84)으로 읽는다: `NAME_FILE`(파일 경로)이 있으면 그 파일 내용(앞뒤 공백 제거), 없으면 `NAME` 환경 변수. 운영은 파일(`-v <비밀 폴더>:/run/secrets:ro`와 `…_FILE=/run/secrets/…`), 환경 변수는 개발용이다. 파일을 못 읽거나 비어 있으면 시작하지 않는다(종료 코드 2, 메시지에는 이름·경로만). 토큰이 하나도 없어도 시작하지 않는다. 토큰 값은 로그·`/readyz`·오류 본문에 나오지 않는다(`tests/test_secrets.py`). 경로·상태 코드는 `../boundary-contracts/HTTP.md`의 I3 절. `/readyz`는 저장소를 읽고 임시 파일을 쓸 수 있을 때 200.
-이미지 라벨: `io.openit.service=model-registry`, `io.openit.revision`(빌드 인자 `REVISION`), `io.openit.contracts.boundary`(빌드 인자 `BC_VERSION`, `requirements-service.txt`의 pin에서 뽑는다; 인자가 없으면 빌드 실패), `io.openit.contracts.survey-schema`/`turn-engine`/`model-runtime`은 `n/a`(서비스에 포함하지 않음). 확인: `scripts/smoke_registry.sh`(빌드 -> 빈 포트로 실행 -> healthz/readyz/토큰/게시/조회).
+이미지 라벨: `io.openit.service=model-registry`, `io.openit.revision`(빌드 인자 `REVISION`), `io.openit.contracts.boundary`(빌드 인자 `BC_VERSION`, `requirements-service.txt`의 pin에서 뽑는다; 인자가 없으면 빌드 실패), `io.openit.contracts.survey-schema`/`model-runtime`은 `n/a`(서비스에 포함하지 않음), `io.openit.exposure`(ADR 0026). `contracts.boundary`는 실제로 설치한 wheel의 버전이다(U50, ADR 0027). 이미지 만들기는 `scripts/build-image.sh`(ADR 0024). 확인: `scripts/smoke_registry.sh`(빌드 -> 빈 포트로 실행 -> healthz/readyz/토큰/게시/조회).
 
 ### 입력 저장소 선택 (설정의 `inputs.*`)
 | 입력 | 팩토리 | 인자 |

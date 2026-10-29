@@ -370,7 +370,7 @@ class Run:
                 role=role, system_prompt=sp, package_id=self.cfg["roles"][role]["package_id"], version=version, created_at=created,
                 contract_version=self.contract_version, base_model=base, adapter_dir=self.dir / "adapters" / role,
                 serving_config=self.cfg["serving"][role], dataset_ref=self.dataset_ref, dataset_manifest=dm,
-                run_id=self.run_id, turn_engine_version=self.cfg.get("lineage", {}).get("turn_engine_version", packager.DEFAULT_TURN_ENGINE_MARK),
+                run_id=self.run_id,
                 ext={"run_id": self.run_id, "config_hash": self.config_hash, "seed": self.seed,
                      "trainer": tr["trainer"],
                      "resumed": tr["result"].get("resumed_from_step", 0) > 0,

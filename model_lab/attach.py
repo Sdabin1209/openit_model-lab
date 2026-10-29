@@ -181,7 +181,7 @@ def package_adapters(*, config: str | Path, adapters: dict, prompts: dict, out: 
         m = packager.build_manifest(
             role=r, system_prompt=sp, package_id=pid, version=ver, created_at=created, contract_version=contract_version,
             base_model=base, adapter_dir=ad, serving_config=cfg["serving"][r], dataset_ref=dataset, dataset_manifest={"files": []},
-            run_id=run_id, turn_engine_version=cfg.get("lineage", {}).get("turn_engine_version", packager.DEFAULT_TURN_ENGINE_MARK),
+            run_id=run_id,
             ext={"attached": True, "trainer": "external", "adapter_config_r": confs[r].get("r"),
                                 "evaluated": False, "lineage": lineage[r]})
         rep = _not_evaluated_report(role=r, package={"id": pid, "version": ver, "content_hash": m["content_hash"]},

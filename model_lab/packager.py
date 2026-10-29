@@ -6,6 +6,7 @@ from pathlib import Path
 
 import model_runtime
 from boundary_contracts import canonical, validator
+from boundary_contracts.action_rules import load_rules
 
 from .datasets import file_question_sets, split_files, qs_key
 from .config import ROLE_TO_FILE_ROLE
@@ -30,9 +31,12 @@ def training_question_sets(dataset_manifest: dict, role: str) -> list[dict]:
 
 
 SYSTEM_PROMPT_FILE = "system_prompt.txt"
-# 왜: 계약 기록(DatasetManifest, ModelPackageManifest.lineage)에 turn_engine_version 필드가 남아 있다(D109). turn-engine 코드를 쓰지 않으므로
-# 값은 실행한 코드에서 읽을 수 없고, 마지막 릴리스 0.4.3을 고정 표지로 쓴다(v 없음: release-gate CONTRACT_COMPAT가 설치 패키지 버전 문자열과 전체 문자열로 비교한다)(3.0.0에서 필드가 바뀐다). 설정 lineage.turn_engine_version으로 바꿀 수 있다.
-DEFAULT_TURN_ENGINE_MARK = "0.4.3"
+
+
+def action_rules_version() -> str:
+    """계보의 action_rules_version(계약 3.0.0, D109). 값은 설치된 계약의 LoRA-A 출력 규칙 데이터(ActionExtractionRules.rules_version)에서 읽는다.
+    왜 읽나: 평가가 쓰는 규칙(check_action_extraction)이 바로 이 데이터라, 코드에 리터럴로 적으면 계약이 바뀔 때 어긋난다."""
+    return load_rules()["rules_version"]
 
 
 def install_system_prompt(adapter_dir: Path, text: str, filename: str = SYSTEM_PROMPT_FILE) -> dict:
@@ -51,8 +55,7 @@ def eval_report_ref(package_id: str, version: str) -> str:
 
 def build_manifest(*, role: str, package_id: str, version: str, created_at: str, contract_version: int,
                    base_model: dict, adapter_dir: Path, serving_config: dict, dataset_ref: dict,
-                   dataset_manifest: dict, run_id: str, ext: dict, system_prompt: dict,
-                   turn_engine_version: str = DEFAULT_TURN_ENGINE_MARK) -> dict:
+                   dataset_manifest: dict, run_id: str, ext: dict, system_prompt: dict) -> dict:
     """system_prompt: install_system_prompt가 낸 {path, sha256}. 어댑터 디렉터리 안의 파일과 맞아야 한다."""
     verify_system_prompt(adapter_dir, system_prompt)
     layout_of(adapter_dir, role)      # 게시 때 거절될 디렉터리를 만들기 전에 알린다(같은 검사, 게시 쪽이 정본)
@@ -71,7 +74,7 @@ def build_manifest(*, role: str, package_id: str, version: str, created_at: str,
         "lineage": {
             "dataset": dataset_ref,
             "training_run_id": run_id,
-            "turn_engine_version": turn_engine_version,
+            "action_rules_version": action_rules_version(),
             "model_runtime_version": model_runtime.RUNTIME_VERSION,
             "question_sets": training_question_sets(dataset_manifest, role),
         },

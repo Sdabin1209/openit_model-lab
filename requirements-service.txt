@@ -1,4 +1,4 @@
 # model-registry 서비스 이미지의 의존(학습·평가용 model-runtime/torch는 서비스에 들어가지 않는다)
-boundary-contracts @ git+ssh://git@github.com/Sdabin1209/openit_boundary-contracts.git@v2.7.0
+boundary-contracts @ git+ssh://git@github.com/Sdabin1209/openit_boundary-contracts.git@v3.0.0
 jsonschema==4.26.0
 waitress==3.0.2
