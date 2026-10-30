@@ -33,7 +33,7 @@ def test_config_rejects_serving_config_that_breaks_the_contract(cfg):
 
 # ---- 진입점 ------------------------------------------------------------------------------------------------------------------
 
-def bc_source(tmp_path, tag="v3.0.2") -> Path:
+def bc_source(tmp_path, tag="v3.1.1") -> Path:
     """deploy가 하는 것처럼 태그 시점 소스 트리를 꺼낸다(git archive)."""
     d = tmp_path / f"bc-src-{tag}"
     d.mkdir(exist_ok=True)
@@ -43,7 +43,7 @@ def bc_source(tmp_path, tag="v3.0.2") -> Path:
 
 
 def request(tmp_path, **over):
-    req = {"source_dir": str(ROOT), "revision": "abcdef1", "versions": {"boundary": "v3.0.2"},
+    req = {"source_dir": str(ROOT), "revision": "abcdef1", "versions": {"boundary": "v3.1.1"},
            "dependency_sources": {"boundary": str(bc_source(tmp_path))}, "image_tag": f"model-lab-registry-test/{uuid.uuid4().hex[:8]}:t"}
     req.update(over)
     p = tmp_path / "req.json"
@@ -83,7 +83,7 @@ def test_request_version_different_from_the_pinned_one_fails_without_building(tm
     req, p = request(tmp_path, versions={"boundary": "v2.8.0"}, dependency_sources={"boundary": str(bc_source(tmp_path, "v2.8.0"))})
     r = run(p)
     try:
-        assert r.returncode != 0 and "고정" in r.stderr and "v2.8.0" in r.stderr and "v3.0.2" in r.stderr, r.stderr[-800:]
+        assert r.returncode != 0 and "고정" in r.stderr and "v2.8.0" in r.stderr and "v3.1.1" in r.stderr, r.stderr[-800:]
         assert not image_exists(req["image_tag"])
         assert not r.stdout.strip()                           # 결과 JSON(라벨)을 내지 않았다
     finally:
@@ -92,11 +92,11 @@ def test_request_version_different_from_the_pinned_one_fails_without_building(tm
 
 @pytest.mark.skipif(shutil.which("docker") is None or not BC_REPO.is_dir(), reason="docker 또는 boundary-contracts 리포 없음")
 def test_dependency_source_that_is_not_the_requested_version_fails_without_building(tmp_path):
-    """요청은 고정 버전(v3.0.2)인데 dependency_sources가 다른 버전의 소스면 이미지에 거짓 라벨이 붙을 수 있다. 실패해야 한다."""
+    """요청은 고정 버전(v3.1.1)인데 dependency_sources가 다른 버전의 소스면 이미지에 거짓 라벨이 붙을 수 있다. 실패해야 한다."""
     req, p = request(tmp_path, dependency_sources={"boundary": str(bc_source(tmp_path, "v2.8.0"))})
     r = run(p)
     try:
-        assert r.returncode != 0 and "dependency_sources" in r.stderr and "v3.0.2" in r.stderr, r.stderr[-800:]
+        assert r.returncode != 0 and "dependency_sources" in r.stderr and "v3.1.1" in r.stderr, r.stderr[-800:]
         assert not image_exists(req["image_tag"]) and not r.stdout.strip()
     finally:
         subprocess.run(["docker", "rmi", "-f", req["image_tag"]], capture_output=True)
@@ -113,7 +113,7 @@ def test_build_image_end_to_end(tmp_path):
         validator("BuildImageResult").validate(out)
         assert out["image"] == req["image_tag"]
         lab = out["labels"]
-        assert lab["io.openit.revision"] == req["revision"] and lab["io.openit.contracts.boundary"] == "v3.0.2"
+        assert lab["io.openit.revision"] == req["revision"] and lab["io.openit.contracts.boundary"] == "v3.1.1"
         assert lab["io.openit.service"] == "model-registry"
         # U47: 노출 선언 라벨. 값은 deploy-exposure.json과 같고 계약 Exposure를 통과한다
         # U50: 라벨 값은 이미지 안에 실제 설치된 boundary-contracts의 버전과 같다(요청 문자열을 옮긴 것이 아니다)
