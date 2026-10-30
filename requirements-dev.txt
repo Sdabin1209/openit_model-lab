@@ -3,3 +3,4 @@
 -r requirements.txt
 pytest
 huggingface_hub==2.2.0
+-r requirements-codegen.txt   # tests/test_structure.py가 types/ 재생성 비교에 쓴다(D117)
