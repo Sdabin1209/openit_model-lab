@@ -104,7 +104,7 @@
   "libraries": {
     "boundary-contracts": "3.1.1",
     "model-lab": "0.1.0",
-    "model-runtime": "0.11.3"
+    "model-runtime": "0.11.4"
   },
   "name": "dryrun",
   "result": {

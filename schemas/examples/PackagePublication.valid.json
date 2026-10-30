@@ -29,7 +29,7 @@
         "id": "fx-golden",
         "version": "v1"
       },
-      "model_runtime_version": "0.11.3",
+      "model_runtime_version": "0.11.4",
       "question_sets": [
         {
           "content_hash": "sha256:52bc7ee3060112434a43997e5864b6bfef221657ddb08dc63bf82e2cda45a49d",

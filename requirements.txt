@@ -1,7 +1,7 @@
 # 경계 계약·라이브러리는 Git 태그로 고정한다(D18, D22). 환경은 scripts/setup-env.sh 한 명령으로 만든다(이웃 폴더 editable 설치는 쓰지 않는다)
 boundary-contracts @ git+ssh://git@github.com/Sdabin1209/openit_boundary-contracts.git@v3.1.1
-openit-link @ git+ssh://git@github.com/Sdabin1209/openit_link.git@v0.4.0
-model-runtime @ git+ssh://git@github.com/Sdabin1209/openit_model-runtime.git@v0.11.3
+openit-link @ git+ssh://git@github.com/Sdabin1209/openit_link.git@v0.4.1
+model-runtime @ git+ssh://git@github.com/Sdabin1209/openit_model-runtime.git@v0.11.4
 openit-survey-schema @ git+ssh://git@github.com/Sdabin1209/openit_survey-service.git@survey-schema-v2.0.0#subdirectory=schema
 jsonschema>=4
 waitress>=3,<4
