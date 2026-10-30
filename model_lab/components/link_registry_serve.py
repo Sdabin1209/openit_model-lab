@@ -17,33 +17,23 @@
 로그는 표준 출력으로, 토큰과 본문은 남기지 않는다."""
 from __future__ import annotations
 
-import hmac
 import tarfile
 import json
 import os
-import re
 import shutil
-import signal
-import sys
 import tempfile
 import threading
 import time
 from collections import defaultdict, deque
 from pathlib import Path
-from urllib.parse import parse_qs
 
 import waitress
-from boundary_contracts import BoundaryError, SecretError, read_secret
+from boundary_contracts import BoundaryError
+from openit_link import App, Request, Response, Route
+from openit_link.server import REASON
 
 
-STATUS = {"INVALID_RECORD": 400, "PERMISSION_DENIED": 403, "NOT_FOUND": 404, "CONFLICT": 409,
-          "FAILED_PRECONDITION": 412, "UNSUPPORTED_VERSION": 422, "INTEGRITY_ERROR": 422, "UNAVAILABLE": 503}
 WRITE_ROLE = "model-lab"
-
-
-class Unauthenticated(BoundaryError):
-    """토큰이 없거나 틀렸다 -> 401 + `WWW-Authenticate: Bearer`. code는 PERMISSION_DENIED 그대로다(CONVENTIONS.md 6절, D106).
-    토큰은 맞지만 역할이 모자란 경우는 이 클래스가 아니라 일반 PERMISSION_DENIED -> 403이다."""
 
 
 class Service:
@@ -64,6 +54,7 @@ class Service:
         self.publish_slots = threading.BoundedSemaphore(max(1, max_publishes))
         self._fails: dict = defaultdict(deque)
         self._fails_mu = threading.Lock()
+        self.remote = threading.local()     # 겉옷이 요청마다 호출자 주소를 적는다(게시자 기록, ML-6)
         self.startup_cleanup()
 
     def startup_cleanup(self) -> None:
@@ -83,12 +74,9 @@ class Service:
             self.log(f"경보: 디스크 여유 부족으로 게시 거절(필요 {need >> 20}MiB, 여유 {self._free_bytes() >> 20}MiB)")
             raise BoundaryError("UNAVAILABLE", "저장소 여유 공간이 부족하다")
 
-    def token_valid(self, header: str | None) -> bool:
-        """읽기 또는 쓰기 토큰으로 인식되는가(역할이 모자란 것과 구분한다: 유효한 토큰의 403은 실패 횟수에 넣지 않는다)."""
-        return self._role(self.read, header) is not None or self._role(self.write, header) is not None
-
     # 실패 제한의 의미(ADR 0009): 틀린 토큰이 쏟아질 때 로그 스팸과 CPU(토큰 비교 반복)를 줄이는 장치이지 무차별 대입 방어가 아니다.
     # 제한된 주소에서도 올바른 토큰은 통과하므로(같은 주소의 정상 클라이언트 보호) 추측이 맞으면 막지 못한다. 그 방어는 토큰 엔트로피(MIN_TOKEN_LEN)다.
+    # 이 제한은 link App 밖, App을 감싸는 WSGI 겉옷의 몫이다(서버별 방어, 헤드 지시 2026-10-30).
     def auth_blocked(self, addr: str) -> bool:
         now = time.monotonic()
         with self._fails_mu:
@@ -103,24 +91,9 @@ class Service:
         with self._fails_mu:
             self._fails[addr].append(time.monotonic())
 
-    # ---- 인증 ----
-    def _role(self, tokens: dict, header: str | None) -> str | None:
-        if not header or not header.startswith("Bearer "):
-            return None
-        given = header[7:].strip().encode()
-        found = None
-        for tok, role in tokens.items():          # 시간 일정 비교
-            if hmac.compare_digest(tok.encode(), given):
-                found = role
-        return found
-
-    def authorize(self, method: str, header: str | None) -> None:
-        # 왜: 401(인증 안 됨)과 403(인증됐으나 권한 없음)을 가른다. RFC 9110 15.5.2·11.6.1, RFC 6750 3절, CONVENTIONS.md 6절
-        if not self.token_valid(header):
-            raise Unauthenticated("PERMISSION_DENIED", "토큰이 없거나 올바르지 않다")
-        if method == "POST":
-            if self._role(self.write, header) != WRITE_ROLE:
-                raise BoundaryError("PERMISSION_DENIED", "쓰기 권한이 없다")
+    def tokens(self) -> dict:
+        """link App의 토큰 표(토큰 -> 역할). 같은 토큰이 읽기·쓰기에 모두 있으면 쓰기 역할로 둔다(읽기 경로도 쓰기 역할을 허용한다)."""
+        return {**self.read, **self.write}
 
     def ready(self) -> bool:
         try:
@@ -131,13 +104,6 @@ class Service:
             return True
         except Exception:
             return False
-
-
-_PKG = re.compile(r"^/v1/packages/([^/]+)/versions/([^/]+)(/adapter)?$")
-_VERS = re.compile(r"^/v1/packages/([^/]+)/versions$")
-_REPORT = re.compile(r"^/v1/eval-reports/([^/]+)$")
-_REASON = {200: "OK", 201: "Created", 400: "Bad Request", 401: "Unauthorized", 403: "Forbidden", 404: "Not Found", 409: "Conflict",
-           412: "Precondition Failed", 422: "Unprocessable Entity", 503: "Service Unavailable"}
 
 
 class _Closing:
@@ -155,106 +121,57 @@ class _Closing:
         self._cleanup()
 
 
-def make_app(svc: Service):
-    """WSGI 앱. 연결 상한·timeout·본문 상한·스레드는 서버(waitress) 설정이 맡고(ADR 0023), 여기는 라우팅과 인증, 게시만 한다."""
+def make_routes(svc: Service) -> list[Route]:
+    """경로와 처리 함수. 인증(401/403)·본문 상한(413)·JSON 해석·BoundaryError 본문·/healthz·/readyz는 openit_link.App이 한다(D118)."""
+    all_roles = frozenset(set(svc.read.values()) | set(svc.write.values()))
+    writers = frozenset({WRITE_ROLE})
 
-    def app(environ, start_response):
-        method, path = environ["REQUEST_METHOD"], environ["PATH_INFO"]
-        # PATH_INFO는 이미 퍼센트 해제되어 있다. 이름에 '/'가 없다는 ID 규칙(CONVENTIONS 2절)이라 해제 뒤 분할해도 안전하다.
-        status, headers, out = 500, [], b""
+    def list_ids(req: Request) -> Response:
+        q = req.query
+        items, nxt = svc.registry.list_ids(cursor=q.get("cursor"), limit=_limit(q))
+        return Response(200, {"items": items, "next_cursor": nxt})
+
+    def list_versions(req: Request) -> Response:
+        q = req.query
+        vs = svc.registry.list_versions(req.params["pid"])
+        items, nxt = svc.registry._page(vs, q.get("cursor"), _limit(q))
+        return Response(200, {"items": items, "next_cursor": nxt})
+
+    def get_manifest(req: Request) -> Response:
+        return Response(200, svc.registry.get_manifest(req.params["pid"], req.params["ver"]))
+
+    def get_adapter(req: Request) -> Response:
+        td = tempfile.TemporaryDirectory(dir=svc.tmp)
         try:
-            status, headers, out = _dispatch(environ, method, path)
-        except BoundaryError as e:
-            status, headers, out = _error(e)
-        except Exception as e:   # 내부 오류는 원문 없이 503으로 알리고 로그에는 형식만 남긴다
-            svc.log(f"내부 오류 {type(e).__name__}")
-            status, headers, out = _error(BoundaryError("UNAVAILABLE", "서비스 내부 오류"))
-        svc.log(f"{method} {path} {status}")      # 경로만(쿼리·토큰 제외)
-        start_response(f"{status} {_REASON.get(status, 'Error')}", headers)
-        return out
-
-    def _json(code: int, obj, headers=()):
-        b = json.dumps(obj, ensure_ascii=False).encode()
-        return code, [("Content-Type", "application/json; charset=utf-8"), ("Content-Length", str(len(b))), *headers], [b]
-
-    def _error(e: BoundaryError):
-        if isinstance(e, Unauthenticated):
-            return _json(401, e.to_record(), [("WWW-Authenticate", "Bearer")])
-        return _json(STATUS[e.code], e.to_record())
-
-    def _bytes(code: int, b: bytes, ctype: str):
-        return code, [("Content-Type", ctype), ("Content-Length", str(len(b)))], [b]
-
-    def _dispatch(environ, method: str, path: str):
-        q = parse_qs(environ.get("QUERY_STRING", ""))
-        if path == "/healthz":
-            return _json(200, {"status": "ok"})
-        if path == "/readyz":
-            ok = svc.ready()
-            return _json(200 if ok else 503, {"status": "ready" if ok else "not-ready"})
-        addr = environ.get("REMOTE_ADDR", "")
-        try:
-            svc.authorize(method, environ.get("HTTP_AUTHORIZATION"))      # 토큰 검증이 먼저다: 유효한 토큰은 제한과 무관하게 통과한다
-        except BoundaryError as e:
-            if isinstance(e, Unauthenticated):
-                # 제한은 유효하지 않은(없거나 틀린) 토큰을 보낸 요청에만 건다. 프록시·Docker 뒤에서는 호출자가 모두 같은 주소로
-                # 보이므로 주소만으로 막으면 정상 호출자까지 막힌다(ML-1 재점검).
-                throttled = svc.auth_blocked(addr)
-                svc.note_auth_failure(addr)
-                if throttled:
-                    raise BoundaryError("UNAVAILABLE", "인증 시도가 너무 많다. 잠시 뒤 다시 시도한다") from None
+            ad = svc.registry.open_adapter(req.params["pid"], req.params["ver"], dest=Path(td.name) / "x")      # 해시를 검증한 뒤에만 낸다
+            tar = Path(td.name) / "adapter.tar"
+            pack(tree_files(ad), tar)
+            body = _Closing(tar, td.cleanup)
+        except BaseException:
+            td.cleanup()
             raise
-        if method == "POST":
-            if path != "/v1/packages":
-                raise BoundaryError("NOT_FOUND", "경로가 없다")
-            return _publish(environ, addr)
-        if method != "GET":
-            raise BoundaryError("NOT_FOUND", "경로가 없다")
-        if path == "/v1/packages":
-            items, nxt = svc.registry.list_ids(cursor=_one(q, "cursor"), limit=_limit(q))
-            return _json(200, {"items": items, "next_cursor": nxt})
-        m = _VERS.match(path)
-        if m:
-            vs = svc.registry.list_versions(m.group(1))
-            items, nxt = svc.registry._page(vs, _one(q, "cursor"), _limit(q))
-            return _json(200, {"items": items, "next_cursor": nxt})
-        m = _PKG.match(path)
-        if m:
-            pid, ver = m.group(1), m.group(2)
-            if not m.group(3):
-                return _json(200, svc.registry.get_manifest(pid, ver))
-            td = tempfile.TemporaryDirectory(dir=svc.tmp)
-            try:
-                ad = svc.registry.open_adapter(pid, ver, dest=Path(td.name) / "x")      # 해시를 검증한 뒤에만 낸다
-                tar = Path(td.name) / "adapter.tar"
-                pack(tree_files(ad), tar)
-                body = _Closing(tar, td.cleanup)
-            except BaseException:
-                td.cleanup()
-                raise
-            return 200, [("Content-Type", "application/x-tar"), ("Content-Length", str(tar.stat().st_size))], body
-        m = _REPORT.match(path)
-        if m:
-            return _bytes(200, svc.registry.get_eval_report(m.group(1)), "application/octet-stream")
-        raise BoundaryError("NOT_FOUND", "경로가 없다")
+        return Response(200, body, {"Content-Length": str(tar.stat().st_size)}, content_type="application/x-tar")
 
-    def _publish(environ, addr: str):
-        # 본문 크기 상한은 서버(max_request_body_size)가 이미 지켰다. waitress는 본문을 다 받은 뒤 앱을 부른다(ADR 0023).
-        n = int(environ.get("CONTENT_LENGTH") or -1)
-        if n < 0:
+    def get_report(req: Request) -> Response:
+        return Response(200, svc.registry.get_eval_report(req.params["ref"]), content_type="application/octet-stream")
+
+    def publish(req: Request) -> Response:
+        # 본문은 link가 Content-Length 상한으로 감싼 읽기 객체(Route.stream_body)로 준다. 메모리에 올리지 않는다.
+        n = req.stream.remaining
+        if n <= 0:
             raise BoundaryError("INVALID_RECORD", "Content-Length가 필요하다")
         if not svc.publish_slots.acquire(blocking=False):      # 동시 게시 상한(ML-1): 기다리게 하지 않고 재시도하게 한다
             raise BoundaryError("UNAVAILABLE", "다른 게시가 진행 중이다. 잠시 뒤 다시 시도한다")
         try:
-            return _publish_locked(environ, n, addr)
+            return _publish_locked(req, n)
         finally:
             svc.publish_slots.release()
 
-    def _publish_locked(environ, n: int, addr: str):
+    def _publish_locked(req: Request, n: int) -> Response:
         svc.check_free_space(n)
         with tempfile.TemporaryDirectory(dir=svc.tmp) as td:
             td = Path(td)
-            unpack(environ["wsgi.input"], td / "in", max_bytes=svc.max_body)
+            unpack(req.stream, td / "in", max_bytes=svc.max_body)
             mp, rp, ad = td / "in" / "manifest.json", td / "in" / "eval_report", td / "in" / "adapter"
             if not mp.is_file() or not rp.is_file():
                 raise BoundaryError("INVALID_RECORD", "tar에 manifest.json과 eval_report가 있어야 한다")
@@ -273,19 +190,48 @@ def make_app(svc: Service):
                     raise
                 existed = False
             got = svc.registry.publish(manifest, ad, rp.read_bytes(), publisher={
-                "role": WRITE_ROLE, "remote": addr, "published_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())})
-        return _json(200 if existed else 201, got)
+                "role": WRITE_ROLE, "remote": getattr(svc.remote, "addr", ""), "published_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())})
+        return Response(200 if existed else 201, got)
 
-    return app
+    return [Route("GET", "/v1/packages", list_ids, roles=all_roles),
+            Route("POST", "/v1/packages", publish, roles=writers, stream_body=True, max_body=svc.max_body),
+            Route("GET", "/v1/packages/{pid}/versions", list_versions, roles=all_roles),
+            Route("GET", "/v1/packages/{pid}/versions/{ver}", get_manifest, roles=all_roles, response_schema="ModelPackageManifest"),
+            Route("GET", "/v1/packages/{pid}/versions/{ver}/adapter", get_adapter, roles=all_roles),
+            Route("GET", "/v1/eval-reports/{ref}", get_report, roles=all_roles)]
 
 
-def _one(q: dict, k: str):
-    return q[k][0] if k in q else None
+def make_app(svc: Service):
+    """WSGI 앱 = openit_link.App + 겉옷. 겉옷이 하는 일(서버별 방어, link 밖): 틀린 토큰이 쏟아질 때의 인증 실패 제한(503), 내부 오류를 503으로,
+    요청 한 줄 로그. 연결 상한·timeout·본문 상한·스레드는 서버(waitress) 설정이 맡는다(ADR 0023)."""
+    app = App(make_routes(svc), svc.tokens(), ready=lambda: (lambda ok: (ok, {"status": "ready" if ok else "not-ready"}))(svc.ready()))
+
+    def wsgi(environ, start_response):
+        addr = environ.get("REMOTE_ADDR", "")
+        svc.remote.addr = addr
+        try:
+            status, headers, body = app.handle(environ)
+            if status == 401:
+                # 제한은 유효하지 않은(없거나 틀린) 토큰을 보낸 요청에만 건다. 프록시·Docker 뒤에서는 호출자가 모두 같은 주소로 보이므로
+                # 주소만으로 막으면 정상 호출자까지 막힌다(ML-1 재점검).
+                throttled = svc.auth_blocked(addr)
+                svc.note_auth_failure(addr)
+                if throttled:
+                    status, headers, body = app._error(BoundaryError("UNAVAILABLE", "인증 시도가 너무 많다. 잠시 뒤 다시 시도한다"))
+        except Exception as e:   # 내부 오류는 원문 없이 503으로 알리고 로그에는 형식만 남긴다
+            svc.log(f"내부 오류 {type(e).__name__}")
+            status, headers, body = app._error(BoundaryError("UNAVAILABLE", "서비스 내부 오류"))
+        svc.log(f"{environ.get('REQUEST_METHOD')} {environ.get('PATH_INFO')} {status}")      # 경로만(쿼리·토큰 제외)
+        start_response(f"{status} {REASON.get(status, 'Error')}", list(headers.items()))
+        return [body] if isinstance(body, (bytes, bytearray)) else body
+
+    wsgi.link_app = app
+    return wsgi
 
 
 def _limit(q: dict) -> int:
     try:
-        v = int(_one(q, "limit") or 100)
+        v = int(q.get("limit") or 100)
     except ValueError:
         raise BoundaryError("INVALID_RECORD", "limit이 올바르지 않다") from None
     if v < 1:

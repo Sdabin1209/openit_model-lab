@@ -7,6 +7,7 @@ import hashlib
 import json
 from pathlib import Path
 
+from ..wiring import schemas
 from ..wiring.errors import PipelineError
 
 ADAPTER_FILES = ("adapter_model.safetensors", "adapter_config.json")
@@ -29,8 +30,9 @@ def read_train_record(role: str, path, *, adapter_dir: Path, base: dict, dataset
         rec = json.loads(raw.decode("utf-8"))
     except (OSError, ValueError):
         raise PipelineError(f"{role}: 학습 기록을 읽을 수 없다: {path.name}") from None
-    if not isinstance(rec, dict) or rec.get("record_version") != 1:   # 전체 스키마(TrainWrapRecord) 검증으로 바꾸지 못했다: schemas/README.md "스키마 밖 조건" 3번
-        raise PipelineError(f"{role}: 학습 기록 형식이 아니다(record_version 1)")
+    errs = schemas.errors("TrainWrapRecord", rec)      # 기록 형식(record_version 1, 필수 필드)은 스키마가 정한다
+    if errs:
+        raise PipelineError(f"{role}: 학습 기록 형식이 아니다(TrainWrapRecord 위반: /{'/'.join(map(str, errs[0].absolute_path))})")
     if rec.get("role") != role:
         raise PipelineError(f"{role}: 학습 기록의 역할({rec.get('role')})이 다르다")
     rd = rec.get("dataset") or {}

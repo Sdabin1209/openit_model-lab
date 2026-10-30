@@ -248,16 +248,26 @@ def test_server_script_hash_comparison(env):  # noqa: F811
 
 
 # ---------- ML-5 계보 ----------
+def _merge(base, over):
+    out = dict(base)
+    for k, v in over.items():
+        out[k] = _merge(base[k], v) if isinstance(v, dict) and isinstance(base.get(k), dict) else v
+    return out
+
+
 def _record(kw, rec_role, **over):
+    """계약상 유효한 학습 기록(스키마 TrainWrapRecord 전체). 변형은 깊은 병합으로 한 곳만 바꾼다."""
     from model_lab.components.train_record_verify import _sha256
     role = rec_role
     ad = Path(kw["adapters"][role])
-    rec = {"record_version": 1, "role": role, "config_hash": "sha256:" + "c" * 64, "server_script_sha256": "d" * 64,
+    rec = {"record_version": 1, "role": role, "config_hash": "sha256:" + "c" * 64, "command": ["python3", "train.py"], "exit_code": 0,
+           "server_script": "/srv/train.py", "server_script_sha256": "d" * 64,
            "base_model": {"id": "Qwen/Qwen2.5-1.5B-Instruct", "requested_revision": "main", "base_model_revision": None},
-           "dataset": {**{k: v for k, v in DS.items()}, "file_sha256": {"x_train.jsonl": "e" * 64}},
-           "adapter": {"files": {f: _sha256(ad / f) for f in ("adapter_model.safetensors", "adapter_config.json")}},
-           "hyperparams": {"epochs": 3}}
-    rec.update(over)
+           "dataset": {**{k: v for k, v in DS.items()},
+                       "file_sha256": {f"x_{sp}.jsonl": "e" * 64 for sp in ("train", "val", "test")}},
+           "adapter": {"dir": str(ad), "r": 16, "files": {f: _sha256(ad / f) for f in ("adapter_model.safetensors", "adapter_config.json")}},
+           "hyperparams": {"epochs": 3}, "notes": []}
+    rec = _merge(rec, over)
     p = ad.parent / f"{role}.train-wrap.json"
     p.write_text(json.dumps(rec))
     return p
@@ -278,10 +288,11 @@ def test_train_record_goes_into_package_lineage_and_missing_record_warns(setup):
 
 @pytest.mark.parametrize("mut,msg", [
     ({"role": "LORA_B"}, "역할"),
-    ({"dataset": {"id": "other", "version": "v1"}}, "dataset.id"),
-    ({"dataset": {"id": DS["id"], "version": "v1", "content_hash": "sha256:" + "9" * 64}}, "content_hash"),
+    ({"dataset": {"id": "other"}}, "dataset.id"),
+    ({"dataset": {"content_hash": "sha256:" + "9" * 64}}, "content_hash"),
     ({"base_model": {"id": "x/y"}}, "기반 모델"),
     ({"adapter": {"files": {"adapter_model.safetensors": "0" * 64}}}, "해시가 지금 어댑터"),
+    ({"record_version": 2}, "형식이 아니다"),
 ])
 def test_train_record_that_does_not_match_is_rejected(setup, mut, msg):  # noqa: F811
     kw, tmp = setup

@@ -48,6 +48,11 @@ WORK=$(mktemp -d); trap 'rm -rf "$WORK"' EXIT
 mkdir "$WORK/wheels"
 SOURCE_DATE_EPOCH=0 "$PY" -m pip wheel -q --no-deps -w "$WORK/wheels" "$BC_SRC" >&2
 WHL=$(basename "$(ls "$WORK"/wheels/boundary_contracts-*.whl | head -1)")
+# link(D118) wheel: requirements-service.txt가 고정한 태그에서 만든다(요청 스키마에 link 소스 자리가 없다. 호스트의 git+ssh 접근을 쓴다). 의존은 이미 있는 계약 wheel이라 --no-deps.
+LINK_SPEC=$(sed -n 's/^openit-link @ \(.*\)$/\1/p' "$SOURCE_DIR/requirements-service.txt" | head -1)
+[ -n "$LINK_SPEC" ] || { echo "requirements-service.txt에서 openit-link 고정을 읽지 못했다" >&2; exit 2; }
+SOURCE_DATE_EPOCH=0 "$PY" -m pip wheel -q --no-deps -w "$WORK/wheels" "openit-link @ $LINK_SPEC" >&2
+LINK_WHL=$(basename "$(ls "$WORK"/wheels/openit_link-*.whl | head -1)")
 # U50 라벨 정직성: 라벨 값은 요청 문자열이 아니라 실제로 설치할 wheel의 버전에서 만든다. 요청·소스·이 영역의 고정 버전이 하나라도 다르면 이미지를 만들지 않고 실패한다.
 WHL_VERSION="v$(printf '%s' "$WHL" | sed -n 's/^boundary_contracts-\([0-9][0-9.]*\)-.*/\1/p')"
 PINNED=$(sed -n 's/^boundary-contracts @ .*@\(v[0-9][0-9.]*\)$/\1/p' "$SOURCE_DIR/requirements-service.txt" | head -1)
@@ -57,7 +62,7 @@ PINNED=$(sed -n 's/^boundary-contracts @ .*@\(v[0-9][0-9.]*\)$/\1/p' "$SOURCE_DI
 
 # 3. 빌드
 # 왜 --provenance=false: BuildKit이 붙이는 출처 증명(attestation)에 빌드마다 다른 시각·ID가 들어가 이미지 ID(인덱스 digest)가 매번 달라진다. 같은 요청이 같은 이미지가 되려면 끈다(실측: 끄기 전 3회 모두 다른 ID).
-"$DOCKER" build -q --provenance=false --label "io.openit.exposure=$EXPOSURE" -t "$IMAGE_TAG" --build-context "wheels=$WORK/wheels" --build-arg "BC_SPEC=/wheels/$WHL" \
+"$DOCKER" build -q --provenance=false --label "io.openit.exposure=$EXPOSURE" -t "$IMAGE_TAG" --build-context "wheels=$WORK/wheels" --build-arg "BC_SPEC=/wheels/$WHL" --build-arg "LINK_SPEC=/wheels/$LINK_WHL" \
   --build-arg "BC_VERSION=$WHL_VERSION" --build-arg "REVISION=$REVISION" "$SOURCE_DIR" >&2
 
 # 설치된 것 확인: 이미지 안에서 실제로 읽은 boundary-contracts 버전이 라벨과 같아야 한다(다르면 이미지를 지우고 실패).

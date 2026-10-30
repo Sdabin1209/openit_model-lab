@@ -68,6 +68,9 @@ def test_run_with_fake_trainer_writes_adapter_and_record(env, capsys):
     assert set(saved["dataset"]["file_sha256"]) == {f"lora_a_{s}.jsonl" for s in tw.SPLITS}
     assert json.loads((tmp / "run" / "args.json").read_text()) == {"lr": 0.0002, "epochs": 3}
     assert "package-adapters" in tw.next_step(cfg)
+    from model_lab.wiring import schemas
+    assert not schemas.errors("TrainWrapRecord", saved)                 # 실제 기록이 스키마를 만족한다(package-adapters가 스키마로 읽는다)
+    assert not schemas.errors("ServerTrainInvocation", tw.plan(cfg))
 
 
 def test_output_feeds_package_adapters_check(env):

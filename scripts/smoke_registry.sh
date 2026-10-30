@@ -17,9 +17,17 @@ if ! ls vendor/wheels/boundary_contracts-"$BC_VER"-*.whl >/dev/null 2>&1; then
   $PIP wheel --no-deps -q -w vendor/wheels "$SPEC"
 fi
 WHL=$(ls vendor/wheels/boundary_contracts-"$BC_VER"-*.whl | head -1)
+PIP=.venv/bin/pip; [ -x "$PIP" ] || PIP="python3 -m pip"
+LINK_SPEC=$(sed -n 's/^openit-link @ \(.*\)$/\1/p' requirements-service.txt | head -1)
+LINK_VER=$(printf '%s' "$LINK_SPEC" | sed -n 's/.*@v\([0-9.]*\)$/\1/p')
+[ -n "$LINK_VER" ] || { echo "requirements-service.txt에서 openit-link 태그를 읽지 못했다" >&2; exit 1; }
+if ! ls vendor/wheels/openit_link-"$LINK_VER"-*.whl >/dev/null 2>&1; then
+  $PIP wheel --no-deps -q -w vendor/wheels "openit-link @ $LINK_SPEC"
+fi
+LINK_WHL=$(ls vendor/wheels/openit_link-"$LINK_VER"-*.whl | head -1)
 # 왜: 커밋을 모르면 라벨 revision이 거짓이 된다(계약 ImageLabels는 hex만 받는다). 'unknown'으로 대신하지 않고 실패한다.
 REV=$(git rev-parse --short HEAD) || { echo "git 커밋을 읽지 못해 revision 라벨을 정할 수 없다" >&2; exit 1; }
-docker build -q --build-context wheels=vendor/wheels --build-arg "BC_SPEC=/wheels/$(basename "$WHL")" --build-arg "BC_VERSION=v$BC_VER" \
+docker build -q --build-context wheels=vendor/wheels --build-arg "BC_SPEC=/wheels/$(basename "$WHL")" --build-arg "LINK_SPEC=/wheels/$(basename "$LINK_WHL")" --build-arg "BC_VERSION=v$BC_VER" \
   --build-arg "REVISION=$REV" -t "$TAG" .
 docker volume create "$NAME-data" >/dev/null
 # 토큰은 환경 변수가 아니라 파일로 준다(D84, NAME_FILE). 컨테이너 사용자(uid 10001)가 읽도록 0644, 끝나면 지운다.

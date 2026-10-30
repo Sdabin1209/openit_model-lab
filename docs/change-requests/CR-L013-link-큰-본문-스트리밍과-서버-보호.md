@@ -1,3 +1,5 @@
+> **처리됨 (2026-10-30).** link v0.3.0이 `Route(stream_body=True)`/`Request.stream`을 넣었다. 인증 실패 제한·동시 게시 상한은 라이브러리 밖(App을 감싸는 WSGI 겉옷)에 두기로 했다(헤드). `link_registry_serve`는 App 위로 옮겼다. 아래는 요청 당시의 기록이다.
+
 # CR-L013: link App으로 model-registry 받는 쪽을 옮기려면 필요한 것 (헤드에게)
 
 - 확인한 것(`link/openit_link/server.py` 읽음): `App._read`는 `environ["wsgi.input"].read(n)`로 본문 전체를 메모리에 읽고, `Route.max_body`로 413을 낸다.

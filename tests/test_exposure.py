@@ -67,4 +67,4 @@ def test_declared_methods_cover_the_real_ones(server):
     methods = {m for r in ex["routes"] for m in (r.get("methods") or ["GET", "POST", "PUT", "PATCH", "DELETE"])}
     assert {"GET", "POST"} <= methods                              # 서버가 GET(조회)과 POST(게시)를 받는다
     status, body = call(server + "/v1/packages", "PUT", "wt")
-    assert status == 404 and "경로가 없다" in body                   # PUT 등은 서버도 거절한다(표는 그래도 denied라 노출 없음)
+    assert status == 405                                          # PUT 등은 서버도 거절한다(link 규약: 405 + Allow. 이전에는 404였다). 표는 그래도 denied라 노출 없음

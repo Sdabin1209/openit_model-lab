@@ -9,15 +9,17 @@ FROM scratch AS wheels
 
 FROM python:3.12-slim AS build
 ARG BC_SPEC
+ARG LINK_SPEC
 # 왜: 기본값을 두면 requirements-service.txt와 어긋난 pin이 조용히 설치된다. 비면 실패시킨다.
-RUN test -n "${BC_SPEC}" || { echo "BC_SPEC build-arg required" >&2; exit 1; }
+RUN test -n "${BC_SPEC}" && test -n "${LINK_SPEC}" || { echo "BC_SPEC and LINK_SPEC build-args required" >&2; exit 1; }
 RUN apt-get update && apt-get install -y --no-install-recommends git openssh-client && rm -rf /var/lib/apt/lists/* \
  && mkdir -p -m 0700 /root/.ssh
 # 왜: 키 스캔으로 처음 본 호스트 키를 신뢰하면 빌드 때 중간자가 키를 바꿔 끼울 수 있다(TOFU). GitHub가 공개한 키를 고정한다(ADR 0018).
 COPY docker/github_known_hosts /root/.ssh/known_hosts
 RUN python -m venv /opt/venv
 RUN --mount=type=ssh --mount=type=bind,from=wheels,target=/wheels \
-    /opt/venv/bin/pip install --no-cache-dir "${BC_SPEC}" "jsonschema==4.26.0" "waitress==3.0.2"
+    /opt/venv/bin/pip install --no-cache-dir "${BC_SPEC}" "jsonschema==4.26.0" "waitress==3.0.2" \
+ && /opt/venv/bin/pip install --no-cache-dir --no-deps "${LINK_SPEC}"
 
 FROM python:3.12-slim
 ARG REVISION

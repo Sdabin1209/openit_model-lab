@@ -1,9 +1,9 @@
 # STATUS (2026-10-30)
 
 ## 22차 갱신: U400 영역 구조 개편(D117), 브랜치 wo-400
-- 한 것: 컴포넌트 분해(`docs/components.md`), `schemas/`(38개 타입, 통과·거부 예시), `model_lab/types/` 생성, 코드를 `components/`·`wiring/`로 이동, 구조 시험 `tests/test_structure.py`. 계약 v3.1.1 핀, link v0.2.0 핀(보내는 쪽 `openit_link.clients`). ADR 0028.
-- 스키마 밖 조건: `schemas/README.md` 표에 30건(목표 0 미달, 이유는 표에).
-- 남은 것: `link_registry_serve`를 link `App` 위로 옮기기(CR-L013, link의 스트리밍 본문 지원 필요). GPU가 필요한 시험은 이 환경에서 하지 못했다(`lora_train_hf`, `backend_hf_*`).
+- 한 것: 컴포넌트 분해(`docs/components.md`), `schemas/`(38개 타입, 통과·거부 예시), `model_lab/types/` 생성, 코드를 `components/`·`wiring/`로 이동, 구조 시험 `tests/test_structure.py`. 계약 v3.1.1 핀, link v0.3.0 핀(보내는 쪽 `openit_link.clients`). ADR 0028.
+- 스키마 밖 조건: `schemas/README.md` 표에 29건(목표 0 미달, 이유는 표에).
+- link v0.3.0: `link_registry_serve`를 `openit_link.App` 위로 옮김(CR-L013 해소), 서비스 이미지에 link 포함(`scripts/build-image.sh`가 wheel을 만든다). 남은 것: GPU가 필요한 시험은 이 환경에서 하지 못했다(`lora_train_hf`, `backend_hf_*`).
 - 미확인: 독립된 두 번째 머신.
 
 # (이전 기록) STATUS (2026-10-29)

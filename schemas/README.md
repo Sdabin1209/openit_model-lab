@@ -13,7 +13,7 @@
 
 ## 스키마 밖 조건
 
-코드에 남아 있는 거부 지점 중 스키마로 옮기지 못한 것이다. 목표는 0이었으나 **30건**이 남았다. 이유는 대부분 (가) 문서 밖 자원(파일·해시·GPU·디스크)의 상태, (나) 두 값·두 문서의 대조, (다) 함수 인자라서 JSON Schema가 다루는 범위(한 문서의 형식) 밖이기 때문이다. 이 목록은 코드의 `raise` 전수 조사(2026-10-30)에서 만들었다.
+코드에 남아 있는 거부 지점 중 스키마로 옮기지 못한 것이다. 목표는 0이었으나 **29건**이 남았다. 이유는 대부분 (가) 문서 밖 자원(파일·해시·GPU·디스크)의 상태, (나) 두 값·두 문서의 대조, (다) 함수 인자라서 JSON Schema가 다루는 범위(한 문서의 형식) 밖이기 때문이다. 이 목록은 코드의 `raise` 전수 조사(2026-10-30)에서 만들었다.
 
 | # | 위치 | 조건 | 스키마로 옮기지 못한 이유 |
 |---|---|---|---|
@@ -35,17 +35,16 @@
 | 16 | components/adapter_check.py | `adapter_config.base_model_name_or_path` == 요청한 기반 모델 id, `r` <= `max_rank` | 한 문서의 값을 다른 입력의 값과 비교하는 조건 |
 | 17 | components/train_record_verify.py | 학습 기록의 `role`·`dataset.id/version/content_hash`·`base_model.id`가 입력과 같다 | 기록과 입력 두 문서의 대조 |
 | 18 | components/train_record_verify.py | 기록의 어댑터 파일 해시가 지금 디스크의 파일과 같다 | 해시 계산(자원 상태) |
-| 19 | components/train_record_verify.py | 기록 형식이 `record_version` 1이다(전체 `TrainWrapRecord` 검증으로 바꾸지 못했다) | 기존 시험·운영 호출이 부분 기록도 받는 동작을 오늘 바꾸지 않으려고 남겼다. 바꾸려면 동작 변경 결정이 필요하다 |
-| 20 | components/dataset_samples.py | 평가 샘플의 `scenario_id`·`sample_id`가 학습·검증과 겹치지 않는다 | 집합 사이 교차 조건 |
-| 21 | components/dataset_samples.py | JSON Lines 각 줄이 계약 샘플 스키마를 통과한다 | 줄 단위 적용(스키마는 줄 하나의 문서). 위반 줄 번호만 오류에 싣는다 |
-| 22 | components/link_dataset_fetch.py | `content_hash` 재계산 일치, 파일 해시 일치, 문진 스키마 정수 버전 일치 | 해시 계산과 환경값 대조 |
-| 23 | components/server_row_convert.py | 한 파일의 시스템 프롬프트가 한 종류다. 줄이 JSON이다. 사용자·응답 문자열이 JSON으로 읽힌다 | 줄 사이 대조와 문자열 안의 JSON |
-| 24 | components/train_data.py, server_row_convert.py | `role`은 LORA_A/LORA_B, LoRA-B 정답은 문자열 | 함수 인자 검사. `TrainDataRequest`가 정하지만 변환 함수를 직접 부르는 호출(시험·스크립트)은 스키마를 거치지 않는다 |
-| 25 | components/evaluation_report_build.py | 지표 이름이 계약 지표 레지스트리에 있다 | 정본이 계약 패키지의 함수(`metric_name_problems`)다 |
-| 26 | components/model_registry.py | 게시 검증: 매니페스트 스키마, `content_hash`·`adapter_hash`·`serving_config_hash` 재계산, 시스템 프롬프트·`ModelPackageLayout`, 같은 버전의 내용 충돌 | 스키마는 계약이 맡고(`validator`), 해시 계산과 저장 상태 대조는 문서 밖이다 |
-| 27 | components/model_registry.py, link_registry_serve.py | 경로의 Id 형식, `limit`·`cursor` 값, tar 안의 경로('..', 절대 경로, 심볼릭 링크) | HTTP 경로·쿼리·스트림 입력. `RegistryServiceConfig`는 기동 설정만 다룬다 |
-| 28 | service/app.py | 토큰 문자열 형식(`역할=토큰`)과 최소 길이·글자 다양성 | 비밀 값은 스키마에 적지 않는다(D84). 길이 하한 근거는 ADR 0009 |
-| 29 | components/server_train_wrap.py | 서버 스크립트·데이터셋 파일 존재, 스크립트 sha256 일치, 디스크 여유, GPU, 스크립트 종료 코드 | 실행 환경 상태 |
-| 30 | components/lora_train_hf.py, backend_hf_*.py | 학습 환경(torch 등)과 CUDA GPU가 있다. 최대 길이 안에 드는 샘플이 있다 | 실행 환경 상태와 데이터 길이(토큰화 뒤에야 안다) |
+| 19 | components/dataset_samples.py | 평가 샘플의 `scenario_id`·`sample_id`가 학습·검증과 겹치지 않는다 | 집합 사이 교차 조건 |
+| 20 | components/dataset_samples.py | JSON Lines 각 줄이 계약 샘플 스키마를 통과한다 | 줄 단위 적용(스키마는 줄 하나의 문서). 위반 줄 번호만 오류에 싣는다 |
+| 21 | components/link_dataset_fetch.py | `content_hash` 재계산 일치, 파일 해시 일치, 문진 스키마 정수 버전 일치 | 해시 계산과 환경값 대조 |
+| 22 | components/server_row_convert.py | 한 파일의 시스템 프롬프트가 한 종류다. 줄이 JSON이다. 사용자·응답 문자열이 JSON으로 읽힌다 | 줄 사이 대조와 문자열 안의 JSON |
+| 23 | components/train_data.py, server_row_convert.py | `role`은 LORA_A/LORA_B, LoRA-B 정답은 문자열 | 함수 인자 검사. `TrainDataRequest`가 정하지만 변환 함수를 직접 부르는 호출(시험·스크립트)은 스키마를 거치지 않는다 |
+| 24 | components/evaluation_report_build.py | 지표 이름이 계약 지표 레지스트리에 있다 | 정본이 계약 패키지의 함수(`metric_name_problems`)다 |
+| 25 | components/model_registry.py | 게시 검증: 매니페스트 스키마, `content_hash`·`adapter_hash`·`serving_config_hash` 재계산, 시스템 프롬프트·`ModelPackageLayout`, 같은 버전의 내용 충돌 | 스키마는 계약이 맡고(`validator`), 해시 계산과 저장 상태 대조는 문서 밖이다 |
+| 26 | components/model_registry.py, link_registry_serve.py | 경로의 Id 형식, `limit`·`cursor` 값, tar 안의 경로('..', 절대 경로, 심볼릭 링크) | HTTP 경로·쿼리·스트림 입력. `RegistryServiceConfig`는 기동 설정만 다룬다 |
+| 27 | service/app.py | 토큰 문자열 형식(`역할=토큰`)과 최소 길이·글자 다양성 | 비밀 값은 스키마에 적지 않는다(D84). 길이 하한 근거는 ADR 0009 |
+| 28 | components/server_train_wrap.py | 서버 스크립트·데이터셋 파일 존재, 스크립트 sha256 일치, 디스크 여유, GPU, 스크립트 종료 코드 | 실행 환경 상태 |
+| 29 | components/lora_train_hf.py, backend_hf_*.py | 학습 환경(torch 등)과 CUDA GPU가 있다. 최대 길이 안에 드는 샘플이 있다 | 실행 환경 상태와 데이터 길이(토큰화 뒤에야 안다) |
 
-옮긴 것(참고): 실행 설정 형식과 비밀 키 규칙(`RunConfig`, `SecretFree`), 두 역할 필수(`RunPlan`), 평가 온도 0(`EvalServingPlan`), HTTP 저장소 필수 필드와 레지스트리 종류별 필수 필드(`RunConfig`), 학습 설정 형식(`TrainWrapConfig`), 서버 줄 형식(`ServerDatasetRow`), 학습 요청 형식(`TrainRequest`), 데이터셋 참조 형식(`DatasetRef`), 서빙 설정 형식(계약 `ServingConfig` `$ref`).
+옮긴 것(참고): 학습 기록 형식(`TrainWrapRecord`, 시험의 부분 기록을 완전한 기록으로 고쳤다), 실행 설정 형식과 비밀 키 규칙(`RunConfig`, `SecretFree`), 두 역할 필수(`RunPlan`), 평가 온도 0(`EvalServingPlan`), HTTP 저장소 필수 필드와 레지스트리 종류별 필수 필드(`RunConfig`), 학습 설정 형식(`TrainWrapConfig`), 서버 줄 형식(`ServerDatasetRow`), 학습 요청 형식(`TrainRequest`), 데이터셋 참조 형식(`DatasetRef`), 서빙 설정 형식(계약 `ServingConfig` `$ref`).
