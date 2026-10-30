@@ -5,9 +5,9 @@ import json
 
 import pytest
 
-from model_lab.attach import package_adapters
+from model_lab.wiring.attach_flow import package_adapters
 from model_lab.cli import main as cli_main
-from model_lab.errors import ConfigError
+from model_lab.wiring.errors import ConfigError
 from tests.test_attach import setup  # noqa: F401  (fixture)
 
 

@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "EvalDetailReport",
+  "description": "eval_report의 출력(상세 보고서, EvaluationReport.ext.model-lab.detail의 바탕). 임계치·합격 여부 키는 없다(O11).",
+  "type": "object",
+  "properties": {
+    "report_version": {
+      "const": 2
+    },
+    "role": {
+      "enum": [
+        "LORA_A",
+        "LORA_B"
+      ]
+    },
+    "notice": {
+      "type": "string",
+      "minLength": 1
+    },
+    "context": {
+      "type": "object"
+    },
+    "eval_files": {
+      "type": "array"
+    },
+    "overall": {
+      "type": "object"
+    },
+    "seen_question_sets": {
+      "type": "object"
+    },
+    "unseen_question_sets": {
+      "type": "object"
+    },
+    "slices": {
+      "type": "object"
+    },
+    "failures": {
+      "type": "object",
+      "properties": {
+        "count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "listed": {
+          "type": "array"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "count",
+        "listed"
+      ]
+    }
+  },
+  "additionalProperties": true,
+  "required": [
+    "report_version",
+    "role",
+    "notice",
+    "context",
+    "eval_files",
+    "overall",
+    "seen_question_sets",
+    "unseen_question_sets",
+    "slices",
+    "failures"
+  ]
+}

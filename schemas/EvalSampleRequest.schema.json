@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "EvalSampleRequest",
+  "description": "eval_sample의 입력.",
+  "type": "object",
+  "properties": {
+    "role": {
+      "enum": [
+        "LORA_A",
+        "LORA_B"
+      ]
+    },
+    "sample": {
+      "oneOf": [
+        {
+          "$ref": "ActionExtractionSample.schema.json"
+        },
+        {
+          "$ref": "ResponseSample.schema.json"
+        }
+      ]
+    },
+    "inference": {
+      "$ref": "InferenceResult.schema.json"
+    },
+    "flow": {
+      "$ref": "QuestionFlowTable.schema.json"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "role",
+    "sample",
+    "inference"
+  ]
+}

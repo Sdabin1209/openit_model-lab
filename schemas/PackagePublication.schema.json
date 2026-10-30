@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PackagePublication",
+  "description": "model_registry.publish와 link_registry_publish의 입력. eval_report는 EvaluationReport 문서의 바이트이며 여기서는 파일 경로로 적는다.",
+  "type": "object",
+  "properties": {
+    "manifest": {
+      "$ref": "ModelPackageManifest.schema.json"
+    },
+    "adapter_dir": {
+      "type": "string",
+      "minLength": 1
+    },
+    "eval_report_path": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "manifest",
+    "adapter_dir",
+    "eval_report_path"
+  ]
+}

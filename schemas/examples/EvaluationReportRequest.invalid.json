@@ -1,0 +1,2762 @@
+{
+  "backend": {
+    "constrained_decoding": false,
+    "name": "fake",
+    "version": "1"
+  },
+  "created_at": "2026-10-15T00:00:00Z",
+  "dataset": {
+    "content_hash": "sha256:4d008a812a0b3ec44ac710cc8ef8f5b774a34734aa8d265aa6a57dfa58a07267",
+    "id": "fx-golden",
+    "version": "v1"
+  },
+  "decoding": {
+    "seed": 1000,
+    "temperature": 0
+  },
+  "detail": {},
+  "metrics": [
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 46,
+      "name": "value_precision",
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 46,
+      "name": "value_recall",
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 46,
+      "name": "precision_match",
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 22,
+      "name": "targets_match",
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 46,
+      "name": "value_exact_match",
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 43,
+      "name": "action_accuracy",
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 30,
+      "name": "reason_accuracy",
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 46,
+      "name": "status_accuracy",
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 43,
+      "name": "next_item_accuracy",
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": false,
+      "n": 43,
+      "name": "semantic_violation_rate",
+      "unit": "ratio",
+      "value": 0.11627906976744186
+    },
+    {
+      "group": "PROTECTION",
+      "higher_is_better": true,
+      "n": 43,
+      "name": "schema_valid_raw",
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "PROTECTION",
+      "higher_is_better": false,
+      "n": 43,
+      "name": "output_invalid_rate",
+      "unit": "ratio",
+      "value": 0
+    },
+    {
+      "group": "PROTECTION",
+      "higher_is_better": false,
+      "n": 43,
+      "name": "output_attempts_mean",
+      "unit": "count",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 9,
+      "name": "value_precision",
+      "slice": {
+        "kind": "ACTION",
+        "value": "CONFIRM"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 9,
+      "name": "value_recall",
+      "slice": {
+        "kind": "ACTION",
+        "value": "CONFIRM"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 9,
+      "name": "precision_match",
+      "slice": {
+        "kind": "ACTION",
+        "value": "CONFIRM"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 9,
+      "name": "targets_match",
+      "slice": {
+        "kind": "ACTION",
+        "value": "CONFIRM"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 9,
+      "name": "value_exact_match",
+      "slice": {
+        "kind": "ACTION",
+        "value": "CONFIRM"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 9,
+      "name": "action_accuracy",
+      "slice": {
+        "kind": "ACTION",
+        "value": "CONFIRM"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 9,
+      "name": "reason_accuracy",
+      "slice": {
+        "kind": "ACTION",
+        "value": "CONFIRM"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 9,
+      "name": "status_accuracy",
+      "slice": {
+        "kind": "ACTION",
+        "value": "CONFIRM"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 9,
+      "name": "next_item_accuracy",
+      "slice": {
+        "kind": "ACTION",
+        "value": "CONFIRM"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": false,
+      "n": 9,
+      "name": "semantic_violation_rate",
+      "slice": {
+        "kind": "ACTION",
+        "value": "CONFIRM"
+      },
+      "unit": "ratio",
+      "value": 0
+    },
+    {
+      "group": "PROTECTION",
+      "higher_is_better": true,
+      "n": 9,
+      "name": "schema_valid_raw",
+      "slice": {
+        "kind": "ACTION",
+        "value": "CONFIRM"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "PROTECTION",
+      "higher_is_better": false,
+      "n": 9,
+      "name": "output_invalid_rate",
+      "slice": {
+        "kind": "ACTION",
+        "value": "CONFIRM"
+      },
+      "unit": "ratio",
+      "value": 0
+    },
+    {
+      "group": "PROTECTION",
+      "higher_is_better": false,
+      "n": 9,
+      "name": "output_attempts_mean",
+      "slice": {
+        "kind": "ACTION",
+        "value": "CONFIRM"
+      },
+      "unit": "count",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 4,
+      "name": "value_precision",
+      "slice": {
+        "kind": "ACTION",
+        "value": "CORRECT"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 4,
+      "name": "value_recall",
+      "slice": {
+        "kind": "ACTION",
+        "value": "CORRECT"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 4,
+      "name": "precision_match",
+      "slice": {
+        "kind": "ACTION",
+        "value": "CORRECT"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 4,
+      "name": "value_exact_match",
+      "slice": {
+        "kind": "ACTION",
+        "value": "CORRECT"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 4,
+      "name": "action_accuracy",
+      "slice": {
+        "kind": "ACTION",
+        "value": "CORRECT"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 4,
+      "name": "status_accuracy",
+      "slice": {
+        "kind": "ACTION",
+        "value": "CORRECT"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 4,
+      "name": "next_item_accuracy",
+      "slice": {
+        "kind": "ACTION",
+        "value": "CORRECT"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": false,
+      "n": 4,
+      "name": "semantic_violation_rate",
+      "slice": {
+        "kind": "ACTION",
+        "value": "CORRECT"
+      },
+      "unit": "ratio",
+      "value": 0
+    },
+    {
+      "group": "PROTECTION",
+      "higher_is_better": true,
+      "n": 4,
+      "name": "schema_valid_raw",
+      "slice": {
+        "kind": "ACTION",
+        "value": "CORRECT"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "PROTECTION",
+      "higher_is_better": false,
+      "n": 4,
+      "name": "output_invalid_rate",
+      "slice": {
+        "kind": "ACTION",
+        "value": "CORRECT"
+      },
+      "unit": "ratio",
+      "value": 0
+    },
+    {
+      "group": "PROTECTION",
+      "higher_is_better": false,
+      "n": 4,
+      "name": "output_attempts_mean",
+      "slice": {
+        "kind": "ACTION",
+        "value": "CORRECT"
+      },
+      "unit": "count",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 5,
+      "name": "value_precision",
+      "slice": {
+        "kind": "ACTION",
+        "value": "HOLD"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 5,
+      "name": "value_recall",
+      "slice": {
+        "kind": "ACTION",
+        "value": "HOLD"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 5,
+      "name": "precision_match",
+      "slice": {
+        "kind": "ACTION",
+        "value": "HOLD"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 5,
+      "name": "targets_match",
+      "slice": {
+        "kind": "ACTION",
+        "value": "HOLD"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 5,
+      "name": "value_exact_match",
+      "slice": {
+        "kind": "ACTION",
+        "value": "HOLD"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 5,
+      "name": "action_accuracy",
+      "slice": {
+        "kind": "ACTION",
+        "value": "HOLD"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 5,
+      "name": "reason_accuracy",
+      "slice": {
+        "kind": "ACTION",
+        "value": "HOLD"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 5,
+      "name": "status_accuracy",
+      "slice": {
+        "kind": "ACTION",
+        "value": "HOLD"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 5,
+      "name": "next_item_accuracy",
+      "slice": {
+        "kind": "ACTION",
+        "value": "HOLD"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": false,
+      "n": 5,
+      "name": "semantic_violation_rate",
+      "slice": {
+        "kind": "ACTION",
+        "value": "HOLD"
+      },
+      "unit": "ratio",
+      "value": 0.2
+    },
+    {
+      "group": "PROTECTION",
+      "higher_is_better": true,
+      "n": 5,
+      "name": "schema_valid_raw",
+      "slice": {
+        "kind": "ACTION",
+        "value": "HOLD"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "PROTECTION",
+      "higher_is_better": false,
+      "n": 5,
+      "name": "output_invalid_rate",
+      "slice": {
+        "kind": "ACTION",
+        "value": "HOLD"
+      },
+      "unit": "ratio",
+      "value": 0
+    },
+    {
+      "group": "PROTECTION",
+      "higher_is_better": false,
+      "n": 5,
+      "name": "output_attempts_mean",
+      "slice": {
+        "kind": "ACTION",
+        "value": "HOLD"
+      },
+      "unit": "count",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 18,
+      "name": "value_precision",
+      "slice": {
+        "kind": "ACTION",
+        "value": "NEXT"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 18,
+      "name": "value_recall",
+      "slice": {
+        "kind": "ACTION",
+        "value": "NEXT"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 18,
+      "name": "precision_match",
+      "slice": {
+        "kind": "ACTION",
+        "value": "NEXT"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 18,
+      "name": "value_exact_match",
+      "slice": {
+        "kind": "ACTION",
+        "value": "NEXT"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 9,
+      "name": "action_accuracy",
+      "slice": {
+        "kind": "ACTION",
+        "value": "NEXT"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 18,
+      "name": "status_accuracy",
+      "slice": {
+        "kind": "ACTION",
+        "value": "NEXT"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 9,
+      "name": "next_item_accuracy",
+      "slice": {
+        "kind": "ACTION",
+        "value": "NEXT"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": false,
+      "n": 9,
+      "name": "semantic_violation_rate",
+      "slice": {
+        "kind": "ACTION",
+        "value": "NEXT"
+      },
+      "unit": "ratio",
+      "value": 0.2222222222222222
+    },
+    {
+      "group": "PROTECTION",
+      "higher_is_better": true,
+      "n": 9,
+      "name": "schema_valid_raw",
+      "slice": {
+        "kind": "ACTION",
+        "value": "NEXT"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "PROTECTION",
+      "higher_is_better": false,
+      "n": 9,
+      "name": "output_invalid_rate",
+      "slice": {
+        "kind": "ACTION",
+        "value": "NEXT"
+      },
+      "unit": "ratio",
+      "value": 0
+    },
+    {
+      "group": "PROTECTION",
+      "higher_is_better": false,
+      "n": 9,
+      "name": "output_attempts_mean",
+      "slice": {
+        "kind": "ACTION",
+        "value": "NEXT"
+      },
+      "unit": "count",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 4,
+      "name": "value_precision",
+      "slice": {
+        "kind": "ACTION",
+        "value": "REASK"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 4,
+      "name": "value_recall",
+      "slice": {
+        "kind": "ACTION",
+        "value": "REASK"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 4,
+      "name": "precision_match",
+      "slice": {
+        "kind": "ACTION",
+        "value": "REASK"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 2,
+      "name": "targets_match",
+      "slice": {
+        "kind": "ACTION",
+        "value": "REASK"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 4,
+      "name": "value_exact_match",
+      "slice": {
+        "kind": "ACTION",
+        "value": "REASK"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 2,
+      "name": "action_accuracy",
+      "slice": {
+        "kind": "ACTION",
+        "value": "REASK"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 2,
+      "name": "reason_accuracy",
+      "slice": {
+        "kind": "ACTION",
+        "value": "REASK"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 4,
+      "name": "status_accuracy",
+      "slice": {
+        "kind": "ACTION",
+        "value": "REASK"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 2,
+      "name": "next_item_accuracy",
+      "slice": {
+        "kind": "ACTION",
+        "value": "REASK"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": false,
+      "n": 2,
+      "name": "semantic_violation_rate",
+      "slice": {
+        "kind": "ACTION",
+        "value": "REASK"
+      },
+      "unit": "ratio",
+      "value": 0
+    },
+    {
+      "group": "PROTECTION",
+      "higher_is_better": true,
+      "n": 2,
+      "name": "schema_valid_raw",
+      "slice": {
+        "kind": "ACTION",
+        "value": "REASK"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "PROTECTION",
+      "higher_is_better": false,
+      "n": 2,
+      "name": "output_invalid_rate",
+      "slice": {
+        "kind": "ACTION",
+        "value": "REASK"
+      },
+      "unit": "ratio",
+      "value": 0
+    },
+    {
+      "group": "PROTECTION",
+      "higher_is_better": false,
+      "n": 2,
+      "name": "output_attempts_mean",
+      "slice": {
+        "kind": "ACTION",
+        "value": "REASK"
+      },
+      "unit": "count",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 8,
+      "name": "action_accuracy",
+      "slice": {
+        "kind": "ACTION",
+        "value": "REDIRECT"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 8,
+      "name": "reason_accuracy",
+      "slice": {
+        "kind": "ACTION",
+        "value": "REDIRECT"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 8,
+      "name": "next_item_accuracy",
+      "slice": {
+        "kind": "ACTION",
+        "value": "REDIRECT"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": false,
+      "n": 8,
+      "name": "semantic_violation_rate",
+      "slice": {
+        "kind": "ACTION",
+        "value": "REDIRECT"
+      },
+      "unit": "ratio",
+      "value": 0
+    },
+    {
+      "group": "PROTECTION",
+      "higher_is_better": true,
+      "n": 8,
+      "name": "schema_valid_raw",
+      "slice": {
+        "kind": "ACTION",
+        "value": "REDIRECT"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "PROTECTION",
+      "higher_is_better": false,
+      "n": 8,
+      "name": "output_invalid_rate",
+      "slice": {
+        "kind": "ACTION",
+        "value": "REDIRECT"
+      },
+      "unit": "ratio",
+      "value": 0
+    },
+    {
+      "group": "PROTECTION",
+      "higher_is_better": false,
+      "n": 8,
+      "name": "output_attempts_mean",
+      "slice": {
+        "kind": "ACTION",
+        "value": "REDIRECT"
+      },
+      "unit": "count",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 6,
+      "name": "value_precision",
+      "slice": {
+        "kind": "ACTION",
+        "value": "SKIP"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 6,
+      "name": "value_recall",
+      "slice": {
+        "kind": "ACTION",
+        "value": "SKIP"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 6,
+      "name": "precision_match",
+      "slice": {
+        "kind": "ACTION",
+        "value": "SKIP"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 6,
+      "name": "targets_match",
+      "slice": {
+        "kind": "ACTION",
+        "value": "SKIP"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 6,
+      "name": "value_exact_match",
+      "slice": {
+        "kind": "ACTION",
+        "value": "SKIP"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 6,
+      "name": "action_accuracy",
+      "slice": {
+        "kind": "ACTION",
+        "value": "SKIP"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 6,
+      "name": "reason_accuracy",
+      "slice": {
+        "kind": "ACTION",
+        "value": "SKIP"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 6,
+      "name": "status_accuracy",
+      "slice": {
+        "kind": "ACTION",
+        "value": "SKIP"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 6,
+      "name": "next_item_accuracy",
+      "slice": {
+        "kind": "ACTION",
+        "value": "SKIP"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": false,
+      "n": 6,
+      "name": "semantic_violation_rate",
+      "slice": {
+        "kind": "ACTION",
+        "value": "SKIP"
+      },
+      "unit": "ratio",
+      "value": 0.3333333333333333
+    },
+    {
+      "group": "PROTECTION",
+      "higher_is_better": true,
+      "n": 6,
+      "name": "schema_valid_raw",
+      "slice": {
+        "kind": "ACTION",
+        "value": "SKIP"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "PROTECTION",
+      "higher_is_better": false,
+      "n": 6,
+      "name": "output_invalid_rate",
+      "slice": {
+        "kind": "ACTION",
+        "value": "SKIP"
+      },
+      "unit": "ratio",
+      "value": 0
+    },
+    {
+      "group": "PROTECTION",
+      "higher_is_better": false,
+      "n": 6,
+      "name": "output_attempts_mean",
+      "slice": {
+        "kind": "ACTION",
+        "value": "SKIP"
+      },
+      "unit": "count",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 24,
+      "name": "value_precision",
+      "slice": {
+        "kind": "QUESTION_SET",
+        "value": "qs-train@1"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 24,
+      "name": "value_recall",
+      "slice": {
+        "kind": "QUESTION_SET",
+        "value": "qs-train@1"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 24,
+      "name": "precision_match",
+      "slice": {
+        "kind": "QUESTION_SET",
+        "value": "qs-train@1"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 11,
+      "name": "targets_match",
+      "slice": {
+        "kind": "QUESTION_SET",
+        "value": "qs-train@1"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 24,
+      "name": "value_exact_match",
+      "slice": {
+        "kind": "QUESTION_SET",
+        "value": "qs-train@1"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 23,
+      "name": "action_accuracy",
+      "slice": {
+        "kind": "QUESTION_SET",
+        "value": "qs-train@1"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 16,
+      "name": "reason_accuracy",
+      "slice": {
+        "kind": "QUESTION_SET",
+        "value": "qs-train@1"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 24,
+      "name": "status_accuracy",
+      "slice": {
+        "kind": "QUESTION_SET",
+        "value": "qs-train@1"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 23,
+      "name": "next_item_accuracy",
+      "slice": {
+        "kind": "QUESTION_SET",
+        "value": "qs-train@1"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": false,
+      "n": 23,
+      "name": "semantic_violation_rate",
+      "slice": {
+        "kind": "QUESTION_SET",
+        "value": "qs-train@1"
+      },
+      "unit": "ratio",
+      "value": 0.17391304347826086
+    },
+    {
+      "group": "PROTECTION",
+      "higher_is_better": true,
+      "n": 23,
+      "name": "schema_valid_raw",
+      "slice": {
+        "kind": "QUESTION_SET",
+        "value": "qs-train@1"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "PROTECTION",
+      "higher_is_better": false,
+      "n": 23,
+      "name": "output_invalid_rate",
+      "slice": {
+        "kind": "QUESTION_SET",
+        "value": "qs-train@1"
+      },
+      "unit": "ratio",
+      "value": 0
+    },
+    {
+      "group": "PROTECTION",
+      "higher_is_better": false,
+      "n": 23,
+      "name": "output_attempts_mean",
+      "slice": {
+        "kind": "QUESTION_SET",
+        "value": "qs-train@1"
+      },
+      "unit": "count",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 22,
+      "name": "value_precision",
+      "slice": {
+        "kind": "QUESTION_SET",
+        "value": "qs-unseen@1"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 22,
+      "name": "value_recall",
+      "slice": {
+        "kind": "QUESTION_SET",
+        "value": "qs-unseen@1"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 22,
+      "name": "precision_match",
+      "slice": {
+        "kind": "QUESTION_SET",
+        "value": "qs-unseen@1"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 11,
+      "name": "targets_match",
+      "slice": {
+        "kind": "QUESTION_SET",
+        "value": "qs-unseen@1"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 22,
+      "name": "value_exact_match",
+      "slice": {
+        "kind": "QUESTION_SET",
+        "value": "qs-unseen@1"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 20,
+      "name": "action_accuracy",
+      "slice": {
+        "kind": "QUESTION_SET",
+        "value": "qs-unseen@1"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 14,
+      "name": "reason_accuracy",
+      "slice": {
+        "kind": "QUESTION_SET",
+        "value": "qs-unseen@1"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 22,
+      "name": "status_accuracy",
+      "slice": {
+        "kind": "QUESTION_SET",
+        "value": "qs-unseen@1"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 20,
+      "name": "next_item_accuracy",
+      "slice": {
+        "kind": "QUESTION_SET",
+        "value": "qs-unseen@1"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": false,
+      "n": 20,
+      "name": "semantic_violation_rate",
+      "slice": {
+        "kind": "QUESTION_SET",
+        "value": "qs-unseen@1"
+      },
+      "unit": "ratio",
+      "value": 0.05
+    },
+    {
+      "group": "PROTECTION",
+      "higher_is_better": true,
+      "n": 20,
+      "name": "schema_valid_raw",
+      "slice": {
+        "kind": "QUESTION_SET",
+        "value": "qs-unseen@1"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "PROTECTION",
+      "higher_is_better": false,
+      "n": 20,
+      "name": "output_invalid_rate",
+      "slice": {
+        "kind": "QUESTION_SET",
+        "value": "qs-unseen@1"
+      },
+      "unit": "ratio",
+      "value": 0
+    },
+    {
+      "group": "PROTECTION",
+      "higher_is_better": false,
+      "n": 20,
+      "name": "output_attempts_mean",
+      "slice": {
+        "kind": "QUESTION_SET",
+        "value": "qs-unseen@1"
+      },
+      "unit": "count",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 22,
+      "name": "value_precision",
+      "slice": {
+        "kind": "REASON",
+        "value": "(없음)"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 22,
+      "name": "value_recall",
+      "slice": {
+        "kind": "REASON",
+        "value": "(없음)"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 22,
+      "name": "precision_match",
+      "slice": {
+        "kind": "REASON",
+        "value": "(없음)"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 22,
+      "name": "value_exact_match",
+      "slice": {
+        "kind": "REASON",
+        "value": "(없음)"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 13,
+      "name": "action_accuracy",
+      "slice": {
+        "kind": "REASON",
+        "value": "(없음)"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 22,
+      "name": "status_accuracy",
+      "slice": {
+        "kind": "REASON",
+        "value": "(없음)"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 13,
+      "name": "next_item_accuracy",
+      "slice": {
+        "kind": "REASON",
+        "value": "(없음)"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": false,
+      "n": 13,
+      "name": "semantic_violation_rate",
+      "slice": {
+        "kind": "REASON",
+        "value": "(없음)"
+      },
+      "unit": "ratio",
+      "value": 0.15384615384615385
+    },
+    {
+      "group": "PROTECTION",
+      "higher_is_better": true,
+      "n": 13,
+      "name": "schema_valid_raw",
+      "slice": {
+        "kind": "REASON",
+        "value": "(없음)"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "PROTECTION",
+      "higher_is_better": false,
+      "n": 13,
+      "name": "output_invalid_rate",
+      "slice": {
+        "kind": "REASON",
+        "value": "(없음)"
+      },
+      "unit": "ratio",
+      "value": 0
+    },
+    {
+      "group": "PROTECTION",
+      "higher_is_better": false,
+      "n": 13,
+      "name": "output_attempts_mean",
+      "slice": {
+        "kind": "REASON",
+        "value": "(없음)"
+      },
+      "unit": "count",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 9,
+      "name": "value_precision",
+      "slice": {
+        "kind": "REASON",
+        "value": "CONFLICT_WITH_PREVIOUS"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 9,
+      "name": "value_recall",
+      "slice": {
+        "kind": "REASON",
+        "value": "CONFLICT_WITH_PREVIOUS"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 9,
+      "name": "precision_match",
+      "slice": {
+        "kind": "REASON",
+        "value": "CONFLICT_WITH_PREVIOUS"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 9,
+      "name": "targets_match",
+      "slice": {
+        "kind": "REASON",
+        "value": "CONFLICT_WITH_PREVIOUS"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 9,
+      "name": "value_exact_match",
+      "slice": {
+        "kind": "REASON",
+        "value": "CONFLICT_WITH_PREVIOUS"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 9,
+      "name": "action_accuracy",
+      "slice": {
+        "kind": "REASON",
+        "value": "CONFLICT_WITH_PREVIOUS"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 9,
+      "name": "reason_accuracy",
+      "slice": {
+        "kind": "REASON",
+        "value": "CONFLICT_WITH_PREVIOUS"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 9,
+      "name": "status_accuracy",
+      "slice": {
+        "kind": "REASON",
+        "value": "CONFLICT_WITH_PREVIOUS"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 9,
+      "name": "next_item_accuracy",
+      "slice": {
+        "kind": "REASON",
+        "value": "CONFLICT_WITH_PREVIOUS"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": false,
+      "n": 9,
+      "name": "semantic_violation_rate",
+      "slice": {
+        "kind": "REASON",
+        "value": "CONFLICT_WITH_PREVIOUS"
+      },
+      "unit": "ratio",
+      "value": 0
+    },
+    {
+      "group": "PROTECTION",
+      "higher_is_better": true,
+      "n": 9,
+      "name": "schema_valid_raw",
+      "slice": {
+        "kind": "REASON",
+        "value": "CONFLICT_WITH_PREVIOUS"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "PROTECTION",
+      "higher_is_better": false,
+      "n": 9,
+      "name": "output_invalid_rate",
+      "slice": {
+        "kind": "REASON",
+        "value": "CONFLICT_WITH_PREVIOUS"
+      },
+      "unit": "ratio",
+      "value": 0
+    },
+    {
+      "group": "PROTECTION",
+      "higher_is_better": false,
+      "n": 9,
+      "name": "output_attempts_mean",
+      "slice": {
+        "kind": "REASON",
+        "value": "CONFLICT_WITH_PREVIOUS"
+      },
+      "unit": "count",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 4,
+      "name": "value_precision",
+      "slice": {
+        "kind": "REASON",
+        "value": "MISSING"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 4,
+      "name": "value_recall",
+      "slice": {
+        "kind": "REASON",
+        "value": "MISSING"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 4,
+      "name": "precision_match",
+      "slice": {
+        "kind": "REASON",
+        "value": "MISSING"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 2,
+      "name": "targets_match",
+      "slice": {
+        "kind": "REASON",
+        "value": "MISSING"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 4,
+      "name": "value_exact_match",
+      "slice": {
+        "kind": "REASON",
+        "value": "MISSING"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 2,
+      "name": "action_accuracy",
+      "slice": {
+        "kind": "REASON",
+        "value": "MISSING"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 2,
+      "name": "reason_accuracy",
+      "slice": {
+        "kind": "REASON",
+        "value": "MISSING"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 4,
+      "name": "status_accuracy",
+      "slice": {
+        "kind": "REASON",
+        "value": "MISSING"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 2,
+      "name": "next_item_accuracy",
+      "slice": {
+        "kind": "REASON",
+        "value": "MISSING"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": false,
+      "n": 2,
+      "name": "semantic_violation_rate",
+      "slice": {
+        "kind": "REASON",
+        "value": "MISSING"
+      },
+      "unit": "ratio",
+      "value": 0
+    },
+    {
+      "group": "PROTECTION",
+      "higher_is_better": true,
+      "n": 2,
+      "name": "schema_valid_raw",
+      "slice": {
+        "kind": "REASON",
+        "value": "MISSING"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "PROTECTION",
+      "higher_is_better": false,
+      "n": 2,
+      "name": "output_invalid_rate",
+      "slice": {
+        "kind": "REASON",
+        "value": "MISSING"
+      },
+      "unit": "ratio",
+      "value": 0
+    },
+    {
+      "group": "PROTECTION",
+      "higher_is_better": false,
+      "n": 2,
+      "name": "output_attempts_mean",
+      "slice": {
+        "kind": "REASON",
+        "value": "MISSING"
+      },
+      "unit": "count",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 2,
+      "name": "action_accuracy",
+      "slice": {
+        "kind": "REASON",
+        "value": "OFF_TOPIC"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 2,
+      "name": "reason_accuracy",
+      "slice": {
+        "kind": "REASON",
+        "value": "OFF_TOPIC"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 2,
+      "name": "next_item_accuracy",
+      "slice": {
+        "kind": "REASON",
+        "value": "OFF_TOPIC"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": false,
+      "n": 2,
+      "name": "semantic_violation_rate",
+      "slice": {
+        "kind": "REASON",
+        "value": "OFF_TOPIC"
+      },
+      "unit": "ratio",
+      "value": 0
+    },
+    {
+      "group": "PROTECTION",
+      "higher_is_better": true,
+      "n": 2,
+      "name": "schema_valid_raw",
+      "slice": {
+        "kind": "REASON",
+        "value": "OFF_TOPIC"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "PROTECTION",
+      "higher_is_better": false,
+      "n": 2,
+      "name": "output_invalid_rate",
+      "slice": {
+        "kind": "REASON",
+        "value": "OFF_TOPIC"
+      },
+      "unit": "ratio",
+      "value": 0
+    },
+    {
+      "group": "PROTECTION",
+      "higher_is_better": false,
+      "n": 2,
+      "name": "output_attempts_mean",
+      "slice": {
+        "kind": "REASON",
+        "value": "OFF_TOPIC"
+      },
+      "unit": "count",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 6,
+      "name": "action_accuracy",
+      "slice": {
+        "kind": "REASON",
+        "value": "OUT_OF_SCHEMA"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 6,
+      "name": "reason_accuracy",
+      "slice": {
+        "kind": "REASON",
+        "value": "OUT_OF_SCHEMA"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 6,
+      "name": "next_item_accuracy",
+      "slice": {
+        "kind": "REASON",
+        "value": "OUT_OF_SCHEMA"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": false,
+      "n": 6,
+      "name": "semantic_violation_rate",
+      "slice": {
+        "kind": "REASON",
+        "value": "OUT_OF_SCHEMA"
+      },
+      "unit": "ratio",
+      "value": 0
+    },
+    {
+      "group": "PROTECTION",
+      "higher_is_better": true,
+      "n": 6,
+      "name": "schema_valid_raw",
+      "slice": {
+        "kind": "REASON",
+        "value": "OUT_OF_SCHEMA"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "PROTECTION",
+      "higher_is_better": false,
+      "n": 6,
+      "name": "output_invalid_rate",
+      "slice": {
+        "kind": "REASON",
+        "value": "OUT_OF_SCHEMA"
+      },
+      "unit": "ratio",
+      "value": 0
+    },
+    {
+      "group": "PROTECTION",
+      "higher_is_better": false,
+      "n": 6,
+      "name": "output_attempts_mean",
+      "slice": {
+        "kind": "REASON",
+        "value": "OUT_OF_SCHEMA"
+      },
+      "unit": "count",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 6,
+      "name": "value_precision",
+      "slice": {
+        "kind": "REASON",
+        "value": "REFUSED"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 6,
+      "name": "value_recall",
+      "slice": {
+        "kind": "REASON",
+        "value": "REFUSED"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 6,
+      "name": "precision_match",
+      "slice": {
+        "kind": "REASON",
+        "value": "REFUSED"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 6,
+      "name": "targets_match",
+      "slice": {
+        "kind": "REASON",
+        "value": "REFUSED"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 6,
+      "name": "value_exact_match",
+      "slice": {
+        "kind": "REASON",
+        "value": "REFUSED"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 6,
+      "name": "action_accuracy",
+      "slice": {
+        "kind": "REASON",
+        "value": "REFUSED"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 6,
+      "name": "reason_accuracy",
+      "slice": {
+        "kind": "REASON",
+        "value": "REFUSED"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 6,
+      "name": "status_accuracy",
+      "slice": {
+        "kind": "REASON",
+        "value": "REFUSED"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 6,
+      "name": "next_item_accuracy",
+      "slice": {
+        "kind": "REASON",
+        "value": "REFUSED"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": false,
+      "n": 6,
+      "name": "semantic_violation_rate",
+      "slice": {
+        "kind": "REASON",
+        "value": "REFUSED"
+      },
+      "unit": "ratio",
+      "value": 0.3333333333333333
+    },
+    {
+      "group": "PROTECTION",
+      "higher_is_better": true,
+      "n": 6,
+      "name": "schema_valid_raw",
+      "slice": {
+        "kind": "REASON",
+        "value": "REFUSED"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "PROTECTION",
+      "higher_is_better": false,
+      "n": 6,
+      "name": "output_invalid_rate",
+      "slice": {
+        "kind": "REASON",
+        "value": "REFUSED"
+      },
+      "unit": "ratio",
+      "value": 0
+    },
+    {
+      "group": "PROTECTION",
+      "higher_is_better": false,
+      "n": 6,
+      "name": "output_attempts_mean",
+      "slice": {
+        "kind": "REASON",
+        "value": "REFUSED"
+      },
+      "unit": "count",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 5,
+      "name": "value_precision",
+      "slice": {
+        "kind": "REASON",
+        "value": "UNCERTAIN"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 5,
+      "name": "value_recall",
+      "slice": {
+        "kind": "REASON",
+        "value": "UNCERTAIN"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 5,
+      "name": "precision_match",
+      "slice": {
+        "kind": "REASON",
+        "value": "UNCERTAIN"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 5,
+      "name": "targets_match",
+      "slice": {
+        "kind": "REASON",
+        "value": "UNCERTAIN"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 5,
+      "name": "value_exact_match",
+      "slice": {
+        "kind": "REASON",
+        "value": "UNCERTAIN"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 5,
+      "name": "action_accuracy",
+      "slice": {
+        "kind": "REASON",
+        "value": "UNCERTAIN"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 5,
+      "name": "reason_accuracy",
+      "slice": {
+        "kind": "REASON",
+        "value": "UNCERTAIN"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 5,
+      "name": "status_accuracy",
+      "slice": {
+        "kind": "REASON",
+        "value": "UNCERTAIN"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 5,
+      "name": "next_item_accuracy",
+      "slice": {
+        "kind": "REASON",
+        "value": "UNCERTAIN"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": false,
+      "n": 5,
+      "name": "semantic_violation_rate",
+      "slice": {
+        "kind": "REASON",
+        "value": "UNCERTAIN"
+      },
+      "unit": "ratio",
+      "value": 0.2
+    },
+    {
+      "group": "PROTECTION",
+      "higher_is_better": true,
+      "n": 5,
+      "name": "schema_valid_raw",
+      "slice": {
+        "kind": "REASON",
+        "value": "UNCERTAIN"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "PROTECTION",
+      "higher_is_better": false,
+      "n": 5,
+      "name": "output_invalid_rate",
+      "slice": {
+        "kind": "REASON",
+        "value": "UNCERTAIN"
+      },
+      "unit": "ratio",
+      "value": 0
+    },
+    {
+      "group": "PROTECTION",
+      "higher_is_better": false,
+      "n": 5,
+      "name": "output_attempts_mean",
+      "slice": {
+        "kind": "REASON",
+        "value": "UNCERTAIN"
+      },
+      "unit": "count",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 24,
+      "name": "value_precision",
+      "slice": {
+        "kind": "SEEN_UNSEEN",
+        "value": "seen"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 24,
+      "name": "value_recall",
+      "slice": {
+        "kind": "SEEN_UNSEEN",
+        "value": "seen"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 24,
+      "name": "precision_match",
+      "slice": {
+        "kind": "SEEN_UNSEEN",
+        "value": "seen"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 11,
+      "name": "targets_match",
+      "slice": {
+        "kind": "SEEN_UNSEEN",
+        "value": "seen"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 24,
+      "name": "value_exact_match",
+      "slice": {
+        "kind": "SEEN_UNSEEN",
+        "value": "seen"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 23,
+      "name": "action_accuracy",
+      "slice": {
+        "kind": "SEEN_UNSEEN",
+        "value": "seen"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 16,
+      "name": "reason_accuracy",
+      "slice": {
+        "kind": "SEEN_UNSEEN",
+        "value": "seen"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 24,
+      "name": "status_accuracy",
+      "slice": {
+        "kind": "SEEN_UNSEEN",
+        "value": "seen"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 23,
+      "name": "next_item_accuracy",
+      "slice": {
+        "kind": "SEEN_UNSEEN",
+        "value": "seen"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": false,
+      "n": 23,
+      "name": "semantic_violation_rate",
+      "slice": {
+        "kind": "SEEN_UNSEEN",
+        "value": "seen"
+      },
+      "unit": "ratio",
+      "value": 0.17391304347826086
+    },
+    {
+      "group": "PROTECTION",
+      "higher_is_better": true,
+      "n": 23,
+      "name": "schema_valid_raw",
+      "slice": {
+        "kind": "SEEN_UNSEEN",
+        "value": "seen"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "PROTECTION",
+      "higher_is_better": false,
+      "n": 23,
+      "name": "output_invalid_rate",
+      "slice": {
+        "kind": "SEEN_UNSEEN",
+        "value": "seen"
+      },
+      "unit": "ratio",
+      "value": 0
+    },
+    {
+      "group": "PROTECTION",
+      "higher_is_better": false,
+      "n": 23,
+      "name": "output_attempts_mean",
+      "slice": {
+        "kind": "SEEN_UNSEEN",
+        "value": "seen"
+      },
+      "unit": "count",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 22,
+      "name": "value_precision",
+      "slice": {
+        "kind": "SEEN_UNSEEN",
+        "value": "unseen"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 22,
+      "name": "value_recall",
+      "slice": {
+        "kind": "SEEN_UNSEEN",
+        "value": "unseen"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 22,
+      "name": "precision_match",
+      "slice": {
+        "kind": "SEEN_UNSEEN",
+        "value": "unseen"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 11,
+      "name": "targets_match",
+      "slice": {
+        "kind": "SEEN_UNSEEN",
+        "value": "unseen"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 22,
+      "name": "value_exact_match",
+      "slice": {
+        "kind": "SEEN_UNSEEN",
+        "value": "unseen"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 20,
+      "name": "action_accuracy",
+      "slice": {
+        "kind": "SEEN_UNSEEN",
+        "value": "unseen"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 14,
+      "name": "reason_accuracy",
+      "slice": {
+        "kind": "SEEN_UNSEEN",
+        "value": "unseen"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 22,
+      "name": "status_accuracy",
+      "slice": {
+        "kind": "SEEN_UNSEEN",
+        "value": "unseen"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": true,
+      "n": 20,
+      "name": "next_item_accuracy",
+      "slice": {
+        "kind": "SEEN_UNSEEN",
+        "value": "unseen"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": false,
+      "n": 20,
+      "name": "semantic_violation_rate",
+      "slice": {
+        "kind": "SEEN_UNSEEN",
+        "value": "unseen"
+      },
+      "unit": "ratio",
+      "value": 0.05
+    },
+    {
+      "group": "PROTECTION",
+      "higher_is_better": true,
+      "n": 20,
+      "name": "schema_valid_raw",
+      "slice": {
+        "kind": "SEEN_UNSEEN",
+        "value": "unseen"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "PROTECTION",
+      "higher_is_better": false,
+      "n": 20,
+      "name": "output_invalid_rate",
+      "slice": {
+        "kind": "SEEN_UNSEEN",
+        "value": "unseen"
+      },
+      "unit": "ratio",
+      "value": 0
+    },
+    {
+      "group": "PROTECTION",
+      "higher_is_better": false,
+      "n": 20,
+      "name": "output_attempts_mean",
+      "slice": {
+        "kind": "SEEN_UNSEEN",
+        "value": "unseen"
+      },
+      "unit": "count",
+      "value": 1
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": false,
+      "n": 43,
+      "name": "semantic_violation_rate",
+      "slice": {
+        "kind": "VIOLATION_CODE",
+        "value": "OUTPUT_SCHEMA"
+      },
+      "unit": "ratio",
+      "value": 0
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": false,
+      "n": 43,
+      "name": "semantic_violation_rate",
+      "slice": {
+        "kind": "VIOLATION_CODE",
+        "value": "TARGET_NOT_IN_VALUES"
+      },
+      "unit": "ratio",
+      "value": 0
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": false,
+      "n": 43,
+      "name": "semantic_violation_rate",
+      "slice": {
+        "kind": "VIOLATION_CODE",
+        "value": "NEXT_ITEM_MISMATCH"
+      },
+      "unit": "ratio",
+      "value": 0
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": false,
+      "n": 43,
+      "name": "semantic_violation_rate",
+      "slice": {
+        "kind": "VIOLATION_CODE",
+        "value": "SKIP_ORDER_MISMATCH"
+      },
+      "unit": "ratio",
+      "value": 0.11627906976744186
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": false,
+      "n": 43,
+      "name": "semantic_violation_rate",
+      "slice": {
+        "kind": "VIOLATION_CODE",
+        "value": "SAVE_RULE"
+      },
+      "unit": "ratio",
+      "value": 0
+    },
+    {
+      "group": "ACCURACY",
+      "higher_is_better": false,
+      "n": 43,
+      "name": "semantic_violation_rate",
+      "slice": {
+        "kind": "VIOLATION_CODE",
+        "value": "UNKNOWN_ITEM"
+      },
+      "unit": "ratio",
+      "value": 0
+    },
+    {
+      "group": "PROTECTION",
+      "higher_is_better": true,
+      "n": 43,
+      "name": "schema_valid_raw",
+      "slice": {
+        "kind": "CONSTRAINED_DECODING",
+        "value": "off"
+      },
+      "unit": "ratio",
+      "value": 1
+    },
+    {
+      "group": "COVERAGE",
+      "higher_is_better": false,
+      "n": 43,
+      "name": "coverage_seen_unseen_gap",
+      "unit": "score",
+      "value": 0
+    }
+  ],
+  "notes": [
+    "합격 판정과 임계치는 없다. 값은 계산한 그대로이며 평가 백엔드는 서빙과 다르고 제약 디코딩을 쓰지 않았다.",
+    "coverage_seen_unseen_gap은 (본 문항 세트 정답 일치율 - 보지 못한 문항 세트 정답 일치율)이며 샘플에 question_set이 있고 둘 다 표본이 있을 때만 낸다. 일치는 정답 출력과의 완전 일치다.",
+    "v1 지표(intent_accuracy, item_precision, item_recall, risk_notice_verbatim_rate, risk_signal_false_alarm, risk_signal_recall, slot_coverage, target_accuracy)는 폐기했다(METRICS.md v2). v2에서 위험 신호를 어떻게 표현할지는 정해지지 않았다(미정, 헤드).",
+    "value_precision/recall은 (key, value, status)가 모두 같은 값만 맞은 것으로 센다(D96 기본값, 학습 담당 확인 전 임시). 형식 실패 행의 정답 칸은 recall 분모에 들어간다. next_item_accuracy는 slice kind=ACTION이 action별 분모다. 합격선은 없다(O11).",
+    "score_a_v2.py 이름의 지표(action_acc, cell_acc, value_acc, ...)는 학습 서버 값과 대조하려는 보조 값이며 METRICS.md v2 이름과 같은 분자·분모인 것도 있다.",
+    "LoRA-A 지표는 학습 서버 score_a_v2.py와 같은 규칙으로 계산했다: 칸(key)별 비교(values 순서 무시), 칸 정답은 value·status·save가 모두 같을 때, 5와 5.0은 같고 true와 1은 다름, 형식 실패 행의 정답 칸도 분모에 넣는다. precision은 따로 센다.",
+    "schema_ok_rate는 계약 ActionExtraction 스키마(allOf 포함)를 통과한 비율이고, score_a_v2의 schema_ok(느슨한 검사)보다 엄격하다. LoRA-A는 보호가 없어 통과하지 못하면 서빙에서는 503 OUTPUT_INVALID(D75)다(output_invalid).",
+    "semantic_violation_rate는 계약 check_action_extraction(문진 스키마 question_flow의 문항 순서표)이 위반을 낸 출력의 비율이다. 형식 실패 출력은 분모에서 빠지고 output_invalid_rate가 센다. 정답과 비교하지 않는다(D97).",
+    "output_invalid_rate는 평가 백엔드(제약 디코딩 없음)에서 잰 값이며 서빙(vLLM) 값과 다를 수 있다. 백엔드는 evaluation_backend에 적는다.",
+    "extra_keys, dup_keys, targets_extra_rows의 n은 평가한 행 수다.",
+    "regression_fixed/regression_broken은 생략했다: 회귀 평가를 켜지 않았거나 이 역할의 회귀 사례가 없다."
+  ],
+  "package": {
+    "content_hash": "sha256:e7576477f9e7a7281a9b00e1bf615006ef151baad15bc7f8abd1d712289d54ca",
+    "id": "lora-a-parser",
+    "version": "v1-17849fe6"
+  },
+  "question_sets": [
+    {
+      "content_hash": "sha256:52bc7ee3060112434a43997e5864b6bfef221657ddb08dc63bf82e2cda45a49d",
+      "id": "qs-train",
+      "version": "1"
+    }
+  ],
+  "report_id": "eval-lora-a-parser.v1-17849fe6"
+}

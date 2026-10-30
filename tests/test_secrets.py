@@ -8,8 +8,8 @@ from tests.doubles.serve import serve, stop
 from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
-from model_lab.errors import ConfigError
-from model_lab.factories import resolve_args
+from model_lab.wiring.errors import ConfigError
+from model_lab.wiring.factories import resolve_args
 from model_lab.service.app import Service, main, make_server
 
 RT, WT = "READ-SECRET-VALUE-123-q8Zk2mXv9LpW", "WRITE-SECRET-VALUE-456-r7Yj3nTb5HcD"

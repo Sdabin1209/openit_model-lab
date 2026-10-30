@@ -7,9 +7,9 @@ from pathlib import Path
 import pytest
 import yaml
 
-from model_lab import train_wrap as tw
+from model_lab.wiring import train_flow as tw
 from model_lab.cli import main as cli_main
-from model_lab.errors import ConfigError, PipelineError
+from model_lab.wiring.errors import ConfigError, PipelineError
 from tests.conftest import ROOT
 
 STUB = ROOT / "tests" / "doubles"
@@ -74,7 +74,8 @@ def test_output_feeds_package_adapters_check(env):
     raw, write, tmp = env
     cfg = tw.load_train_config(write())
     tw.run_train(cfg, log=lambda m: None)
-    from model_lab.attach import check_adapter, load_profile
+    from model_lab.components.adapter_check import check_adapter
+    from model_lab.config import load_profile
     prof = load_profile(cfg["base_model"]["profile"])
     check_adapter("LORA_A", tmp / "run" / "adapter", prof["base_model"], prof["checks"]["max_lora_rank"])
 
@@ -96,7 +97,7 @@ def test_failures(env):
 def test_gpu_hole_blocks_real_run_but_not_dry_run(env, monkeypatch):
     raw, write, tmp = env
     raw["server"]["require_gpu"] = True
-    monkeypatch.setattr(tw, "gpu_state", lambda: (False, "없음"))
+    monkeypatch.setattr(__import__("model_lab.components.server_train_wrap", fromlist=["x"]), "gpu_state", lambda: (False, "없음"))
     cfg = tw.load_train_config(write())
     with pytest.raises(PipelineError, match="구멍: GPU"):
         tw.run_train(cfg, log=lambda m: None)
@@ -127,7 +128,7 @@ def test_inline_secret_rejected_in_hyperparams(env):
 
 def test_doctor_reports_hole_not_fail_for_gpu(env, monkeypatch):
     raw, write, tmp = env
-    monkeypatch.setattr(tw, "gpu_state", lambda: (False, "없음"))
+    monkeypatch.setattr(__import__("model_lab.components.server_train_wrap", fromlist=["x"]), "gpu_state", lambda: (False, "없음"))
     rows = {n: st for st, n, _ in tw.doctor(tw.load_train_config(write()))}
     assert rows["GPU"] == "HOLE" and rows["서버 스크립트"] == "OK" and rows["데이터셋"] == "OK" and rows["파이썬 의존"] == "OK"
     assert rows["서버 인자 이름"] == "OK" and rows["디스크"] == "OK"
@@ -145,7 +146,7 @@ def test_doctor_fail_exit_code_and_guidance(env, capsys):
 
 
 def test_hf_copy_warns_not_canonical():
-    from model_lab.trainers import make_trainer
+    from model_lab.wiring.pipeline import make_trainer
     with pytest.warns(UserWarning, match="정본이 아니다"):
         make_trainer("hf")
 

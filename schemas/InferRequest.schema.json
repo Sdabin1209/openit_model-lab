@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "InferRequest",
+  "description": "model_infer의 입력(session은 wiring이 주입). input은 LoRA-A면 ActionExtractionInput, LoRA-B면 ResponseRequest.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "role",
+    "input"
+  ],
+  "properties": {
+    "role": {
+      "enum": [
+        "LORA_A",
+        "LORA_B"
+      ]
+    },
+    "input": {
+      "type": "object"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "role": {
+            "const": "LORA_A"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "input": {
+            "$ref": "ActionExtractionInput.schema.json"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "input": {
+            "$ref": "ResponseRequest.schema.json"
+          }
+        }
+      }
+    }
+  ]
+}

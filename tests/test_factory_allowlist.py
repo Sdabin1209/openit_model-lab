@@ -1,8 +1,8 @@
 """C6: 설정의 `module:callable`은 허용 목록에 있는 이름만 부를 수 있다. 목록 밖 이름(표준 라이브러리의 임의 호출 대상 포함)은 호출 전에 거부한다."""
 import pytest
 
-from model_lab import factories
-from model_lab.errors import ConfigError
+from model_lab.wiring import factories
+from model_lab.wiring.errors import ConfigError
 
 
 @pytest.mark.parametrize("spec", [{"factory": "os:getcwd"}, {"factory": "subprocess:getoutput", "args": {"cmd": "true"}},

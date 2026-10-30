@@ -11,7 +11,7 @@ import pytest
 from boundary_contracts import validator
 
 from model_lab.config import validate_config
-from model_lab.errors import ConfigError
+from model_lab.wiring.errors import ConfigError
 from tests.conftest import ROOT
 
 SCRIPT = ROOT / "scripts" / "build-image.sh"

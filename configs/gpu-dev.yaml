@@ -8,7 +8,7 @@ run: {name: gpu-dev, seed: 1234, runs_dir: ../runs}
 inputs:
   schema_dir: ../vendor/survey-schema/schemas        # 호스트에서는 문진 스키마 사본(vendor/). 개발 PC에서는 ../../survey-service/schema/schemas
   dataset: {id: openit-dataset}                        # 데이터셋 ID는 synthetic-data의 설정에 맞춘다. version 생략 = 최신
-  dataset_store: {kind: http, base_url_env: DATASET_STORE_URL, token_env: DATASET_STORE_TOKEN, timeout: 300}   # 같은 호스트 파일 읽기가 필요하면 factory: model_lab.file_dataset_store:file_dataset_store (로컬 개발용)
+  dataset_store: {kind: http, base_url_env: DATASET_STORE_URL, token_env: DATASET_STORE_TOKEN, timeout: 300}   # 같은 호스트 파일 읽기가 필요하면 factory: model_lab.components.link_dataset_read_file:file_dataset_store (로컬 개발용)
   failure_store: {factory: "boundary_contracts.clients:HttpFailureStore", args: {base_url_env: FAILURE_STORE_URL, token_env: FAILURE_STORE_TOKEN}}
 roles:
   LORA_A: {package_id: lora-a-parser, system_prompt_file: ../prompts/lora_a.system.txt}

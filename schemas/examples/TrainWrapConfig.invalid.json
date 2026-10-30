@@ -1,0 +1,62 @@
+{
+  "base_model": {
+    "id": "Qwen/Qwen3-8B",
+    "profile": "qwen3-8b",
+    "revision": "main"
+  },
+  "config_version": 1,
+  "dataset": {
+    "dir": "/home/openit/taehyeon/data/dataset_10_14",
+    "id": "dataset_10_14",
+    "prefix": "lora_a",
+    "version": "v2"
+  },
+  "hyperparams": {
+    "dry_run": false,
+    "epochs": 3,
+    "eval_steps": 50,
+    "grad_accum_steps": 4,
+    "learning_rate": 0.0002,
+    "lora_alpha": 16,
+    "lora_dropout": 0.0,
+    "lora_r": 16,
+    "max_len": 4096,
+    "per_device_batch_size": 2,
+    "seed": 42
+  },
+  "output": {
+    "adapter_dir": "../runs/train/lora_a_8b_v2/adapter",
+    "max_lora_rank": 16,
+    "min_free_gb": 30
+  },
+  "role": "LORA_A",
+  "server": {
+    "arg_map": {
+      "base_model": "--model",
+      "dataset_dir": "--data_dir",
+      "dataset_prefix": "--prefix",
+      "dry_run": "--dry_run",
+      "epochs": "--epochs",
+      "eval_steps": "--eval_steps",
+      "grad_accum_steps": "--accum",
+      "learning_rate": "--lr",
+      "lora_alpha": "--alpha",
+      "lora_dropout": "--dropout",
+      "lora_r": "--rank",
+      "max_len": "--max_len",
+      "output_dir": "--out_dir",
+      "per_device_batch_size": "--batch",
+      "seed": "--seed"
+    },
+    "args_evidence": "헤드가 2026-10-27에 서버 ~/taehyeon/train_lora_a.py의 add_argument를 읽어 확인함. --help 실제 실행·타입 검사 방식은 미확인. B 스크립트도 인자 이름이 같다",
+    "args_verified": true,
+    "code_dir": "~/taehyeon",
+    "python": "python3",
+    "require_gpu": true,
+    "scripts": {
+      "LORA_A": "train_lora_a.py",
+      "LORA_B": "train_lora_b.py"
+    }
+  },
+  "threshold": 1
+}

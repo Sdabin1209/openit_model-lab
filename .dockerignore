@@ -7,5 +7,5 @@ docs
 configs
 profiles
 scripts
-model_lab/trainers
-model_lab/backends
+model_lab/wiring
+model_lab/types

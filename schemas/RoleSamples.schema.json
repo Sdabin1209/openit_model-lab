@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RoleSamples",
+  "description": "dataset_samples의 출력: 역할의 분할별 샘플(계약 샘플 스키마로 검증됨). 학습 샘플이 없으면 거부한다.",
+  "type": "object",
+  "properties": {
+    "TRAIN": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "$ref": "ActionExtractionSample.schema.json"
+          },
+          {
+            "$ref": "ResponseSample.schema.json"
+          }
+        ]
+      },
+      "minItems": 1
+    },
+    "VALIDATION": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "$ref": "ActionExtractionSample.schema.json"
+          },
+          {
+            "$ref": "ResponseSample.schema.json"
+          }
+        ]
+      }
+    },
+    "EVAL": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "$ref": "ActionExtractionSample.schema.json"
+          },
+          {
+            "$ref": "ResponseSample.schema.json"
+          }
+        ]
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "TRAIN",
+    "VALIDATION",
+    "EVAL"
+  ]
+}

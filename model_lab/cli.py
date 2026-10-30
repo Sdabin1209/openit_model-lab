@@ -9,8 +9,8 @@ from pathlib import Path
 from boundary_contracts import BoundaryError
 
 from .config import load_config
-from .errors import PipelineError
-from .pipeline import STAGES, Run, run_once
+from .wiring.errors import PipelineError
+from .wiring.pipeline import STAGES, Run, run_once
 
 
 def main(argv=None) -> int:
@@ -43,7 +43,7 @@ def main(argv=None) -> int:
     a = ap.parse_args(argv)
     try:
         if a.cmd in ("train", "train-doctor"):
-            from . import train_wrap as tw
+            from .wiring import train_flow as tw
             tcfg = tw.load_train_config(a.config)
             if a.cmd == "train-doctor":
                 rows = tw.doctor(tcfg)
@@ -57,7 +57,7 @@ def main(argv=None) -> int:
             tw.run_train(tcfg)
             return 0
         if a.cmd == "package-adapters":
-            from .attach import package_adapters
+            from .wiring.attach_flow import package_adapters
             res = package_adapters(
                 config=a.config, profile=a.profile, out=Path(a.out), publish=not a.no_publish,
                 adapters={"LORA_A": a.adapter_a, "LORA_B": a.adapter_b}, prompts={"LORA_A": a.prompt_a, "LORA_B": a.prompt_b},

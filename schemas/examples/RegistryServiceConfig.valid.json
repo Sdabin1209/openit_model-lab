@@ -1,0 +1,12 @@
+{
+  "auth_fail_limit": 10,
+  "max_body": 4294967296,
+  "max_connections": 32,
+  "max_publishes": 1,
+  "min_free_gb": 1,
+  "port": 8080,
+  "root": "/data",
+  "shutdown_grace": 8,
+  "socket_timeout": 30,
+  "threads": 16
+}

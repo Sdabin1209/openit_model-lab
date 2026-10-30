@@ -8,7 +8,7 @@ import pytest
 from boundary_contracts import PIPELINE_SCHEMA_VERSION, validator
 
 from tests.doubles.contract_facts import pipeline_version_pattern
-from model_lab.transform import (ConversionError, from_server_row, read_server_file, render_input, sample_id_of,
+from model_lab.components.server_row_convert import (ConversionError, from_server_row, read_server_file, render_input, sample_id_of,
                                  to_chat_example, to_messages, to_server_row, write_samples)
 
 DATA = Path(__file__).parent / "data"

@@ -1,0 +1,603 @@
+{
+  "context": {},
+  "eval_files": [],
+  "failures": {
+    "count": 0,
+    "listed": []
+  },
+  "notice": "통과 임계치와 지표 선정은 정해지지 않았다(O11). 이 보고서는 계산한 값만 담으며 합격 여부를 판단하지 않는다.",
+  "overall": {
+    "attempts": {
+      "1": 2
+    },
+    "counts": {
+      "action": 2,
+      "cell": 1,
+      "db_row": 2,
+      "dup_keys": 0,
+      "exact": 2,
+      "extra_keys": 0,
+      "gold_keys": 1,
+      "key_found": 1,
+      "next_item": 2,
+      "note_presence": 2,
+      "note_rows": 2,
+      "oos_fn": 0,
+      "oos_fp": 0,
+      "oos_tp": 1,
+      "precision": 1,
+      "pred_values": 1,
+      "reason": 2,
+      "reason_ok": 1,
+      "reason_rows": 1,
+      "rows": 2,
+      "save": 1,
+      "schema_ok": 2,
+      "status": 1,
+      "targets": 0,
+      "targets_extra_rows": 0,
+      "targets_rows": 0,
+      "value": 1,
+      "value_tp": 1
+    },
+    "n": 2,
+    "outcomes": {
+      "ok": 2
+    },
+    "prot_exact": 2,
+    "protections": {},
+    "rates": {
+      "action_acc": 1.0,
+      "action_reason_acc": 1.0,
+      "cell_acc": 1.0,
+      "db_row_match_rate": 1.0,
+      "exact_match_rate": 1.0,
+      "key_found_rate": 1.0,
+      "next_item_acc": 1.0,
+      "note_presence_acc": 1.0,
+      "oos_f1": 1.0,
+      "oos_precision": 1.0,
+      "oos_recall": 1.0,
+      "precision_acc": 1.0,
+      "prot_exact": 1.0,
+      "raw_valid": 1.0,
+      "save_acc": 1.0,
+      "schema_ok_rate": 1.0,
+      "status_acc": 1.0,
+      "value_acc": 1.0
+    },
+    "raw_valid": 2,
+    "semantic_violations": {
+      "by_code": {},
+      "checked": 2,
+      "violating": 0
+    }
+  },
+  "report_version": 2,
+  "role": "LORA_A",
+  "seen_question_sets": {
+    "n": 0
+  },
+  "slices": {
+    "action": {
+      "CORRECT": {
+        "attempts": {
+          "1": 1
+        },
+        "counts": {
+          "action": 1,
+          "cell": 1,
+          "db_row": 1,
+          "dup_keys": 0,
+          "exact": 1,
+          "extra_keys": 0,
+          "gold_keys": 1,
+          "key_found": 1,
+          "next_item": 1,
+          "note_presence": 1,
+          "note_rows": 1,
+          "oos_fn": 0,
+          "oos_fp": 0,
+          "oos_tp": 0,
+          "precision": 1,
+          "pred_values": 1,
+          "reason": 1,
+          "reason_ok": 0,
+          "reason_rows": 0,
+          "rows": 1,
+          "save": 1,
+          "schema_ok": 1,
+          "status": 1,
+          "targets": 0,
+          "targets_extra_rows": 0,
+          "targets_rows": 0,
+          "value": 1,
+          "value_tp": 1
+        },
+        "n": 1,
+        "outcomes": {
+          "ok": 1
+        },
+        "prot_exact": 1,
+        "protections": {},
+        "rates": {
+          "action_acc": 1.0,
+          "action_reason_acc": 1.0,
+          "cell_acc": 1.0,
+          "db_row_match_rate": 1.0,
+          "exact_match_rate": 1.0,
+          "key_found_rate": 1.0,
+          "next_item_acc": 1.0,
+          "note_presence_acc": 1.0,
+          "precision_acc": 1.0,
+          "prot_exact": 1.0,
+          "raw_valid": 1.0,
+          "save_acc": 1.0,
+          "schema_ok_rate": 1.0,
+          "status_acc": 1.0,
+          "value_acc": 1.0
+        },
+        "raw_valid": 1,
+        "semantic_violations": {
+          "by_code": {},
+          "checked": 1,
+          "violating": 0
+        }
+      },
+      "REDIRECT": {
+        "attempts": {
+          "1": 1
+        },
+        "counts": {
+          "action": 1,
+          "db_row": 1,
+          "dup_keys": 0,
+          "exact": 1,
+          "extra_keys": 0,
+          "gold_keys": 0,
+          "next_item": 1,
+          "note_presence": 1,
+          "note_rows": 1,
+          "oos_fn": 0,
+          "oos_fp": 0,
+          "oos_tp": 1,
+          "pred_values": 0,
+          "reason": 1,
+          "reason_ok": 1,
+          "reason_rows": 1,
+          "rows": 1,
+          "schema_ok": 1,
+          "targets": 0,
+          "targets_extra_rows": 0,
+          "targets_rows": 0
+        },
+        "n": 1,
+        "outcomes": {
+          "ok": 1
+        },
+        "prot_exact": 1,
+        "protections": {},
+        "rates": {
+          "action_acc": 1.0,
+          "action_reason_acc": 1.0,
+          "db_row_match_rate": 1.0,
+          "exact_match_rate": 1.0,
+          "next_item_acc": 1.0,
+          "note_presence_acc": 1.0,
+          "oos_f1": 1.0,
+          "oos_precision": 1.0,
+          "oos_recall": 1.0,
+          "prot_exact": 1.0,
+          "raw_valid": 1.0,
+          "schema_ok_rate": 1.0
+        },
+        "raw_valid": 1,
+        "semantic_violations": {
+          "by_code": {},
+          "checked": 1,
+          "violating": 0
+        }
+      }
+    },
+    "question_id": {
+      "Q1.D01": {
+        "attempts": {
+          "1": 2
+        },
+        "counts": {
+          "action": 2,
+          "cell": 1,
+          "db_row": 2,
+          "dup_keys": 0,
+          "exact": 2,
+          "extra_keys": 0,
+          "gold_keys": 1,
+          "key_found": 1,
+          "next_item": 2,
+          "note_presence": 2,
+          "note_rows": 2,
+          "oos_fn": 0,
+          "oos_fp": 0,
+          "oos_tp": 1,
+          "precision": 1,
+          "pred_values": 1,
+          "reason": 2,
+          "reason_ok": 1,
+          "reason_rows": 1,
+          "rows": 2,
+          "save": 1,
+          "schema_ok": 2,
+          "status": 1,
+          "targets": 0,
+          "targets_extra_rows": 0,
+          "targets_rows": 0,
+          "value": 1,
+          "value_tp": 1
+        },
+        "n": 2,
+        "outcomes": {
+          "ok": 2
+        },
+        "prot_exact": 2,
+        "protections": {},
+        "rates": {
+          "action_acc": 1.0,
+          "action_reason_acc": 1.0,
+          "cell_acc": 1.0,
+          "db_row_match_rate": 1.0,
+          "exact_match_rate": 1.0,
+          "key_found_rate": 1.0,
+          "next_item_acc": 1.0,
+          "note_presence_acc": 1.0,
+          "oos_f1": 1.0,
+          "oos_precision": 1.0,
+          "oos_recall": 1.0,
+          "precision_acc": 1.0,
+          "prot_exact": 1.0,
+          "raw_valid": 1.0,
+          "save_acc": 1.0,
+          "schema_ok_rate": 1.0,
+          "status_acc": 1.0,
+          "value_acc": 1.0
+        },
+        "raw_valid": 2,
+        "semantic_violations": {
+          "by_code": {},
+          "checked": 2,
+          "violating": 0
+        }
+      }
+    },
+    "question_set": {
+      "qs-train@1": {
+        "attempts": {
+          "1": 2
+        },
+        "counts": {
+          "action": 2,
+          "cell": 1,
+          "db_row": 2,
+          "dup_keys": 0,
+          "exact": 2,
+          "extra_keys": 0,
+          "gold_keys": 1,
+          "key_found": 1,
+          "next_item": 2,
+          "note_presence": 2,
+          "note_rows": 2,
+          "oos_fn": 0,
+          "oos_fp": 0,
+          "oos_tp": 1,
+          "precision": 1,
+          "pred_values": 1,
+          "reason": 2,
+          "reason_ok": 1,
+          "reason_rows": 1,
+          "rows": 2,
+          "save": 1,
+          "schema_ok": 2,
+          "status": 1,
+          "targets": 0,
+          "targets_extra_rows": 0,
+          "targets_rows": 0,
+          "value": 1,
+          "value_tp": 1
+        },
+        "n": 2,
+        "outcomes": {
+          "ok": 2
+        },
+        "prot_exact": 2,
+        "protections": {},
+        "rates": {
+          "action_acc": 1.0,
+          "action_reason_acc": 1.0,
+          "cell_acc": 1.0,
+          "db_row_match_rate": 1.0,
+          "exact_match_rate": 1.0,
+          "key_found_rate": 1.0,
+          "next_item_acc": 1.0,
+          "note_presence_acc": 1.0,
+          "oos_f1": 1.0,
+          "oos_precision": 1.0,
+          "oos_recall": 1.0,
+          "precision_acc": 1.0,
+          "prot_exact": 1.0,
+          "raw_valid": 1.0,
+          "save_acc": 1.0,
+          "schema_ok_rate": 1.0,
+          "status_acc": 1.0,
+          "value_acc": 1.0
+        },
+        "raw_valid": 2,
+        "semantic_violations": {
+          "by_code": {},
+          "checked": 2,
+          "violating": 0
+        }
+      }
+    },
+    "reason": {
+      "(없음)": {
+        "attempts": {
+          "1": 1
+        },
+        "counts": {
+          "action": 1,
+          "cell": 1,
+          "db_row": 1,
+          "dup_keys": 0,
+          "exact": 1,
+          "extra_keys": 0,
+          "gold_keys": 1,
+          "key_found": 1,
+          "next_item": 1,
+          "note_presence": 1,
+          "note_rows": 1,
+          "oos_fn": 0,
+          "oos_fp": 0,
+          "oos_tp": 0,
+          "precision": 1,
+          "pred_values": 1,
+          "reason": 1,
+          "reason_ok": 0,
+          "reason_rows": 0,
+          "rows": 1,
+          "save": 1,
+          "schema_ok": 1,
+          "status": 1,
+          "targets": 0,
+          "targets_extra_rows": 0,
+          "targets_rows": 0,
+          "value": 1,
+          "value_tp": 1
+        },
+        "n": 1,
+        "outcomes": {
+          "ok": 1
+        },
+        "prot_exact": 1,
+        "protections": {},
+        "rates": {
+          "action_acc": 1.0,
+          "action_reason_acc": 1.0,
+          "cell_acc": 1.0,
+          "db_row_match_rate": 1.0,
+          "exact_match_rate": 1.0,
+          "key_found_rate": 1.0,
+          "next_item_acc": 1.0,
+          "note_presence_acc": 1.0,
+          "precision_acc": 1.0,
+          "prot_exact": 1.0,
+          "raw_valid": 1.0,
+          "save_acc": 1.0,
+          "schema_ok_rate": 1.0,
+          "status_acc": 1.0,
+          "value_acc": 1.0
+        },
+        "raw_valid": 1,
+        "semantic_violations": {
+          "by_code": {},
+          "checked": 1,
+          "violating": 0
+        }
+      },
+      "OUT_OF_SCHEMA": {
+        "attempts": {
+          "1": 1
+        },
+        "counts": {
+          "action": 1,
+          "db_row": 1,
+          "dup_keys": 0,
+          "exact": 1,
+          "extra_keys": 0,
+          "gold_keys": 0,
+          "next_item": 1,
+          "note_presence": 1,
+          "note_rows": 1,
+          "oos_fn": 0,
+          "oos_fp": 0,
+          "oos_tp": 1,
+          "pred_values": 0,
+          "reason": 1,
+          "reason_ok": 1,
+          "reason_rows": 1,
+          "rows": 1,
+          "schema_ok": 1,
+          "targets": 0,
+          "targets_extra_rows": 0,
+          "targets_rows": 0
+        },
+        "n": 1,
+        "outcomes": {
+          "ok": 1
+        },
+        "prot_exact": 1,
+        "protections": {},
+        "rates": {
+          "action_acc": 1.0,
+          "action_reason_acc": 1.0,
+          "db_row_match_rate": 1.0,
+          "exact_match_rate": 1.0,
+          "next_item_acc": 1.0,
+          "note_presence_acc": 1.0,
+          "oos_f1": 1.0,
+          "oos_precision": 1.0,
+          "oos_recall": 1.0,
+          "prot_exact": 1.0,
+          "raw_valid": 1.0,
+          "schema_ok_rate": 1.0
+        },
+        "raw_valid": 1,
+        "semantic_violations": {
+          "by_code": {},
+          "checked": 1,
+          "violating": 0
+        }
+      }
+    },
+    "seen": {
+      "unseen": {
+        "attempts": {
+          "1": 2
+        },
+        "counts": {
+          "action": 2,
+          "cell": 1,
+          "db_row": 2,
+          "dup_keys": 0,
+          "exact": 2,
+          "extra_keys": 0,
+          "gold_keys": 1,
+          "key_found": 1,
+          "next_item": 2,
+          "note_presence": 2,
+          "note_rows": 2,
+          "oos_fn": 0,
+          "oos_fp": 0,
+          "oos_tp": 1,
+          "precision": 1,
+          "pred_values": 1,
+          "reason": 2,
+          "reason_ok": 1,
+          "reason_rows": 1,
+          "rows": 2,
+          "save": 1,
+          "schema_ok": 2,
+          "status": 1,
+          "targets": 0,
+          "targets_extra_rows": 0,
+          "targets_rows": 0,
+          "value": 1,
+          "value_tp": 1
+        },
+        "n": 2,
+        "outcomes": {
+          "ok": 2
+        },
+        "prot_exact": 2,
+        "protections": {},
+        "rates": {
+          "action_acc": 1.0,
+          "action_reason_acc": 1.0,
+          "cell_acc": 1.0,
+          "db_row_match_rate": 1.0,
+          "exact_match_rate": 1.0,
+          "key_found_rate": 1.0,
+          "next_item_acc": 1.0,
+          "note_presence_acc": 1.0,
+          "oos_f1": 1.0,
+          "oos_precision": 1.0,
+          "oos_recall": 1.0,
+          "precision_acc": 1.0,
+          "prot_exact": 1.0,
+          "raw_valid": 1.0,
+          "save_acc": 1.0,
+          "schema_ok_rate": 1.0,
+          "status_acc": 1.0,
+          "value_acc": 1.0
+        },
+        "raw_valid": 2,
+        "semantic_violations": {
+          "by_code": {},
+          "checked": 2,
+          "violating": 0
+        }
+      }
+    }
+  },
+  "unseen_question_sets": {
+    "aggregate": {
+      "attempts": {
+        "1": 2
+      },
+      "counts": {
+        "action": 2,
+        "cell": 1,
+        "db_row": 2,
+        "dup_keys": 0,
+        "exact": 2,
+        "extra_keys": 0,
+        "gold_keys": 1,
+        "key_found": 1,
+        "next_item": 2,
+        "note_presence": 2,
+        "note_rows": 2,
+        "oos_fn": 0,
+        "oos_fp": 0,
+        "oos_tp": 1,
+        "precision": 1,
+        "pred_values": 1,
+        "reason": 2,
+        "reason_ok": 1,
+        "reason_rows": 1,
+        "rows": 2,
+        "save": 1,
+        "schema_ok": 2,
+        "status": 1,
+        "targets": 0,
+        "targets_extra_rows": 0,
+        "targets_rows": 0,
+        "value": 1,
+        "value_tp": 1
+      },
+      "n": 2,
+      "outcomes": {
+        "ok": 2
+      },
+      "prot_exact": 2,
+      "protections": {},
+      "rates": {
+        "action_acc": 1.0,
+        "action_reason_acc": 1.0,
+        "cell_acc": 1.0,
+        "db_row_match_rate": 1.0,
+        "exact_match_rate": 1.0,
+        "key_found_rate": 1.0,
+        "next_item_acc": 1.0,
+        "note_presence_acc": 1.0,
+        "oos_f1": 1.0,
+        "oos_precision": 1.0,
+        "oos_recall": 1.0,
+        "precision_acc": 1.0,
+        "prot_exact": 1.0,
+        "raw_valid": 1.0,
+        "save_acc": 1.0,
+        "schema_ok_rate": 1.0,
+        "status_acc": 1.0,
+        "value_acc": 1.0
+      },
+      "raw_valid": 2,
+      "semantic_violations": {
+        "by_code": {},
+        "checked": 2,
+        "violating": 0
+      }
+    },
+    "note": "학습·검증에 쓰지 않은 문항 세트의 샘플(D32). 비어 있으면 이 평가 데이터에는 보지 못한 문항 세트가 없다(또는 샘플에 문항 세트가 적혀 있지 않다).",
+    "question_sets": [
+      "qs-train@1"
+    ]
+  }
+}

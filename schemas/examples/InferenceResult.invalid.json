@@ -1,0 +1,22 @@
+{
+  "attempts": 1,
+  "is_fallback": false,
+  "outcome": "ok",
+  "protections": [],
+  "raw_errors": [],
+  "raw_output": {
+    "action": "CORRECT",
+    "next_item": "Q1.D02",
+    "values": [
+      {
+        "key": "Q1.D01.on_medication",
+        "precision": "exact",
+        "save": true,
+        "status": "CORRECTION",
+        "value": true
+      }
+    ]
+  },
+  "raw_valid": true,
+  "text": null
+}

@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TrainDataRequest",
+  "description": "train_data의 입력.",
+  "type": "object",
+  "properties": {
+    "role": {
+      "enum": [
+        "LORA_A",
+        "LORA_B"
+      ]
+    },
+    "sample": {
+      "oneOf": [
+        {
+          "$ref": "ActionExtractionSample.schema.json"
+        },
+        {
+          "$ref": "ResponseSample.schema.json"
+        }
+      ]
+    },
+    "serving_config": {
+      "$ref": "ServingConfig.schema.json"
+    },
+    "system_prompt": {
+      "type": "string",
+      "pattern": "\\S"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "role",
+    "sample",
+    "serving_config",
+    "system_prompt"
+  ]
+}

@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RegistryServiceConfig",
+  "description": "link_registry_serve를 기동하는 설정(진입점이 환경 변수에서 만든다). 기본값의 근거는 service/app.py 주석과 ADR 0007·0023이다(측정하지 않은 보수적 시작값).",
+  "type": "object",
+  "properties": {
+    "root": {
+      "type": "string",
+      "minLength": 1
+    },
+    "host": {
+      "type": "string",
+      "minLength": 1
+    },
+    "port": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 65535
+    },
+    "max_body": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "socket_timeout": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "max_connections": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "threads": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "max_publishes": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "auth_fail_limit": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "min_free_gb": {
+      "type": "number",
+      "minimum": 0
+    },
+    "shutdown_grace": {
+      "type": "number",
+      "minimum": 0
+    },
+    "min_token_len": {
+      "type": "integer",
+      "minimum": 1
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "root",
+    "port"
+  ]
+}

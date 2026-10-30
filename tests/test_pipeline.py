@@ -7,9 +7,9 @@ import pytest
 from boundary_contracts import BoundaryError, canonical, validator
 
 from model_lab.config import ConfigError, load_config, validate_config
-from model_lab.errors import PipelineError
-from model_lab.pipeline import Run, run_once
-from model_lab.trainers.dryrun import DryRunTrainer, Interrupted
+from model_lab.wiring.errors import PipelineError
+from model_lab.wiring.pipeline import Run, run_once
+from model_lab.components.lora_train_dryrun import DryRunTrainer, Interrupted
 from tests.conftest import FIXED
 from tests.doubles.serve import stop
 from tests.doubles.dataset_store import DirDatasetStore
@@ -213,7 +213,7 @@ def test_config_rejects_unknown_keys_and_thresholds(cfg):
 
 
 def test_config_hash_ignores_locations_but_not_training(cfg, tmp_path):
-    from model_lab.config import config_hash
+    from model_lab.wiring.settings import config_hash
     c2 = with_dirs(cfg, tmp_path, "x")
     assert config_hash(cfg) == config_hash(c2)
     c3 = copy.deepcopy(cfg); c3["training"]["epochs"] = 2
@@ -265,7 +265,7 @@ class FlakyRegistry:
 
 
 def test_registry_outage_keeps_training_result_and_retries_only_publish(cfg, tmp_path):
-    from model_lab.registry import MemoryModelRegistry
+    from model_lab.components.model_registry import MemoryModelRegistry
     inner = MemoryModelRegistry()
     r1 = mk(cfg, registry=FlakyRegistry(inner, 1))
     with pytest.raises(BoundaryError) as e:
@@ -315,7 +315,7 @@ def test_http_kind_requires_token_env_var(cfg):
 
 
 def test_env_args_resolution():
-    from model_lab.factories import resolve_args
+    from model_lab.wiring.factories import resolve_args
     assert resolve_args({"base_url": "u", "token_env": "T"}, {"T": "s"}) == {"base_url": "u", "token": "s"}
     with pytest.raises(ConfigError):
         resolve_args({"token_env": "MISSING"}, {})

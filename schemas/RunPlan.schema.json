@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RunPlan",
+  "description": "파이프라인 한 번의 실행이 요구하는 설정: RunConfig이면서 두 역할(LoRA-A, LoRA-B)의 roles와 serving이 모두 있다(model-runtime.load가 두 역할을 함께 받는다).",
+  "allOf": [
+    {
+      "$ref": "RunConfig.schema.json"
+    }
+  ],
+  "properties": {
+    "roles": {
+      "required": [
+        "LORA_A",
+        "LORA_B"
+      ]
+    },
+    "serving": {
+      "required": [
+        "LORA_A",
+        "LORA_B"
+      ]
+    }
+  }
+}

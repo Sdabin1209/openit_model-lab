@@ -1,0 +1,11 @@
+{
+  "attempts": 1,
+  "is_fallback": false,
+  "outcome": "ok",
+  "protections": [],
+  "raw_errors": [],
+  "raw_output": "약은 있음으로 고쳤습니다. 심근경색이나 협심증으로 진단받았거나 약을 드시나요?",
+  "raw_valid": true,
+  "role": "LORA_B",
+  "text": "약은 있음으로 고쳤습니다. 심근경색이나 협심증으로 진단받았거나 약을 드시나요?"
+}

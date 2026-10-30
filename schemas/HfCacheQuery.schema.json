@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "HfCacheQuery",
+  "description": "hf_cache_lookup의 입력.",
+  "type": "object",
+  "properties": {
+    "model_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "revision": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "model_id"
+  ]
+}

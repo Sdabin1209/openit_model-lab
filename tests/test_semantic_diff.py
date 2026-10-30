@@ -6,7 +6,7 @@ from pathlib import Path
 
 from boundary_contracts import validator
 
-from model_lab.evaluate import semantic_violations
+from model_lab.components.eval_sample import semantic_violations
 
 DATA = json.loads((Path(__file__).parent / "data" / "semantic_violations_before.json").read_text(encoding="utf-8"))
 

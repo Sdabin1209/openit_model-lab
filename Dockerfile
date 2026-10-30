@@ -26,7 +26,8 @@ ARG BC_VERSION
 RUN test -n "${REVISION}" && test -n "${BC_VERSION}" || { echo "REVISION and BC_VERSION build-args required" >&2; exit 1; }
 COPY --from=build /opt/venv /opt/venv
 WORKDIR /app
-COPY model_lab/__init__.py model_lab/errors.py model_lab/registry.py /app/model_lab/
+COPY model_lab/__init__.py /app/model_lab/
+COPY model_lab/components/__init__.py model_lab/components/model_registry.py model_lab/components/link_registry_serve.py /app/model_lab/components/
 COPY model_lab/service /app/model_lab/service
 RUN useradd --uid 10001 --no-create-home --shell /usr/sbin/nologin registry && mkdir /data && chown registry /data
 ENV PATH=/opt/venv/bin:$PATH PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 MODEL_REGISTRY_ROOT=/data MODEL_REGISTRY_PORT=8080

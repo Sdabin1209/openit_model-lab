@@ -1,0 +1,91 @@
+{
+  "base_model": {
+    "id": "Qwen/Qwen2.5-1.5B-Instruct",
+    "revision": "dry-run"
+  },
+  "config_version": 1,
+  "evaluation": {
+    "backend": {
+      "corrupt_every": 0,
+      "kind": "fake-oracle"
+    },
+    "split": "EVAL",
+    "threshold": 0.9
+  },
+  "inputs": {
+    "dataset": {
+      "id": "fx-golden"
+    },
+    "dataset_store": {
+      "args": {
+        "root": "/work/store"
+      },
+      "factory": "tests.doubles.dataset_store:from_dir"
+    },
+    "schema_dir": "installed:survey-schema"
+  },
+  "registry": {
+    "kind": "file",
+    "path": "/work/registry"
+  },
+  "roles": {
+    "LORA_A": {
+      "package_id": "lora-a-parser",
+      "system_prompt_file": "/home/user/sdabin/healthKiosk/deploy/build/wt-model-lab-400/prompts/lora_a.system.txt"
+    },
+    "LORA_B": {
+      "package_id": "lora-b-generator",
+      "system_prompt_file": "/home/user/sdabin/healthKiosk/deploy/build/wt-model-lab-400/prompts/lora_b.system.txt"
+    }
+  },
+  "run": {
+    "name": "dryrun",
+    "runs_dir": "/work/runs",
+    "seed": 1234
+  },
+  "serving": {
+    "LORA_A": {
+      "constraint": {
+        "backend": "fake",
+        "backend_version": "1",
+        "relax_policy_version": "relax-3",
+        "supported_features": []
+      },
+      "decoding": {
+        "constraint_mode": "none",
+        "max_tokens": 512,
+        "seed": 1000,
+        "temperature": 0
+      },
+      "max_attempts": 3,
+      "output_contract": 1,
+      "prompt_template_version": "prompt-4",
+      "protection_policy_version": "protect-2"
+    },
+    "LORA_B": {
+      "constraint": {
+        "backend": "fake",
+        "backend_version": "1",
+        "relax_policy_version": "relax-3",
+        "supported_features": []
+      },
+      "decoding": {
+        "constraint_mode": "none",
+        "max_tokens": 512,
+        "seed": 1000,
+        "temperature": 0
+      },
+      "max_attempts": 3,
+      "output_contract": 1,
+      "prompt_template_version": "prompt-4",
+      "protection_policy_version": "protect-2"
+    }
+  },
+  "training": {
+    "checkpoint_every_steps": 10,
+    "epochs": 1,
+    "grad_accum_steps": 2,
+    "per_device_batch_size": 2,
+    "trainer": "dry-run"
+  }
+}

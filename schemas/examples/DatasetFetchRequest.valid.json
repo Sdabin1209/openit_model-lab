@@ -1,0 +1,6 @@
+{
+  "dataset_id": "fx-golden",
+  "dest": "/work/dataset/files",
+  "runtime_contract_version": 1,
+  "version": "v1"
+}

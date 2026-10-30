@@ -7,10 +7,11 @@ from pathlib import Path
 import model_runtime
 import pytest
 
-from model_lab.backends.fake import oracle_backend
-from model_lab.evaluate import build_report, same, score_a
-from model_lab.text_rules import check_response, numbers
-from model_lab.transform import render_output
+from model_lab.components.backend_oracle import oracle_backend
+from model_lab.wiring.evaluation import build_report
+from model_lab.components.eval_sample import same, score_a
+from model_lab.components.eval_sample import check_response, numbers
+from model_lab.components.train_data import render_output
 from tests.conftest import SCHEMA_DIR
 from tests.doubles.fixtures import SYSTEM_PROMPT, load_samples
 

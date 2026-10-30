@@ -1,0 +1,18 @@
+{
+  "adapter_dir": "/work/adapters/LORA_A",
+  "base_model": {
+    "id": "Qwen/Qwen2.5-1.5B-Instruct",
+    "revision": "main"
+  },
+  "seed": 1234,
+  "train_path": "/work/data/LORA_A/train.jsonl",
+  "training": {
+    "checkpoint_every_steps": 10,
+    "epochs": 1,
+    "grad_accum_steps": 2,
+    "per_device_batch_size": 2,
+    "trainer": "dry-run"
+  },
+  "val_path": "/work/data/LORA_A/val.jsonl",
+  "work_dir": "/work/work/LORA_A"
+}

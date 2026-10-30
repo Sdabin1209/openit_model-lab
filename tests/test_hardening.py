@@ -17,11 +17,11 @@ import pytest
 import yaml
 from boundary_contracts import BoundaryError
 
-from model_lab import train_wrap as tw
-from model_lab.attach import package_adapters
-from model_lab.errors import PipelineError
-from model_lab.registry import FileModelRegistry
-from model_lab.service import tarutil
+from model_lab.wiring import train_flow as tw
+from model_lab.wiring.attach_flow import package_adapters
+from model_lab.wiring.errors import PipelineError
+from model_lab.components.model_registry import FileModelRegistry
+from model_lab.components import link_registry_serve as tarutil
 from model_lab.service.app import Service, drain
 from tests.doubles.serve import serve, stop
 from tests.conftest import ROOT
@@ -212,7 +212,7 @@ def test_sigterm_stops_cleanly_and_removes_tmp(tmp_path):
 # ---------- ML-2/ML-12 학습 전 점검 ----------
 def test_low_disk_blocks_training_by_default_and_policy_can_relax(env, monkeypatch):  # noqa: F811
     raw, write, tmp = env
-    monkeypatch.setattr(tw, "disk_free_gb", lambda cfg: (5.0, tmp))
+    monkeypatch.setattr(__import__("model_lab.components.server_train_wrap", fromlist=["x"]), "disk_free_gb", lambda cfg: (5.0, tmp))
     raw["output"]["min_free_gb"] = 30
     cfg = tw.load_train_config(write())
     with pytest.raises(PipelineError, match="디스크 여유가 부족"):
@@ -249,7 +249,7 @@ def test_server_script_hash_comparison(env):  # noqa: F811
 
 # ---------- ML-5 계보 ----------
 def _record(kw, rec_role, **over):
-    from model_lab.train_wrap import _sha256
+    from model_lab.components.train_record_verify import _sha256
     role = rec_role
     ad = Path(kw["adapters"][role])
     rec = {"record_version": 1, "role": role, "config_hash": "sha256:" + "c" * 64, "server_script_sha256": "d" * 64,

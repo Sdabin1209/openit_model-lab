@@ -1,0 +1,5 @@
+{
+  "base_model_name_or_path": "Qwen/Qwen2.5-1.5B-Instruct",
+  "peft_type": "LORA",
+  "r": 16
+}

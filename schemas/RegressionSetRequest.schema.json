@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RegressionSetRequest",
+  "description": "regression_set의 입력(get_trace는 wiring이 주입): 정답 있는 확정 실패 사례.",
+  "type": "object",
+  "properties": {
+    "cases": {
+      "type": "array",
+      "items": {
+        "$ref": "FailureCase.schema.json"
+      }
+    },
+    "max_listed": {
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "cases"
+  ]
+}

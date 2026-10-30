@@ -7,8 +7,8 @@ import model_runtime
 from boundary_contracts import PIPELINE_SCHEMA_VERSION, BoundaryError, canonical
 from boundary_contracts.sdk import ModelRegistry
 
-from model_lab.registry import FileModelRegistry, MemoryModelRegistry
-from model_lab.packager import action_rules_version
+from model_lab.components.model_registry import FileModelRegistry, MemoryModelRegistry
+from model_lab.wiring.packaging import action_rules_version
 
 
 class _HttpReg:

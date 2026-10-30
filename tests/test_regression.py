@@ -8,8 +8,8 @@ import pytest
 from boundary_contracts import PIPELINE_SCHEMA_VERSION, BoundaryError, canonical
 from boundary_contracts.sdk import DatasetStore
 
-from model_lab.file_dataset_store import FileDatasetReader, file_dataset_store
-from model_lab.pipeline import Run, run_once
+from model_lab.components.link_dataset_read_file import FileDatasetReader, file_dataset_store
+from model_lab.wiring.pipeline import Run, run_once
 from tests.conftest import FIXED, SCHEMA_DIR
 from tests.doubles.failure_server import FailureServer
 from tests.doubles.fixtures import load_samples
@@ -86,7 +86,7 @@ def test_regression_off_by_default(cfg):
 
 
 def test_regression_requires_failure_store_when_enabled(cfg):
-    from model_lab.errors import ConfigError
+    from model_lab.wiring.errors import ConfigError
     c = copy.deepcopy(cfg); c["evaluation"]["regression"] = {"enabled": True}
     with pytest.raises(ConfigError):
         Run(c, clock=FIXED, log=lambda s: None).run()
@@ -169,5 +169,5 @@ def test_file_reader_orders_by_seq_and_skips_partial(tmp_path):
 def test_pipeline_reads_from_file_layout(cfg, layout, monkeypatch):
     monkeypatch.setenv("TEST_DATASET_ROOT", str(layout))
     c = copy.deepcopy(cfg)
-    c["inputs"]["dataset_store"] = {"factory": "model_lab.file_dataset_store:file_dataset_store", "args": {"root_env": "TEST_DATASET_ROOT"}}
+    c["inputs"]["dataset_store"] = {"factory": "model_lab.components.link_dataset_read_file:file_dataset_store", "args": {"root_env": "TEST_DATASET_ROOT"}}
     assert run_once(c, clock=FIXED, log=lambda s: None)["action"] == "ran"

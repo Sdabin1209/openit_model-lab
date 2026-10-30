@@ -1,5 +1,12 @@
 # 변경 이력
 
+## 미배포 - U400 영역 구조 개편(D117), 계약 v3.1.1, link v0.1.0
+- 모듈 이동(동작 불변): `registry.py`->`components/model_registry.py`, `service/app.py`->`components/link_registry_serve.py`(+tar 유틸, 진입점은 `service/app.py`에 남음), `datasets.py`->`components/dataset_samples.py`+`link_dataset_fetch.py`, `transform.py`->`components/train_data.py`+`server_row_convert.py`, `evaluate.py`·`text_rules.py`·`flow.py`->`components/eval_sample.py`, `metrics.py`·`metric_names.py`·`regression.section`->`components/eval_report.py`, `regression.py`->`components/regression_set.py`, `packager.py`->`components/package_build.py`, `attach.py`->`wiring/attach_flow.py`+`components/adapter_check.py`+`train_record_verify.py`, `train_wrap.py`->`components/server_train_wrap.py`, `trainers/`·`backends/`->`components/lora_train_*.py`·`backend_*.py`, `pipeline.py`->`wiring/pipeline.py`, `errors.py`->`wiring/errors.py`, `factories.py`->`wiring/factories.py`.
+- `docs/schemas/`의 학습 서버 형식 스키마 3개를 `schemas/`로 옮기고 코드가 쓴다(`ServerDatasetRow`는 `server_row_convert`가 검증). 새 스키마 35개와 예시.
+- `config.py`의 `CONFIG_SCHEMA`와 `train_wrap`의 `_SCHEMA`를 `schemas/RunConfig`, `TrainWrapConfig`로 옮김. 비밀 키 검사를 `SecretFree` 스키마로, 두 역할 필수를 `RunPlan`으로, 평가 온도 0을 `EvalServingPlan`으로.
+- 시험 import 경로 갱신, `tests/test_structure.py`·`tests/test_schemas.py` 추가(`test_owned_schemas.py` 대체).
+- 핀: boundary-contracts v3.1.1, openit-link v0.1.0(`requirements.txt`, `requirements.lock`; 서비스 이미지는 link를 쓰지 않아 `requirements-service.txt`에 넣지 않음).
+
 ## 미배포 - model-runtime v0.11.2 핀 (v0.11.1에서 올림; 코드 변경 없음)
 - requirements.txt, requirements.lock. 새로 만드는 매니페스트의 lineage.model_runtime_version은 "0.11.2"(상수에서 읽음).
 

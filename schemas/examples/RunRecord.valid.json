@@ -1,0 +1,236 @@
+{
+  "config": {
+    "base_model": {
+      "id": "Qwen/Qwen2.5-1.5B-Instruct",
+      "revision": "dry-run"
+    },
+    "config_version": 1,
+    "evaluation": {
+      "backend": {
+        "corrupt_every": 0,
+        "kind": "fake-oracle"
+      },
+      "split": "EVAL"
+    },
+    "inputs": {
+      "dataset": {
+        "id": "fx-golden"
+      },
+      "dataset_store": {
+        "args": {
+          "root": "/work/store"
+        },
+        "factory": "tests.doubles.dataset_store:from_dir"
+      },
+      "schema_dir": "/home/user/sdabin/healthKiosk/model-lab/.venv/lib/python3.12/site-packages/survey_schema/v1/schemas"
+    },
+    "registry": {
+      "kind": "file",
+      "path": "/work/registry"
+    },
+    "roles": {
+      "LORA_A": {
+        "package_id": "lora-a-parser",
+        "system_prompt_file": "/home/user/sdabin/healthKiosk/deploy/build/wt-model-lab-400/prompts/lora_a.system.txt"
+      },
+      "LORA_B": {
+        "package_id": "lora-b-generator",
+        "system_prompt_file": "/home/user/sdabin/healthKiosk/deploy/build/wt-model-lab-400/prompts/lora_b.system.txt"
+      }
+    },
+    "run": {
+      "name": "dryrun",
+      "runs_dir": "/work/runs",
+      "seed": 1234
+    },
+    "serving": {
+      "LORA_A": {
+        "constraint": {
+          "backend": "fake",
+          "backend_version": "1",
+          "relax_policy_version": "relax-3",
+          "supported_features": []
+        },
+        "decoding": {
+          "constraint_mode": "none",
+          "max_tokens": 512,
+          "seed": 1000,
+          "temperature": 0
+        },
+        "max_attempts": 3,
+        "output_contract": 1,
+        "prompt_template_version": "prompt-4",
+        "protection_policy_version": "protect-2"
+      },
+      "LORA_B": {
+        "constraint": {
+          "backend": "fake",
+          "backend_version": "1",
+          "relax_policy_version": "relax-3",
+          "supported_features": []
+        },
+        "decoding": {
+          "constraint_mode": "none",
+          "max_tokens": 512,
+          "seed": 1000,
+          "temperature": 0
+        },
+        "max_attempts": 3,
+        "output_contract": 1,
+        "prompt_template_version": "prompt-4",
+        "protection_policy_version": "protect-2"
+      }
+    },
+    "training": {
+      "checkpoint_every_steps": 10,
+      "epochs": 1,
+      "grad_accum_steps": 2,
+      "per_device_batch_size": 2,
+      "trainer": "dry-run"
+    }
+  },
+  "config_hash": "sha256:7d821c33ea7a428d90512c0876377e891487dcacf765d630e41571b0264631c4",
+  "created_at": "2026-10-15T00:00:00Z",
+  "dataset": {
+    "content_hash": "sha256:4d008a812a0b3ec44ac710cc8ef8f5b774a34734aa8d265aa6a57dfa58a07267",
+    "id": "fx-golden",
+    "version": "v1"
+  },
+  "environment": {
+    "jsonschema": "4.26.0",
+    "python": "3.12.3",
+    "pyyaml": "6.0.3"
+  },
+  "libraries": {
+    "boundary-contracts": "3.1.1",
+    "model-lab": "0.1.0",
+    "model-runtime": "0.11.2"
+  },
+  "name": "dryrun",
+  "result": {
+    "packages": {
+      "LORA_A": {
+        "content_hash": "sha256:e7576477f9e7a7281a9b00e1bf615006ef151baad15bc7f8abd1d712289d54ca",
+        "package_id": "lora-a-parser",
+        "version": "v1-17849fe6"
+      },
+      "LORA_B": {
+        "content_hash": "sha256:d3d35002fde922db70016517019e35a2917fc656e5808d009fb0cd2b70a787d8",
+        "package_id": "lora-b-generator",
+        "version": "v1-17849fe6"
+      }
+    },
+    "status": "complete"
+  },
+  "run_id": "run-17849fe6b640010d",
+  "run_key": "sha256:17849fe6b640010d28d15a6b3056cfa8efe97a4a2ccdcdc6f3ddf46da9b67c7f",
+  "seed": 1234,
+  "stages": {
+    "evaluate": {
+      "LORA_A": {
+        "report_hash": "sha256:72bf436f889e38e7a134383f48e2baec217247c8822b98325cbe56b6897b8c64",
+        "samples": 43,
+        "status": "done"
+      },
+      "LORA_B": {
+        "report_hash": "sha256:3ce60acf1d71be7fb69f13082f2db376930fe7c56e4affc247d4b0a79d83d043",
+        "samples": 44,
+        "status": "done"
+      },
+      "status": "done"
+    },
+    "load_dataset": {
+      "at": "2026-10-15T00:00:00Z",
+      "files": 8,
+      "status": "done"
+    },
+    "package": {
+      "LORA_A": {
+        "adapter_hash": "sha256:c4f35327be59ca0f384bba3ef0fae497affaa41eb72125bdb73f686a7d7ec4df",
+        "content_hash": "sha256:e7576477f9e7a7281a9b00e1bf615006ef151baad15bc7f8abd1d712289d54ca",
+        "package_id": "lora-a-parser",
+        "status": "done",
+        "version": "v1-17849fe6"
+      },
+      "LORA_B": {
+        "adapter_hash": "sha256:008ae1fb841c232607eb66b14d6b7b202aa2dc5a4f5739ad59a83ec09cba54e1",
+        "content_hash": "sha256:d3d35002fde922db70016517019e35a2917fc656e5808d009fb0cd2b70a787d8",
+        "package_id": "lora-b-generator",
+        "status": "done",
+        "version": "v1-17849fe6"
+      },
+      "created_at": "2026-10-15T00:00:00Z",
+      "status": "done"
+    },
+    "publish": {
+      "at": "2026-10-15T00:00:00Z",
+      "packages": {
+        "LORA_A": {
+          "content_hash": "sha256:e7576477f9e7a7281a9b00e1bf615006ef151baad15bc7f8abd1d712289d54ca",
+          "package_id": "lora-a-parser",
+          "version": "v1-17849fe6"
+        },
+        "LORA_B": {
+          "content_hash": "sha256:d3d35002fde922db70016517019e35a2917fc656e5808d009fb0cd2b70a787d8",
+          "package_id": "lora-b-generator",
+          "version": "v1-17849fe6"
+        }
+      },
+      "status": "done"
+    },
+    "train": {
+      "LORA_A": {
+        "adapter_hash": "sha256:c4f35327be59ca0f384bba3ef0fae497affaa41eb72125bdb73f686a7d7ec4df",
+        "finished_at": "2026-10-15T00:00:00Z",
+        "result": {
+          "base_model_revision": "dry-run",
+          "library_versions": {},
+          "metrics": {
+            "final_state_hash": "sha256:dfdb64fe387d9e5b174109f573aba2d0846ad538b8e5489ee3c56317c83ceb8c"
+          },
+          "resumed_from_step": 0,
+          "steps": 31
+        },
+        "started_at": "2026-10-15T00:00:00Z",
+        "status": "done",
+        "trainer": "dry-run"
+      },
+      "LORA_B": {
+        "adapter_hash": "sha256:008ae1fb841c232607eb66b14d6b7b202aa2dc5a4f5739ad59a83ec09cba54e1",
+        "finished_at": "2026-10-15T00:00:00Z",
+        "result": {
+          "base_model_revision": "dry-run",
+          "library_versions": {},
+          "metrics": {
+            "final_state_hash": "sha256:fa00182ba732376b026bc825e76246eec13b558c70e66a3aaf94367c85a43e3a"
+          },
+          "resumed_from_step": 0,
+          "steps": 31
+        },
+        "started_at": "2026-10-15T00:00:00Z",
+        "status": "done",
+        "trainer": "dry-run"
+      },
+      "status": "done"
+    },
+    "transform": {
+      "LORA_A": {
+        "conflicting_train_prompts": 0,
+        "eval": 43,
+        "status": "done",
+        "train": 122,
+        "train_file_hash": "sha256:b3407910ae0e8acd4dd8adba9a0a756a4562ef6923103f056e7c7c1fb8b03e07",
+        "validation": 15
+      },
+      "LORA_B": {
+        "conflicting_train_prompts": 0,
+        "eval": 44,
+        "status": "done",
+        "train": 122,
+        "train_file_hash": "sha256:039fef0d282b323fbf05456288b8b6e31f0a987c1146e4d3517b9bc6c28901d6",
+        "validation": 15
+      },
+      "status": "done"
+    }
+  }
+}

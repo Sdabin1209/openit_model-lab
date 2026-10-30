@@ -8,8 +8,8 @@ import pytest
 import conformance
 from boundary_contracts import BoundaryError, validator
 
-from model_lab import regression
-from model_lab.pipeline import Run
+from model_lab.wiring import regression
+from model_lab.wiring.pipeline import Run
 from tests.conftest import FIXED
 from tests.doubles.fixtures import load_samples
 from tests.test_registry import code, make, reg  # noqa: F401  (reg는 memory/file/http 공통 fixture)
@@ -37,7 +37,7 @@ def test_extra_file_in_adapter_dir_is_rejected_at_publish(reg, tmp_path):
 
 
 def test_layout_of_matches_contract_example_shape(tmp_path):
-    from model_lab.registry import layout_of
+    from model_lab.components.model_registry import layout_of
     m, ad, _ = make(tmp_path)
     lay = layout_of(ad, "LORA_A")
     assert set(lay) == set(ex("examples", "ModelPackageLayout.json")) and lay["adapter_hash"] == m["adapter_hash"]

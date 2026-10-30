@@ -1,0 +1,71 @@
+{
+  "adapter_dir": "/work/adapters/LORA_A",
+  "eval_report_path": "/work/package/LORA_A.evaluation-report.json",
+  "manifest": {
+    "adapter_hash": "sha256:c4f35327be59ca0f384bba3ef0fae497affaa41eb72125bdb73f686a7d7ec4df",
+    "base_model": {
+      "id": "Qwen/Qwen2.5-1.5B-Instruct",
+      "revision": "dry-run"
+    },
+    "content_hash": "sha256:e7576477f9e7a7281a9b00e1bf615006ef151baad15bc7f8abd1d712289d54ca",
+    "created_at": "2026-10-15T00:00:00Z",
+    "eval_report_ref": "eval-lora-a-parser.v1-17849fe6",
+    "ext": {
+      "model-lab": {
+        "config_hash": "sha256:7d821c33ea7a428d90512c0876377e891487dcacf765d630e41571b0264631c4",
+        "eval_detail_hash": "sha256:72bf436f889e38e7a134383f48e2baec217247c8822b98325cbe56b6897b8c64",
+        "resumed": false,
+        "resumed_from_step": 0,
+        "run_id": "run-17849fe6b640010d",
+        "seed": 1234,
+        "train_data_hash": "sha256:b3407910ae0e8acd4dd8adba9a0a756a4562ef6923103f056e7c7c1fb8b03e07",
+        "trainer": "dry-run"
+      }
+    },
+    "lineage": {
+      "action_rules_version": "2",
+      "dataset": {
+        "content_hash": "sha256:4d008a812a0b3ec44ac710cc8ef8f5b774a34734aa8d265aa6a57dfa58a07267",
+        "id": "fx-golden",
+        "version": "v1"
+      },
+      "model_runtime_version": "0.11.2",
+      "question_sets": [
+        {
+          "content_hash": "sha256:52bc7ee3060112434a43997e5864b6bfef221657ddb08dc63bf82e2cda45a49d",
+          "id": "qs-train",
+          "version": "1"
+        }
+      ],
+      "training_run_id": "run-17849fe6b640010d"
+    },
+    "package_id": "lora-a-parser",
+    "pipeline_schema_version": "3.1",
+    "role": "LORA_A",
+    "runtime_contract_version": 1,
+    "serving_config": {
+      "constraint": {
+        "backend": "fake",
+        "backend_version": "1",
+        "relax_policy_version": "relax-3",
+        "supported_features": []
+      },
+      "decoding": {
+        "constraint_mode": "none",
+        "max_tokens": 512,
+        "seed": 1000,
+        "temperature": 0
+      },
+      "max_attempts": 3,
+      "output_contract": 1,
+      "prompt_template_version": "prompt-4",
+      "protection_policy_version": "protect-2"
+    },
+    "serving_config_hash": "sha256:4fef11345f6bdef9a5e5c65037c2f12a8c7595557cf1c0c4ec042979d8e3514d",
+    "system_prompt": {
+      "path": "system_prompt.txt",
+      "sha256": "sha256:53bc60fd4ceee006b1c63e4a9aa724856b5700e2ddbb5ab80022f795f35650bd"
+    },
+    "version": "v1-17849fe6"
+  }
+}

@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TrainRequest",
+  "description": "학습 컴포넌트(lora_train_dryrun, lora_train_hf)의 입력. 경로는 문자열이다. training은 역할에 적용되는 최종 학습 설정(RunConfig.training).",
+  "type": "object",
+  "properties": {
+    "role": {
+      "enum": [
+        "LORA_A",
+        "LORA_B"
+      ]
+    },
+    "base_model": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "revision": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id"
+      ]
+    },
+    "training": {
+      "type": "object"
+    },
+    "seed": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 2147483647
+    },
+    "train_path": {
+      "type": "string",
+      "minLength": 1
+    },
+    "val_path": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "adapter_dir": {
+      "type": "string",
+      "minLength": 1
+    },
+    "work_dir": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "role",
+    "base_model",
+    "training",
+    "seed",
+    "train_path",
+    "adapter_dir",
+    "work_dir"
+  ]
+}

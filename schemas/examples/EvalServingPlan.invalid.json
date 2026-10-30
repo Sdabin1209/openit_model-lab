@@ -1,0 +1,40 @@
+{
+  "serving": {
+    "LORA_A": {
+      "constraint": {
+        "backend": "fake",
+        "backend_version": "1",
+        "relax_policy_version": "relax-3",
+        "supported_features": []
+      },
+      "decoding": {
+        "constraint_mode": "none",
+        "max_tokens": 512,
+        "seed": 1000,
+        "temperature": 0.7
+      },
+      "max_attempts": 3,
+      "output_contract": 1,
+      "prompt_template_version": "prompt-4",
+      "protection_policy_version": "protect-2"
+    },
+    "LORA_B": {
+      "constraint": {
+        "backend": "fake",
+        "backend_version": "1",
+        "relax_policy_version": "relax-3",
+        "supported_features": []
+      },
+      "decoding": {
+        "constraint_mode": "none",
+        "max_tokens": 512,
+        "seed": 1000,
+        "temperature": 0.7
+      },
+      "max_attempts": 3,
+      "output_contract": 1,
+      "prompt_template_version": "prompt-4",
+      "protection_policy_version": "protect-2"
+    }
+  }
+}

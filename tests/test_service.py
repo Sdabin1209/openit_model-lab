@@ -62,7 +62,7 @@ def test_status_codes_201_200_409(server, tmp_path):
     # 직접 POST해서 상태 코드를 본다
     import tempfile
     from pathlib import Path
-    from model_lab.service import tarutil
+    from model_lab.components import link_registry_serve as tarutil
     def post(manifest, adapter, report):
         with tempfile.TemporaryDirectory() as td:
             td = Path(td)

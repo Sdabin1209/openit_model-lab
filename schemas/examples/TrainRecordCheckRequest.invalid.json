@@ -1,0 +1,12 @@
+{
+  "adapter_dir": "/x",
+  "base": {
+    "id": "m"
+  },
+  "dataset": {
+    "id": "fx-golden",
+    "version": "v1"
+  },
+  "path": "/x",
+  "role": "LORA_A"
+}

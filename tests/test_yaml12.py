@@ -6,7 +6,7 @@
 import pytest
 
 from model_lab.config import _read
-from model_lab.errors import ConfigError
+from model_lab.wiring.errors import ConfigError
 
 
 def load(tmp_path, text):
@@ -47,7 +47,7 @@ def test_nested_duplicate_key_is_rejected(tmp_path):
 
 def test_disk_policy_off_is_read_as_the_documented_string(tmp_path):
     """runbook이 권하는 output.disk_policy: off 가 따옴표 없이도 문자열 'off'로 읽힌다."""
-    from model_lab.train_wrap import load_train_config
+    from model_lab.wiring.train_flow import load_train_config
     import yaml, pathlib
     root = pathlib.Path(__file__).resolve().parent.parent
     raw = (root / "configs" / "train.yaml").read_text()

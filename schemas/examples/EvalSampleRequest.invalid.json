@@ -1,0 +1,66 @@
+{
+  "inference": {
+    "attempts": 1,
+    "is_fallback": false,
+    "outcome": "ok",
+    "protections": [],
+    "raw_errors": [],
+    "raw_output": {
+      "action": "CORRECT",
+      "next_item": "Q1.D02",
+      "values": [
+        {
+          "key": "Q1.D01.on_medication",
+          "precision": "exact",
+          "save": true,
+          "status": "CORRECTION",
+          "value": true
+        }
+      ]
+    },
+    "raw_valid": true,
+    "role": "LORA_A",
+    "text": null
+  },
+  "sample": {
+    "expected": {
+      "action": "CORRECT",
+      "next_item": "Q1.D02",
+      "values": [
+        {
+          "key": "Q1.D01.on_medication",
+          "precision": "exact",
+          "save": true,
+          "status": "CORRECTION",
+          "value": true
+        }
+      ]
+    },
+    "human_review": "auto_only",
+    "input": {
+      "current_question": "뇌졸중으로 진단받았거나 약을 드시나요?",
+      "question_id": "Q1.D01",
+      "state": {
+        "Q1.D01.diagnosed": {
+          "status": "ANSWERED",
+          "value": false
+        },
+        "Q1.D01.on_medication": {
+          "status": "ANSWERED",
+          "value": false
+        }
+      },
+      "user_utterance": "아까 말씀드린 건 잘못이고 약은 먹어요 (2)"
+    },
+    "origin": "SYNTHETIC",
+    "pipeline_schema_version": "3.1",
+    "question_set": {
+      "content_hash": "sha256:52bc7ee3060112434a43997e5864b6bfef221657ddb08dc63bf82e2cda45a49d",
+      "id": "qs-train",
+      "version": "1"
+    },
+    "sample_id": "fx_correct_q1_0002-a",
+    "scenario_id": "fx_correct_q1_0002",
+    "split": "EVAL"
+  }
+}

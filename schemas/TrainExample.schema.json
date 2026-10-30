@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TrainExample",
+  "description": "train_data의 출력(train.jsonl의 한 줄).",
+  "type": "object",
+  "properties": {
+    "sample_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "prompt": {
+      "type": "string",
+      "minLength": 1
+    },
+    "completion": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "sample_id",
+    "prompt",
+    "completion"
+  ]
+}

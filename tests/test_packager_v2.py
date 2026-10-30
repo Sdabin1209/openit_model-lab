@@ -9,10 +9,12 @@ import yaml
 from boundary_contracts import PIPELINE_SCHEMA_VERSION, BoundaryError, canonical, validator
 
 from tests.doubles.contract_facts import pipeline_version_pattern
-from model_lab import datasets, packager
-from model_lab.config import ConfigError, ROLE_TO_FILE_ROLE, load_config, system_prompt_text
-from model_lab.registry import FileModelRegistry, MemoryModelRegistry
-from model_lab.transform import read_server_file, write_samples
+from model_lab.components import dataset_samples as datasets
+from model_lab.wiring import packaging as packager
+from model_lab.config import ConfigError, load_config
+from model_lab.wiring.settings import ROLE_TO_FILE_ROLE, system_prompt_text
+from model_lab.components.model_registry import FileModelRegistry, MemoryModelRegistry
+from model_lab.components.server_row_convert import read_server_file, write_samples
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA = Path(__file__).parent / "data"

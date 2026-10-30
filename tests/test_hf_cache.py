@@ -7,8 +7,13 @@ import pytest
 
 pytest.importorskip("huggingface_hub")
 
-from model_lab import train_wrap as tw
-from model_lab.trainers.hf import resolved_revision
+from model_lab.wiring import train_flow as tw
+from model_lab.components.lora_train_hf import resolved_revision as _rr
+from model_lab.components.hf_cache_lookup import cached_commit
+
+
+def resolved_revision(model, base):
+    return _rr(model, base, cached_commit)
 
 COMMIT = "a" * 40
 

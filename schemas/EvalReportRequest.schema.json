@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "EvalReportRequest",
+  "description": "eval_report의 입력: 채점된 (샘플, 기록) 쌍과 보고 맥락. seen_sets는 학습·검증이 쓴 문항 세트 [id, version] 목록.",
+  "type": "object",
+  "properties": {
+    "role": {
+      "enum": [
+        "LORA_A",
+        "LORA_B"
+      ]
+    },
+    "pairs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "sample": {
+            "oneOf": [
+              {
+                "$ref": "ActionExtractionSample.schema.json"
+              },
+              {
+                "$ref": "ResponseSample.schema.json"
+              }
+            ]
+          },
+          "record": {
+            "$ref": "SampleRecord.schema.json"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "sample",
+          "record"
+        ]
+      }
+    },
+    "seen_sets": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1
+        },
+        "minItems": 2,
+        "maxItems": 2
+      }
+    },
+    "eval_files": {
+      "type": "array"
+    },
+    "max_listed_failures": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "context": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "role",
+    "pairs",
+    "seen_sets",
+    "eval_files"
+  ]
+}

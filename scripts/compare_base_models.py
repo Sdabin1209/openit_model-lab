@@ -25,10 +25,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import model_runtime  # noqa: E402
 from boundary_contracts import canonical  # noqa: E402
 
-from model_lab import metrics as M  # noqa: E402
+from model_lab.components import eval_report as M, evaluation_report_build  # noqa: E402
 from model_lab.config import load_yaml12  # noqa: E402
-from model_lab.evaluate import build_report  # noqa: E402
-from model_lab.transform import render_output  # noqa: E402
+from model_lab.wiring.evaluation import build_report  # noqa: E402
+from model_lab.components.train_data import render_output  # noqa: E402
 from tests.doubles.fixtures import load_samples  # noqa: E402
 
 
@@ -85,7 +85,7 @@ def footprint_guard(cand: dict, max_footprint_gb: float) -> None:
 def pick_samples(n: int, path: Path | None = None) -> list[dict]:
     """LoRA-A 표본에서 결정적으로 n개(균등 간격). path가 없으면 시험용 합성 표본. question_set이 없으면 'compare@1'로 채운다."""
     if path:
-        from model_lab.datasets import read_samples
+        from model_lab.components.dataset_samples import read_samples
         P = list(read_samples(Path(path), "LORA_A"))
     else:
         P = load_samples("LORA_A")
@@ -105,12 +105,13 @@ def serving(backend_name: str, backend_version: str, decoding: dict) -> dict:
 def run_candidate(cand: dict, cfg: dict, samples: list[dict], schema_dir: Path, backend_kind: str, out: Path, system_prompt: str) -> dict:
     t0 = time.time()
     if backend_kind == "hf":
-        from model_lab.backends.hf_base import HFBaseChatBackend
+        from model_lab.components.backend_hf_base_chat import HFBaseChatBackend
+        from model_lab.components import lora_train_hf
         if cfg.get("fewshot"):
             raise SystemExit("few-shot은 v2로 옮기지 않았다(설정의 fewshot을 0으로)")
-        backend = HFBaseChatBackend({"id": cand["id"], "revision": "main"}, cfg["training"], use_chat_template=False)
+        backend = HFBaseChatBackend({"id": cand["id"], "revision": "main"}, cfg["training"], import_libs=lora_train_hf._import, load_base=lora_train_hf.load_base, use_chat_template=False)
     else:
-        from model_lab.backends.fake import oracle_backend
+        from model_lab.components.backend_oracle import oracle_backend
         sc0 = serving("fake", "1", cfg["decoding"])
         mp = {model_runtime.render_prompt("LORA_A", s["input"], serving_config=sc0, system_prompt=system_prompt, schema_dir=schema_dir): render_output("LORA_A", s["expected"]) for s in samples}
         backend = oracle_backend(mp)
@@ -132,7 +133,7 @@ def run_candidate(cand: dict, cfg: dict, samples: list[dict], schema_dir: Path, 
     notes.append("기반 모델 그대로(미학습)이며 프롬프트를 채팅 템플릿의 사용자 메시지로 넣었다. 평가 백엔드는 transformers이고 서빙 vLLM이 아니다. "
                  f"양자화: {cfg['training']['quantization']['mode']}. 예시(few-shot) 수: {cfg.get('fewshot', 0)}.")
     elapsed = time.time() - t0
-    ev = M.evaluation_report(
+    ev = evaluation_report_build.evaluation_report(
         role="LORA_A", report_id=f"basecmp-{cand['name']}{cfg.get('suffix', '')}", created_at="2026-10-15T00:00:00Z",
         package={"id": f"base-{cand['name']}", "version": "0", "content_hash": canonical.sha256_hash({"model": cand["id"]})},
         dataset={"id": "lora-a-subset", "version": str(len(samples)), "content_hash": canonical.sha256_hash([s["sample_id"] for s in samples])},

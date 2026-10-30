@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "HfCacheInfo",
+  "description": "hf_cache_lookup의 출력. 캐시에 없으면 null.",
+  "type": "object",
+  "properties": {
+    "snapshot": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "commit": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9a-f]{40}$"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "snapshot",
+    "commit"
+  ]
+}

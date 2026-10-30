@@ -11,7 +11,7 @@ import json
 from pathlib import Path
 
 from boundary_contracts import PIPELINE_SCHEMA_VERSION, canonical
-from model_lab.packager import action_rules_version
+from model_lab.wiring.packaging import action_rules_version
 
 ROLES = ("LORA_A", "LORA_B")
 ROLE_FILE = {"LORA_A": "lora_a", "LORA_B": "lora_b"}

@@ -1,0 +1,20 @@
+{
+  "attempts": 1,
+  "is_fallback": false,
+  "material_ok": true,
+  "outcome": "ok",
+  "prot_exact": true,
+  "protections": [],
+  "raw_errors": [],
+  "raw_exact": true,
+  "raw_valid": true,
+  "response_len": 43,
+  "rules": {
+    "asks_next": true,
+    "banned": false,
+    "ends_ok": true,
+    "json_leak": false,
+    "new_number": false,
+    "sentences_bad": false
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "base_model": {
+    "id": "m"
+  },
+  "config_hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "dataset_file_sha256": {
+    "x_train.jsonl": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "hyperparams": {
+    "epochs": 1
+  },
+  "server_script_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "train_record_sha256": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+}

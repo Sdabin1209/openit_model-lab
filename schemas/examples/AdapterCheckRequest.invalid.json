@@ -1,0 +1,8 @@
+{
+  "adapter_dir": "/x",
+  "base_model": {
+    "id": "m"
+  },
+  "max_rank": 0,
+  "role": "LORA_A"
+}

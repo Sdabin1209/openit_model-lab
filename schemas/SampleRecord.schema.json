@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SampleRecord",
+  "description": "eval_sample의 출력: 샘플 하나의 채점 기록. LoRA-A는 c(계수)와 violations, LoRA-B는 rules·is_fallback·response_len을 가진다.",
+  "type": "object",
+  "properties": {
+    "raw_valid": {
+      "type": "boolean"
+    },
+    "raw_errors": {
+      "type": "array"
+    },
+    "outcome": {
+      "type": "string",
+      "minLength": 1
+    },
+    "attempts": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "protections": {
+      "type": "array"
+    },
+    "prot_exact": {
+      "type": "boolean"
+    },
+    "c": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer"
+      }
+    },
+    "violations": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "is_fallback": {
+      "type": "boolean"
+    },
+    "response_len": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "raw_exact": {
+      "type": "boolean"
+    },
+    "rules": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "boolean"
+      }
+    },
+    "material_ok": {
+      "type": [
+        "boolean",
+        "null"
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "raw_valid",
+    "raw_errors",
+    "outcome",
+    "attempts",
+    "protections",
+    "prot_exact"
+  ],
+  "oneOf": [
+    {
+      "required": [
+        "c",
+        "violations"
+      ]
+    },
+    {
+      "required": [
+        "rules",
+        "is_fallback",
+        "response_len",
+        "raw_exact",
+        "material_ok"
+      ]
+    }
+  ]
+}

@@ -13,151 +13,11 @@ from typing import Any
 
 import jsonschema
 import yaml
-from boundary_contracts import canonical, validator
+from boundary_contracts import canonical
 
-from .errors import ConfigError
-
-ROLES = ("LORA_A", "LORA_B")
-ROLE_TO_FILE_ROLE = {"LORA_A": "LORA_A", "LORA_B": "LORA_B"}      # DatasetManifest.files[].role (2.0.0, D74)
-CONFIG_VERSION = 1
-
-_ID = {"type": "string", "pattern": r"^[A-Za-z0-9][A-Za-z0-9._:-]*$", "maxLength": 128}
-_NUM = {"type": "number"}
-_QUANT = {
-    "type": "object", "additionalProperties": False,
-    "properties": {
-        "mode": {"enum": ["none", "4bit-nf4", "8bit"]},
-        "compute_dtype": {"enum": ["float16", "bfloat16", "float32"]},
-    },
-}
-_LORA = {
-    "type": "object", "additionalProperties": False,
-    "properties": {
-        "r": {"type": "integer", "minimum": 1}, "alpha": {"type": "integer", "minimum": 1},
-        "dropout": {"type": "number", "minimum": 0, "maximum": 1},
-        "target_modules": {"type": "array", "items": {"type": "string"}, "minItems": 1},
-    },
-}
-_TRAINING = {
-    "type": "object", "additionalProperties": False,
-    "properties": {
-        "trainer": {"enum": ["hf", "dry-run"]},
-        "quantization": _QUANT,
-        "lora": _LORA,
-        "max_seq_len": {"type": "integer", "minimum": 16},
-        "per_device_batch_size": {"type": "integer", "minimum": 1},
-        "grad_accum_steps": {"type": "integer", "minimum": 1},
-        "learning_rate": {"type": "number", "exclusiveMinimum": 0},
-        "warmup_ratio": {"type": "number", "minimum": 0, "maximum": 1},
-        "epochs": {"type": "number", "exclusiveMinimum": 0},
-        "max_steps": {"type": ["integer", "null"], "minimum": 1},
-        "max_train_samples": {"type": ["integer", "null"], "minimum": 1},
-        "gpu_count": {"type": "integer", "minimum": 1},
-        "gpu_memory_fraction": {"type": "number", "exclusiveMinimum": 0, "maximum": 1},
-        "gradient_checkpointing": {"type": "boolean"},
-        "checkpoint_every_steps": {"type": "integer", "minimum": 1},
-        "log_every_steps": {"type": "integer", "minimum": 1},
-        "deterministic": {"type": "boolean"},
-        "attn_implementation": {"enum": ["eager", "sdpa", "flash_attention_2"]},
-        "dtype": {"enum": ["float16", "bfloat16", "float32"]},
-    },
-}
-_BASE_MODEL = {
-    "type": "object", "additionalProperties": False, "required": ["id"],
-    "properties": {"id": {"type": "string", "minLength": 1}, "revision": {"type": "string", "minLength": 1}},
-}
-_BACKEND = {
-    "type": "object", "additionalProperties": False, "required": ["kind"],
-    "properties": {
-        "kind": {"enum": ["hf", "fake-oracle"]},
-        # fake-oracle: 평가 경로 시험용. N번째마다 깨진 출력을 낸다(보호 경로 확인). 0이면 끈다.
-        "corrupt_every": {"type": "integer", "minimum": 0},
-    },
-}
-_FACTORY = {"type": "object", "additionalProperties": False, "required": ["factory"],
-            "properties": {"factory": {"type": "string", "pattern": r"^[\w.]+:\w+$"}, "args": {"type": "object"}}}
-# 왜: 영역 사이 호출은 HTTP다(D49). I2도 D100으로 HTTP가 되어 registry와 같은 {kind: http, base_url(_env), token_env, timeout} 모양을 쓴다.
-_HTTP_STORE = {"type": "object", "additionalProperties": False, "required": ["kind"],
-               "properties": {"kind": {"const": "http"}, "base_url": {"type": "string"}, "base_url_env": {"type": "string"},
-                              "token_env": {"type": "string"}, "timeout": {"type": "number", "exclusiveMinimum": 0}}}
-_SERVING = {"type": "object"}  # 형식은 validate_config가 계약 ServingConfig 스키마로 검증한다(model-runtime 사본을 쓰지 않는다, U42)
-
-CONFIG_SCHEMA: dict[str, Any] = {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "type": "object", "additionalProperties": False,
-    "required": ["config_version", "run", "inputs", "roles", "serving", "evaluation", "registry"],
-    "properties": {
-        "config_version": {"const": CONFIG_VERSION},
-        "profile": {"type": "string"},
-        "run": {
-            "type": "object", "additionalProperties": False, "required": ["seed"],
-            "properties": {"name": {"type": "string"}, "seed": {"type": "integer", "minimum": 0, "maximum": 2**31 - 1},
-                           "runs_dir": {"type": "string"}},
-        },
-        "inputs": {
-            "type": "object", "additionalProperties": False, "required": ["schema_dir", "dataset", "dataset_store"],
-            "properties": {
-                "schema_dir": {"type": "string"},
-                "dataset": {"type": "object", "additionalProperties": False, "required": ["id"],
-                            "properties": {"id": _ID, "version": {"type": "string", "minLength": 1}}},
-                # 이웃(synthetic-data)의 읽기 SDK를 만드는 함수. 'pkg.module:callable', args는 키워드 인자.
-                "dataset_store": {"oneOf": [_FACTORY, _HTTP_STORE]},
-                # 아직 쓰지 않는 이웃 읽기 SDK. 같은 방식으로 고른다(HttpQuestionReader, HttpFailureStore 등).
-                "question_reader": _FACTORY, "failure_store": _FACTORY,
-            },
-        },
-        "base_model": _BASE_MODEL,
-        "training": _TRAINING,
-        "roles": {
-            "type": "object", "additionalProperties": False, "minProperties": 1,
-            "properties": {r: {
-                "type": "object", "additionalProperties": False, "required": ["package_id", "system_prompt_file"],
-                # system_prompt_file: 학습에 쓴 시스템 프롬프트 파일(설정 파일 기준 상대 경로). 패키징이 어댑터 디렉터리에 넣는다(D75).
-                "properties": {"package_id": _ID, "system_prompt_file": {"type": "string", "minLength": 1},
-                               "training": _TRAINING}} for r in ROLES},
-        },
-        "serving": {"type": "object", "additionalProperties": False, "properties": {r: _SERVING for r in ROLES}},
-        "evaluation": {
-            "type": "object", "additionalProperties": False, "required": ["backend"],
-            "properties": {
-                "backend": _BACKEND,
-                "split": {"enum": ["EVAL", "VALIDATION"]},
-                "limit_samples": {"type": ["integer", "null"], "minimum": 1},
-                "max_listed_failures": {"type": "integer", "minimum": 0},
-                # 회귀 평가(I7). 켜면 inputs.failure_store에서 확정된 실패 사례를 읽는다. label을 바꾸면 새 run이 된다
-                # (실패 사례 저장소의 내용은 run_id에 들어가지 않으므로 집합이 달라졌음을 사람이 표시한다).
-                "regression": {"type": "object", "additionalProperties": False,
-                               "properties": {"enabled": {"type": "boolean"}, "limit_cases": {"type": ["integer", "null"], "minimum": 1},
-                                              "label": {"type": "string"}}},
-            },
-        },
-        # 게시 대상: file(로컬 파일), http(원격 model-registry; boundary_contracts.clients.HttpModelRegistry),
-        # factory(임의 구현). 토큰은 token_env가 가리키는 환경 변수에서 읽는다.
-        "registry": {
-            "type": "object", "additionalProperties": False, "required": ["kind"],
-            "properties": {"kind": {"enum": ["file", "http", "factory"]}, "path": {"type": "string"},
-                           "base_url": {"type": "string"}, "base_url_env": {"type": "string"}, "token_env": {"type": "string"},
-                           "timeout": {"type": "number", "exclusiveMinimum": 0},
-                           "factory": {"type": "string", "pattern": r"^[\w.]+:\w+$"}, "args": {"type": "object"}},
-        },
-        "checks": {"type": "object", "additionalProperties": False,
-                   "properties": {"max_lora_rank": {"type": "integer", "minimum": 1}}},
-        "publish": {"type": "object", "additionalProperties": False,
-                    "properties": {"enabled": {"type": "boolean"}}},
-    },
-}
-_VALIDATOR = jsonschema.Draft202012Validator(CONFIG_SCHEMA)
-
-
-def deep_merge(base: dict, over: dict) -> dict:
-    """over가 base를 덮어쓴다. 객체는 재귀, 그 밖(목록 포함)은 통째로 바꾼다."""
-    out = copy.deepcopy(base)
-    for k, v in over.items():
-        if isinstance(v, dict) and isinstance(out.get(k), dict):
-            out[k] = deep_merge(out[k], v)
-        else:
-            out[k] = copy.deepcopy(v)
-    return out
+from .wiring import schemas
+from .wiring.errors import ConfigError
+from .wiring.settings import CONFIG_VERSION, ROLES, ROLE_TO_FILE_ROLE, deep_merge  # noqa: F401
 
 
 # 왜: PyYAML은 YAML 1.1이라 off·no·yes·on이 불리언으로, 0123이 8진수 83으로 읽히고 중복 키는 마지막 값이 조용히 이긴다(점검 C2).
@@ -224,40 +84,76 @@ def _read(path: Path) -> dict:
     return data
 
 
-_SECRET_KEY_PARTS = ("token", "secret", "password", "credential", "api_key", "authorization", "private_key")
-_ENV_NAME = re.compile(r"^[A-Z][A-Z0-9_]+$")
+def _path(parts, root: str) -> str:
+    out = root
+    for p in parts:
+        out += f"[{p}]" if isinstance(p, int) else f".{p}"
+    return out
 
 
 def check_inline_secrets(value, path: str = "config") -> None:
-    """비밀 값이 설정에 직접 적혀 있으면 거부한다(D84). 키 이름에 token/secret/password/credential/api_key/authorization/
-    private_key가 들어 있고 값이 문자열이면 거부한다. `*_env`는 환경 변수 *이름*을 받으므로 이름 형식([A-Z][A-Z0-9_]+)만 허용한다.
-    오류에는 키 경로와 안내만 싣고 값은 싣지 않는다."""
-    if isinstance(value, dict):
-        for k, v in value.items():
-            low, p = str(k).lower(), f"{path}.{k}"
-            if any(s in low for s in _SECRET_KEY_PARTS) and isinstance(v, str):
-                if low.endswith("_env"):
-                    if not _ENV_NAME.match(v):
-                        raise ConfigError(f"설정 {p}: 환경 변수 이름 형식이 아니다([A-Z][A-Z0-9_]+). 값을 직접 적지 않는다. 비밀은 NAME_FILE로 준다")
-                else:
-                    raise ConfigError(f"설정 {p}: 비밀 값을 설정 파일에 직접 적을 수 없다. 비밀은 NAME_FILE로 주고 설정에는 `<키>_env: NAME`만 쓴다")
-            check_inline_secrets(v, p)
-    elif isinstance(value, list):
-        for i, v in enumerate(value):
-            check_inline_secrets(v, f"{path}[{i}]")
+    """비밀 값이 설정에 직접 적혀 있으면 거부한다(D84). 규칙은 스키마 SecretFree가 정한다(키 이름과 `*_env` 이름 형식).
+    오류에는 키 경로와 안내만 싣고 값은 싣지 않는다(스키마 오류 메시지는 값을 담으므로 쓰지 않는다)."""
+    errs = schemas.errors("SecretFree", value)
+    if errs:
+        e = errs[0]
+        p = _path(e.absolute_path, path)
+        if str(e.validator) == "pattern":
+            raise ConfigError(f"설정 {p}: 환경 변수 이름 형식이 아니다([A-Z][A-Z0-9_]+). 값을 직접 적지 않는다. 비밀은 NAME_FILE로 준다")
+        raise ConfigError(f"설정 {p}: 비밀 값을 설정 파일에 직접 적을 수 없다. 비밀은 NAME_FILE로 주고 설정에는 `<키>_env: NAME`만 쓴다")
 
 
 def validate_config(cfg: dict) -> None:
+    """설정 형식은 스키마 RunConfig가 전부 정한다(서빙 설정은 계약 ServingConfig를 가리킨다, U42). 여기서 보증한 값을 컴포넌트가 다시 검사하지 않는다(R7)."""
     check_inline_secrets(cfg)
-    errs = sorted(_VALIDATOR.iter_errors(cfg), key=lambda e: list(map(str, e.absolute_path)))
+    errs = schemas.errors("RunConfig", cfg)
     if errs:
         msg = "; ".join(f"/{'/'.join(map(str, e.absolute_path))}: {e.message[:120]}" for e in errs[:8])
         raise ConfigError(f"설정 형식 위반: {msg}")
-    # 왜 여기서 한 번: 서빙 설정의 형식은 계약 ServingConfig가 정한다(모르는 키 거부). 여기서 보증한 값을 패키저·파이프라인이 다시 검사하지 않는다(R7).
-    for role, sc in (cfg.get("serving") or {}).items():
-        serr = sorted(validator("ServingConfig").iter_errors(sc), key=lambda e: list(map(str, e.absolute_path)))
-        if serr:
-            raise ConfigError(f"설정 형식 위반: /serving/{role}/{'/'.join(map(str, serr[0].absolute_path))}: {serr[0].message[:120]}")
+
+
+PROFILES_DIR = Path(__file__).resolve().parent.parent / "profiles"
+_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+
+
+def load_profile(name: str) -> dict:
+    """profiles/<name>.yaml. 이름은 파일 이름뿐이다(경로 불가)."""
+    if not _NAME.match(name):
+        raise ConfigError("프로파일 이름은 파일 이름이어야 한다(경로 불가)")
+    p = PROFILES_DIR / f"{name}.yaml"
+    if not p.is_file():
+        raise ConfigError(f"프로파일이 없다: {name} (profiles/ 아래: {', '.join(sorted(x.stem for x in PROFILES_DIR.glob('*.yaml')))})")
+    return _read(p)
+
+
+STD_ARGS = ("base_model", "dataset_dir", "dataset_prefix", "output_dir")
+
+
+def load_train_config(path: str | Path) -> dict:
+    path = Path(path).resolve()
+    cfg = _read(path)
+    check_inline_secrets(cfg)
+    errs = schemas.errors("TrainWrapConfig", cfg)
+    if errs:
+        raise ConfigError("학습 설정 형식 위반: " + "; ".join(f"/{'/'.join(map(str, e.absolute_path))}: {e.message[:120]}" for e in errs[:8]))
+    # 스키마 밖 조건(schemas/README.md): 다른 속성의 값을 키 집합으로 쓰는 조건과 값 중복 금지는 JSON Schema로 쓸 수 없다
+    am = cfg["server"].get("arg_map", {})
+    known = set(STD_ARGS) | set(cfg.get("hyperparams", {}))
+    extra = sorted(set(am) - known)
+    if extra:
+        raise ConfigError(f"server.arg_map에 쓰이지 않는 이름이 있다: {extra} (표준 {list(STD_ARGS)} 또는 hyperparams의 키만 가능)")
+    flags = [f for f in am.values() if f]
+    if len(flags) != len(set(flags)):
+        raise ConfigError("server.arg_map에 같은 인자 이름이 두 번 쓰였다")
+    prof = cfg["base_model"].get("profile")
+    if prof and (PROFILES_DIR / f"{prof}.yaml").is_file():
+        pid = (_read(PROFILES_DIR / f"{prof}.yaml").get("base_model") or {}).get("id")
+        if pid != cfg["base_model"]["id"]:
+            raise ConfigError(f"base_model.id({cfg['base_model']['id']})가 프로파일 {prof}의 기반 모델({pid})과 다르다")
+    cfg = json.loads(json.dumps(cfg))
+    cfg["_base_dir"] = str(path.parent)
+    cfg["_config_hash"] = canonical.content_hash({k: v for k, v in cfg.items() if not k.startswith("_")})
+    return cfg
 
 
 def load_config(path: str | Path) -> dict:
@@ -276,36 +172,3 @@ def load_config(path: str | Path) -> dict:
     return cfg
 
 
-def resolved_path(cfg: dict, value: str) -> Path:
-    # 왜: 문진 스키마는 태그로 설치한 패키지(requirements.lock의 openit-survey-schema)에서 읽는다. 이웃 폴더나 사본 경로를 설정에 박지 않기 위한 접두어.
-    if value == "installed:survey-schema":
-        import survey_schema
-        return Path(survey_schema.contract_version_dir(1)) / "schemas"
-    p = Path(value)
-    return p if p.is_absolute() else (Path(cfg["_base_dir"]) / p).resolve()
-
-
-def system_prompt_text(cfg: dict, role: str) -> str:
-    """역할의 시스템 프롬프트(UTF-8 파일 내용 그대로, 줄바꿈을 고치지 않는다)."""
-    p = resolved_path(cfg, cfg["roles"][role]["system_prompt_file"])
-    try:
-        text = p.read_bytes().decode("utf-8")
-    except (OSError, UnicodeDecodeError):
-        raise ConfigError(f"{role}: system_prompt_file을 읽을 수 없다: {p.name}") from None
-    if not text.strip():
-        raise ConfigError(f"{role}: system_prompt_file이 비어 있다: {p.name}")
-    return text
-
-
-def role_training(cfg: dict, role: str) -> dict:
-    """역할에 적용되는 학습 설정(공통 training 위에 역할별 training)."""
-    return deep_merge(cfg.get("training", {}), cfg["roles"][role].get("training", {}))
-
-
-def config_hash(cfg: dict) -> str:
-    """실행을 식별하는 설정 해시. 경로 해석에 쓰는 _base_dir과 runs_dir는 제외한다(위치가 달라도 같은 설정)."""
-    c = {k: v for k, v in cfg.items() if k != "_base_dir"}
-    c["run"] = {k: v for k, v in c["run"].items() if k not in ("runs_dir", "name")}
-    c["registry"] = {"kind": c["registry"]["kind"]}      # 게시 위치는 결과(해시)에 영향이 없다
-    c["inputs"] = {k: v for k, v in c["inputs"].items() if k not in ("schema_dir",)}
-    return canonical.sha256_hash(c)

@@ -6,10 +6,10 @@ import pytest
 import yaml
 from boundary_contracts import canonical, validator
 
-from model_lab.attach import package_adapters
+from model_lab.wiring.attach_flow import package_adapters
 from model_lab.cli import main as cli_main
-from model_lab.errors import ConfigError, PipelineError
-from model_lab.registry import FileModelRegistry
+from model_lab.wiring.errors import ConfigError, PipelineError
+from model_lab.components.model_registry import FileModelRegistry
 from tests.conftest import ROOT, SCHEMA_DIR
 
 H = "sha256:" + "b" * 64

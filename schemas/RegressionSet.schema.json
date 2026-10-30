@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RegressionSet",
+  "description": "regression_set의 출력.",
+  "type": "object",
+  "properties": {
+    "samples": {
+      "type": "object",
+      "properties": {
+        "LORA_A": {
+          "type": "array"
+        },
+        "LORA_B": {
+          "type": "array"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "LORA_A",
+        "LORA_B"
+      ]
+    },
+    "cases_total": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "skipped": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "count": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "case_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "count",
+          "case_ids"
+        ]
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "samples",
+    "cases_total",
+    "skipped"
+  ]
+}

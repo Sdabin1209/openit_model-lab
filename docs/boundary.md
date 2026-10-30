@@ -3,7 +3,7 @@
 상태: 구현됨(0.1.0). 2.0.0 이전 중(헤드 지시서 `head/docs/migration-2.0.0.md`): 계약 의존(버전은 `requirements.txt`), 변환기·패키징(system_prompt)까지 반영. 파이프라인의 변환·평가·회귀는 model-runtime / turn-engine을 쓴다(버전은 `requirements.txt`; 이력은 `docs/STATUS.md` 10차, `CHANGELOG.md` 0.2.2). 학습기는 정본 결정 대기. 정본은 `../boundary-contracts`의 `INTERFACES.md`·`CONVENTIONS.md`다.
 
 ## 소유 저장소
-모델 레지스트리(불변 패키지). I3 `ModelRegistry`. 쓰기는 이 영역만 한다. 구현: `model_lab.registry.FileModelRegistry`(디스크), `MemoryModelRegistry`(메모리). 둘 다 `boundary_contracts.sdk.ModelRegistry` Protocol을 만족하고 `tests/test_registry.py`의 같은 적합성 시험을 통과한다(오류 코드·멱등·해시 검증 포함).
+모델 레지스트리(불변 패키지). I3 `ModelRegistry`. 쓰기는 이 영역만 한다. 구현: `model_lab.components.model_registry.FileModelRegistry`(디스크), `MemoryModelRegistry`(메모리). 둘 다 `boundary_contracts.sdk.ModelRegistry` Protocol을 만족하고 `tests/test_registry.py`의 같은 적합성 시험을 통과한다(오류 코드·멱등·해시 검증 포함).
 
 ## 제공 (I3)
 `publish`, `get_manifest`, `list_ids`, `list_versions`(오래된 것부터), `open_adapter`(해시 검증), `get_eval_report`. 생산 계약: `ModelPackageManifest`(역할마다 하나, 서빙 설정은 역할별). 2.0.0부터 `system_prompt{path, sha256}`가 필수이고 파일은 어댑터 디렉터리 안에 있다(`adapter_hash`에 포함, D75). `publish`는 파일이 있고 해시가 맞는지 확인한다(아니면 `INTEGRITY_ERROR`). 프롬프트의 출처는 설정의 `roles.<역할>.system_prompt_file`이다[제안, CR-L007]. 평가 리포트는 `eval_report_ref`(`eval-<package_id>.<version>`)로 가져오는 바이트이며 `EvaluationReport`(boundary-contracts, 버전은 `requirements.txt`가 정본; 지표 체계, 합격 판정·임계치 없음)다(`docs/design.md` 6-1). 이전의 자세한 보고서는 `ext."model-lab".detail`에 있다.
@@ -24,7 +24,7 @@
 | (turn-engine 없음) | 코드 의존을 없앴다(ADR 0022). 위반 검사는 계약 `action_rules.check_action_extraction` + 문진 스키마 `question_flow`(`openit-survey-schema`)이고, 계보의 `action_rules_version`은 설치된 계약 규칙 데이터의 `rules_version`에서 읽는다(계약 3.0.0, ADR 0027) | `requirements.txt` |
 | model-runtime | `render_prompt`(system_prompt 인자), `load`(system_prompts 인자), `extract_raw/respond_raw/respond`, `validate_serving_config`, `serving_config_hash`, `RUNTIME_VERSION`. 서빙 설정 버전은 model-runtime이 내보내는 상수 | `requirements.txt` |
 | I2 데이터셋 읽기 | HTTP 클라이언트 `boundary_contracts.clients.HttpDatasetStore`(D100, HTTP.md `## I2`, 계약 2.1.0). 쓰는 호출은 `list_versions`, `get_manifest`, `open_file`. 로컬 개발용 `file_dataset_store`는 남아 있다(ADR 0012) | 경계 계약 1.1 |
-| I7 실패 사례 읽기 | 회귀 평가(`evaluation.regression`, 기본 꺼짐)를 켜면 `inputs.failure_store`(`boundary_contracts.clients:HttpFailureStore`)로 읽는다(`model_lab/regression.py`, `configs/gpu-dev.yaml`, `docs/runbook.md` 회귀 평가 절) | `requirements.txt` |
+| I7 실패 사례 읽기 | 회귀 평가(`evaluation.regression`, 기본 꺼짐)를 켜면 `inputs.failure_store`(`openit_link.clients`의 `HttpFailureStore`)로 읽는다(`model_lab/components/regression_set.py`, `link_failure_read.py`, `configs/gpu-dev.yaml`, `docs/runbook.md` 회귀 평가 절) | `requirements.txt` |
 | I1, I4 | 이 단계에서 쓰지 않음(I1은 설정에 클라이언트를 고르는 자리만 있다) | |
 
 의존은 Git 태그로 고정한다(`requirements.txt`). 환경은 `scripts/setup-env.sh`가 만든다.

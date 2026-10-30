@@ -5,9 +5,9 @@ import json
 import pytest
 from boundary_contracts import canonical, validator
 
-from model_lab.metric_names import DEPRECATED_V1, SERVER_TO_REGISTRY, UNREGISTERED_A, UNREGISTERED_B, DEPRECATED_V1_PREFIXES
+from model_lab.components.eval_report import DEPRECATED_V1, SERVER_TO_REGISTRY, UNREGISTERED_A, UNREGISTERED_B, DEPRECATED_V1_PREFIXES
 
-from model_lab.pipeline import Run
+from model_lab.wiring.pipeline import Run
 from tests.conftest import FIXED
 from tests.test_regression import case, failure_world, reg_cfg, trace_with  # noqa: F401  (픽스처 재사용)
 from tests.doubles.fixtures import load_samples
@@ -114,9 +114,9 @@ def test_report_metric_names_pass_contract_registry(cfg):
 
 
 def test_evaluation_report_refuses_unregistered_metric_name():
-    from model_lab import metrics as M
+    from model_lab.components import eval_report as M, evaluation_report_build
     with pytest.raises(ValueError, match="registry"):
-        M.evaluation_report(role="LORA_A", report_id="x", created_at="2026-10-28T00:00:00Z",
+        evaluation_report_build.evaluation_report(role="LORA_A", report_id="x", created_at="2026-10-28T00:00:00Z",
                             package={"id": "p", "version": "1", "content_hash": "sha256:" + "0" * 64},
                             dataset={"id": "d", "version": "1", "content_hash": "sha256:" + "0" * 64}, question_sets=[],
                             backend={"name": "n", "version": "1"}, decoding={"temperature": 0.0, "seed": 1}, notes=[], detail={},

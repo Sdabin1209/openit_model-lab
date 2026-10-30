@@ -1,0 +1,8 @@
+{
+  "base_model_revision": "dry-run",
+  "library_versions": {},
+  "metrics": {
+    "final_state_hash": "sha256:dfdb64fe387d9e5b174109f573aba2d0846ad538b8e5489ee3c56317c83ceb8c"
+  },
+  "resumed_from_step": 0
+}

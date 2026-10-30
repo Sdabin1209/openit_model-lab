@@ -1,0 +1,154 @@
+{
+  "eval_files": [],
+  "pairs": [
+    {
+      "record": {
+        "attempts": 1,
+        "c": {
+          "action": 1,
+          "cell": 1,
+          "db_row": 1,
+          "dup_keys": 0,
+          "exact": 1,
+          "extra_keys": 0,
+          "gold_keys": 1,
+          "key_found": 1,
+          "next_item": 1,
+          "note_presence": 1,
+          "note_rows": 1,
+          "oos_fn": 0,
+          "oos_fp": 0,
+          "oos_tp": 0,
+          "precision": 1,
+          "pred_values": 1,
+          "reason": 1,
+          "reason_ok": 0,
+          "reason_rows": 0,
+          "rows": 1,
+          "save": 1,
+          "schema_ok": 1,
+          "status": 1,
+          "targets": 0,
+          "targets_extra_rows": 0,
+          "targets_rows": 0,
+          "value": 1,
+          "value_tp": 1
+        },
+        "outcome": "ok",
+        "prot_exact": true,
+        "protections": [],
+        "raw_errors": [],
+        "raw_valid": true,
+        "violations": []
+      },
+      "sample": {
+        "expected": {
+          "action": "CORRECT",
+          "next_item": "Q1.D02",
+          "values": [
+            {
+              "key": "Q1.D01.on_medication",
+              "precision": "exact",
+              "save": true,
+              "status": "CORRECTION",
+              "value": true
+            }
+          ]
+        },
+        "human_review": "auto_only",
+        "input": {
+          "current_question": "뇌졸중으로 진단받았거나 약을 드시나요?",
+          "question_id": "Q1.D01",
+          "state": {
+            "Q1.D01.diagnosed": {
+              "status": "ANSWERED",
+              "value": false
+            },
+            "Q1.D01.on_medication": {
+              "status": "ANSWERED",
+              "value": false
+            }
+          },
+          "user_utterance": "아까 말씀드린 건 잘못이고 약은 먹어요 (2)"
+        },
+        "origin": "SYNTHETIC",
+        "pipeline_schema_version": "3.1",
+        "question_set": {
+          "content_hash": "sha256:52bc7ee3060112434a43997e5864b6bfef221657ddb08dc63bf82e2cda45a49d",
+          "id": "qs-train",
+          "version": "1"
+        },
+        "sample_id": "fx_correct_q1_0002-a",
+        "scenario_id": "fx_correct_q1_0002",
+        "split": "EVAL"
+      }
+    },
+    {
+      "record": {
+        "attempts": 1,
+        "c": {
+          "action": 1,
+          "db_row": 1,
+          "dup_keys": 0,
+          "exact": 1,
+          "extra_keys": 0,
+          "gold_keys": 0,
+          "next_item": 1,
+          "note_presence": 1,
+          "note_rows": 1,
+          "oos_fn": 0,
+          "oos_fp": 0,
+          "oos_tp": 1,
+          "pred_values": 0,
+          "reason": 1,
+          "reason_ok": 1,
+          "reason_rows": 1,
+          "rows": 1,
+          "schema_ok": 1,
+          "targets": 0,
+          "targets_extra_rows": 0,
+          "targets_rows": 0
+        },
+        "outcome": "ok",
+        "prot_exact": true,
+        "protections": [],
+        "raw_errors": [],
+        "raw_valid": true,
+        "violations": []
+      },
+      "sample": {
+        "expected": {
+          "action": "REDIRECT",
+          "next_item": "Q1.D01",
+          "note": "허리 통증",
+          "reason": "OUT_OF_SCHEMA",
+          "values": []
+        },
+        "human_review": "auto_only",
+        "input": {
+          "current_question": "뇌졸중으로 진단받았거나 약을 드시나요?",
+          "question_id": "Q1.D01",
+          "state": {},
+          "user_utterance": "요즘 허리가 자주 아파요 (8)"
+        },
+        "origin": "SYNTHETIC",
+        "pipeline_schema_version": "3.1",
+        "question_set": {
+          "content_hash": "sha256:52bc7ee3060112434a43997e5864b6bfef221657ddb08dc63bf82e2cda45a49d",
+          "id": "qs-train",
+          "version": "1"
+        },
+        "sample_id": "fx_out_of_schema_q1_0008-a",
+        "scenario_id": "fx_out_of_schema_q1_0008",
+        "split": "EVAL"
+      }
+    }
+  ],
+  "role": "LORA_A",
+  "seen_sets": [
+    [
+      "fx-golden",
+      "1"
+    ]
+  ]
+}

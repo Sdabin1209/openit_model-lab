@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-10-15T00:00:00Z",
+  "dataset": {
+    "content_hash": "sha256:4d008a812a0b3ec44ac710cc8ef8f5b774a34734aa8d265aa6a57dfa58a07267",
+    "id": "fx-golden",
+    "version": "v1"
+  },
+  "decoding": {
+    "seed": 1,
+    "temperature": 0
+  },
+  "package": {
+    "content_hash": "sha256:e7576477f9e7a7281a9b00e1bf615006ef151baad15bc7f8abd1d712289d54ca",
+    "id": "lora-a-parser",
+    "version": "v1-17849fe6"
+  },
+  "report_id": "eval-lora-a-parser.v1-17849fe6",
+  "role": "LORA_A"
+}

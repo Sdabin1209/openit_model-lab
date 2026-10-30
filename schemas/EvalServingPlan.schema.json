@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "EvalServingPlan",
+  "description": "평가 단계가 요구하는 서빙 설정: 평가는 온도 0(결정적)에서만 한다(D48). 온도 > 0의 재현성은 약속되지 않는다.",
+  "type": "object",
+  "required": [
+    "serving"
+  ],
+  "properties": {
+    "serving": {
+      "type": "object",
+      "required": [
+        "LORA_A",
+        "LORA_B"
+      ],
+      "properties": {
+        "LORA_A": {
+          "type": "object",
+          "required": [
+            "decoding"
+          ],
+          "properties": {
+            "decoding": {
+              "type": "object",
+              "required": [
+                "temperature"
+              ],
+              "properties": {
+                "temperature": {
+                  "const": 0
+                }
+              }
+            }
+          }
+        },
+        "LORA_B": {
+          "type": "object",
+          "required": [
+            "decoding"
+          ],
+          "properties": {
+            "decoding": {
+              "type": "object",
+              "required": [
+                "temperature"
+              ],
+              "properties": {
+                "temperature": {
+                  "const": 0
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

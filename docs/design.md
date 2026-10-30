@@ -10,24 +10,11 @@
 설정(+프로파일) --> 1 load_dataset(I2) --> 2 transform(render_prompt) --> 3 train --> 4 evaluate --> 5 package --> 6 publish(I3)
 ```
 
-## 2. 컴포넌트 (`model_lab/`)
+## 2. 컴포넌트와 배치 (D117)
 
-| 모듈 | 책임 |
-| --- | --- |
-| `config.py` | YAML/JSON 설정 읽기, 프로파일 병합, 형식 검증(알 수 없는 키 거부), `config_hash` |
-| `datasets.py`, `schemas.py` | I2로 읽기, 파일 해시·DatasetManifest·샘플(ActionExtractionSample/ResponseSample, input/expected는 샘플 스키마가 직접 검증) 검증, 보지 못한 문항 세트 판정, 평가 누수 검사 |
-| `transform.py` | 샘플 -> (`render_prompt` 프롬프트, 정답 글자). 서버 messages <-> 샘플 변환기 포함 |
-| `trainers/` | `Trainer` 인터페이스, `hf`(transformers+peft LoRA), `dry-run`(CPU 시험용) |
-| `backends/` | 평가용 `ConstraintBackend`: `hf`(어댑터를 붙인 transformers), `fake-oracle`(CPU 시험용) |
-| `evaluate.py` | 서빙과 같은 경로로 평가하고 보고서(쪼개 보기, 보지 못한 문항 세트 따로)를 만든다 |
-| `packager.py` | ModelPackageManifest 만들기 |
-| `registry.py` | I3 ModelRegistry의 파일·메모리 구현(이 영역 소유) |
-| `service/` | model-registry 서비스: 파일 레지스트리를 HTTP(HTTP.md I3)로 낸다. 토큰 분리, tar 안전 해제, `/healthz`·`/readyz` |
-| `factories.py` | 이웃 읽기 SDK·원격 레지스트리를 설정의 팩토리로 만든다(`*_env`는 환경 변수) |
-| `pipeline.py` | 단계 실행, 재개, run 기록, `run_once` |
-| `cli.py` | `model-lab run | run-once | status --config <파일>` |
+컴포넌트 표(입력·출력 스키마, 하는 일)의 정본은 `docs/components.md`다. 여기에 복사하지 않는다. 배치: `schemas/`(내부 타입 JSON Schema), `model_lab/types/`(생성), `model_lab/components/`(컴포넌트, 서로 import하지 않음), `model_lab/wiring/`(연결·주입), 진입점·설정 읽기(`cli.py`, `config.py`, `service/`). 단계 흐름은 `wiring/pipeline.py`가 정한다: 적재 -> 변환 -> 학습 -> 평가 -> 패키징 -> 게시. 검사는 `tests/test_structure.py`.
 
-## 3. 설정 스키마 [확인: `config.py`의 `CONFIG_SCHEMA`가 정본]
+## 3. 설정 스키마 [확인: `schemas/RunConfig.schema.json`이 정본]
 
 ```yaml
 config_version: 1
@@ -90,7 +77,7 @@ publish:  {enabled}
 - METRICS.md v2 이름(정본, ADR 0011): `value_precision/recall`, `precision_match`, `targets_match`, `value_exact_match`, `action/reason/status/next_item_accuracy`, `semantic_violation_rate`(계약 `check_action_extraction`, slice `VIOLATION_CODE`), `output_invalid_rate`, `output_attempts_mean`, `schema_valid_raw`(slice `CONSTRAINED_DECODING`); B: `material_coverage`, `ungrounded_number_rate`(재료 기준), `response_length_chars_p95`. 회귀 평가가 읽는 TurnTrace 키는 `extract_input/output`, `response_input/output`(D98).
 - 보조: LoRA-A(학습 서버 `score_a_v2.py`와 같은 이름과 규칙): `action_acc`, `action_reason_acc`, `next_item_acc`, `key_found_rate`, `cell_acc`(value·status·save 모두 일치), `value_acc`, `status_acc`, `save_acc`, `precision_acc`, `db_row_match_rate`, `targets_acc`, `note_presence_acc`, `exact_match_rate`, `oos_precision/recall/f1`, `extra_keys`·`dup_keys`·`targets_extra_rows`(count), PROTECTION `schema_ok_rate`·`output_invalid`(count). 형식 실패 행도 분모에 들어간다.
 - LoRA-B: ACCURACY `ends_ok_rate`(끝맺음), `asks_next_rate`(다음 질문), `sentence_count_violation_rate`, `exact_match_rate`; SAFETY `forbidden_expression_rate`(금지 표현), `ungrounded_number_rate`(새 숫자); PROTECTION `json_leak_rate`, `fallback_rate`, `schema_valid_raw`, `protection_intervened`(count). 문장 규칙 구현은 `text_rules.py`(학습 서버 `eval_lora_b_v2.py`의 항목을 이 리포 방식으로).
-- 공통: `coverage_seen_unseen_gap`, `regression_fixed/broken`. 폐기된 v1 지표 이름은 쓰지 않는다(목록은 `model_lab/metric_names.py`의 `DEPRECATED_V1`, 지표의 정본은 boundary-contracts의 지표 정의).
+- 공통: `coverage_seen_unseen_gap`, `regression_fixed/broken`. 폐기된 v1 지표 이름은 쓰지 않는다(목록은 `model_lab/components/eval_report.py`의 `DEPRECATED_V1`, 지표의 정본은 boundary-contracts의 지표 정의).
 슬라이스: `SEEN_UNSEEN`, `QUESTION_SET`, `ACTION`, `REASON`, `NEXT_TYPE`(B). 합격 판정·임계치는 없다. `METRICS.md`(계약, 제안)는 아직 v1 기준이라 이 이름과 어긋난다(헤드·학습 담당 몫).
 
 ## 7. 패키징 [확인]

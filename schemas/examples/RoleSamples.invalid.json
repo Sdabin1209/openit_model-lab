@@ -1,0 +1,152 @@
+{
+  "EVAL": [
+    {
+      "expected": {
+        "action": "CORRECT",
+        "next_item": "Q1.D02",
+        "values": [
+          {
+            "key": "Q1.D01.on_medication",
+            "precision": "exact",
+            "save": true,
+            "status": "CORRECTION",
+            "value": true
+          }
+        ]
+      },
+      "human_review": "auto_only",
+      "input": {
+        "current_question": "뇌졸중으로 진단받았거나 약을 드시나요?",
+        "question_id": "Q1.D01",
+        "state": {
+          "Q1.D01.diagnosed": {
+            "status": "ANSWERED",
+            "value": false
+          },
+          "Q1.D01.on_medication": {
+            "status": "ANSWERED",
+            "value": false
+          }
+        },
+        "user_utterance": "아까 말씀드린 건 잘못이고 약은 먹어요 (2)"
+      },
+      "origin": "SYNTHETIC",
+      "pipeline_schema_version": "3.1",
+      "question_set": {
+        "content_hash": "sha256:52bc7ee3060112434a43997e5864b6bfef221657ddb08dc63bf82e2cda45a49d",
+        "id": "qs-train",
+        "version": "1"
+      },
+      "sample_id": "fx_correct_q1_0002-a",
+      "scenario_id": "fx_correct_q1_0002",
+      "split": "EVAL"
+    },
+    {
+      "expected": {
+        "action": "REDIRECT",
+        "next_item": "Q1.D01",
+        "note": "허리 통증",
+        "reason": "OUT_OF_SCHEMA",
+        "values": []
+      },
+      "human_review": "auto_only",
+      "input": {
+        "current_question": "뇌졸중으로 진단받았거나 약을 드시나요?",
+        "question_id": "Q1.D01",
+        "state": {},
+        "user_utterance": "요즘 허리가 자주 아파요 (8)"
+      },
+      "origin": "SYNTHETIC",
+      "pipeline_schema_version": "3.1",
+      "question_set": {
+        "content_hash": "sha256:52bc7ee3060112434a43997e5864b6bfef221657ddb08dc63bf82e2cda45a49d",
+        "id": "qs-train",
+        "version": "1"
+      },
+      "sample_id": "fx_out_of_schema_q1_0008-a",
+      "scenario_id": "fx_out_of_schema_q1_0008",
+      "split": "EVAL"
+    }
+  ],
+  "TRAIN": [],
+  "VALIDATION": [
+    {
+      "expected": {
+        "action": "NEXT",
+        "next_item": "Q1.D02",
+        "values": [
+          {
+            "key": "Q1.D01.diagnosed",
+            "precision": "exact",
+            "save": true,
+            "status": "ANSWERED",
+            "value": true
+          },
+          {
+            "key": "Q1.D01.on_medication",
+            "precision": "exact",
+            "save": true,
+            "status": "ANSWERED",
+            "value": false
+          }
+        ]
+      },
+      "human_review": "auto_only",
+      "input": {
+        "current_question": "뇌졸중으로 진단받았거나 약을 드시나요?",
+        "question_id": "Q1.D01",
+        "state": {},
+        "user_utterance": "진단은 받았고 약은 안 먹어요 (1)"
+      },
+      "origin": "SYNTHETIC",
+      "pipeline_schema_version": "3.1",
+      "question_set": {
+        "content_hash": "sha256:52bc7ee3060112434a43997e5864b6bfef221657ddb08dc63bf82e2cda45a49d",
+        "id": "qs-train",
+        "version": "1"
+      },
+      "sample_id": "fx_next_q1_0001-a",
+      "scenario_id": "fx_next_q1_0001",
+      "split": "VALIDATION"
+    },
+    {
+      "expected": {
+        "action": "NEXT",
+        "next_item": "Q1.D04",
+        "values": [
+          {
+            "key": "Q1.D03.diagnosed",
+            "precision": "exact",
+            "save": true,
+            "status": "ANSWERED",
+            "value": false
+          },
+          {
+            "key": "Q1.D03.on_medication",
+            "precision": "exact",
+            "save": true,
+            "status": "ANSWERED",
+            "value": true
+          }
+        ]
+      },
+      "human_review": "auto_only",
+      "input": {
+        "current_question": "고혈압으로 진단받았거나 약을 드시나요?",
+        "question_id": "Q1.D03",
+        "state": {},
+        "user_utterance": "진단은 받은 적 없고 약은 먹어요 (18)"
+      },
+      "origin": "SYNTHETIC",
+      "pipeline_schema_version": "3.1",
+      "question_set": {
+        "content_hash": "sha256:52bc7ee3060112434a43997e5864b6bfef221657ddb08dc63bf82e2cda45a49d",
+        "id": "qs-train",
+        "version": "1"
+      },
+      "sample_id": "fx_next_q3_0018-a",
+      "scenario_id": "fx_next_q3_0018",
+      "split": "VALIDATION"
+    }
+  ]
+}

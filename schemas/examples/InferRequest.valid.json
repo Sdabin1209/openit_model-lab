@@ -1,0 +1,18 @@
+{
+  "input": {
+    "current_question": "뇌졸중으로 진단받았거나 약을 드시나요?",
+    "question_id": "Q1.D01",
+    "state": {
+      "Q1.D01.diagnosed": {
+        "status": "ANSWERED",
+        "value": false
+      },
+      "Q1.D01.on_medication": {
+        "status": "ANSWERED",
+        "value": false
+      }
+    },
+    "user_utterance": "아까 말씀드린 건 잘못이고 약은 먹어요 (2)"
+  },
+  "role": "LORA_A"
+}

@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TrainResult",
+  "description": "학습 컴포넌트의 출력. run 기록용이다.",
+  "type": "object",
+  "properties": {
+    "steps": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "resumed_from_step": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "base_model_revision": {
+      "type": "string",
+      "minLength": 1
+    },
+    "library_versions": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "metrics": {
+      "type": "object"
+    },
+    "samples_used": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "samples_skipped_too_long": {
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "steps",
+    "resumed_from_step",
+    "base_model_revision",
+    "library_versions",
+    "metrics"
+  ]
+}

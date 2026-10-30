@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from model_lab.transform import ConversionError, from_server_row, to_server_row  # noqa: E402
+from model_lab.components.server_row_convert import ConversionError, from_server_row, to_server_row  # noqa: E402
 
 SPLITS = ("train", "val", "test")
 

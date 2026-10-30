@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TrainLineage",
+  "description": "train_record_verify의 출력: 패키지 ext.model-lab.lineage에 들어갈 계보.",
+  "type": "object",
+  "properties": {
+    "train_record_sha256": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "config_hash": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "server_script_sha256": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "dataset_file_sha256": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "base_model": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "hyperparams": {
+      "type": [
+        "object",
+        "null"
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "train_record_sha256"
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DatasetSamplesRequest",
+  "description": "dataset_samples의 입력: 내려받은 파일이 있는 폴더와 역할.",
+  "type": "object",
+  "properties": {
+    "manifest": {
+      "$ref": "DatasetManifest.schema.json"
+    },
+    "base": {
+      "type": "string",
+      "minLength": 1
+    },
+    "role": {
+      "enum": [
+        "LORA_A",
+        "LORA_B"
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "manifest",
+    "base",
+    "role"
+  ]
+}

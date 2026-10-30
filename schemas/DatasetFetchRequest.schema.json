@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DatasetFetchRequest",
+  "description": "link_dataset_fetch의 입력(store는 wiring이 주입). version이 없으면 가장 최근 버전을 쓴다.",
+  "type": "object",
+  "properties": {
+    "dataset_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+      "maxLength": 128
+    },
+    "version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "dest": {
+      "type": "string",
+      "minLength": 1
+    },
+    "runtime_contract_version": {
+      "type": "integer",
+      "minimum": 1
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "dataset_id",
+    "dest",
+    "runtime_contract_version"
+  ]
+}

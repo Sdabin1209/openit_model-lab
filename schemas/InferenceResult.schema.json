@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "InferenceResult",
+  "description": "model_infer의 출력: 모델 호출 한 번의 결과. LoRA-A는 text가 null, LoRA-B는 text(보호 적용 결과)가 있다.",
+  "type": "object",
+  "properties": {
+    "role": {
+      "enum": [
+        "LORA_A",
+        "LORA_B"
+      ]
+    },
+    "raw_valid": {
+      "type": "boolean"
+    },
+    "raw_errors": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "raw_output": {},
+    "outcome": {
+      "enum": [
+        "ok",
+        "invalid",
+        "fallback",
+        "repaired"
+      ]
+    },
+    "attempts": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "protections": {
+      "type": "array",
+      "items": {
+        "type": "array"
+      }
+    },
+    "text": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "is_fallback": {
+      "type": "boolean"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "role",
+    "raw_valid",
+    "raw_errors",
+    "outcome",
+    "attempts",
+    "protections",
+    "text",
+    "is_fallback"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "role": {
+            "const": "LORA_B"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "text": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  ]
+}

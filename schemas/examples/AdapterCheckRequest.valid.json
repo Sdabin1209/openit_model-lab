@@ -1,0 +1,8 @@
+{
+  "adapter_dir": "/work/adapters/LORA_A",
+  "base_model": {
+    "id": "Qwen/Qwen2.5-1.5B-Instruct"
+  },
+  "max_rank": 64,
+  "role": "LORA_A"
+}

@@ -41,7 +41,7 @@
 - 종료 코드: 0 = 실행을 끝냈거나 할 일 없음, 2 = 오류(설정·데이터·환경. 재시도해도 같음), 3 = `UNAVAILABLE`(이웃·레지스트리 일시 장애, 같은 명령 재실행 가능).
 - 멱등: 같은 (설정, 데이터셋 버전, 시드, 라이브러리 버전)이면 같은 `runs/<run_id>/`를 가리키고, 끝난 run은 `skip`. 중단된 run은 이어서(학습은 체크포인트부터). 같은 시각에 두 번 부르지 않는다(스케줄러가 직렬화).
 - 작업 폴더: `runs_dir`(설정). 비밀 값은 설정 파일에 없고 환경 변수로만 받는다.
-- 설정 형식(요약, 정본은 `model_lab/config.py`의 `CONFIG_SCHEMA`와 `docs/design.md` 3절). 예: `configs/gpu-dev-fixture-smoke.yaml`.
+- 설정 형식(요약, 정본은 `schemas/RunConfig.schema.json`과 `docs/design.md` 3절). 예: `configs/gpu-dev-fixture-smoke.yaml`.
   - `profile`: 학습 프로파일(`profiles/gpu-dev-12g.yaml`: 기반 모델, 양자화, 최대 길이, 배치, 학습률, 에폭, GPU 수·메모리 비율, `checks.max_lora_rank`)
   - `inputs.dataset`: `{id, version?}` (version 생략 = 최신), `inputs.dataset_store`: 읽기 SDK 팩토리
   - `registry`: 게시 대상. 로컬 `{kind: file, path}` 또는 원격 `{kind: http, base_url, token_env, timeout}`(`boundary_contracts.clients.HttpModelRegistry`). `token_env`가 가리키는 이름의 `_FILE` 경로 파일 또는 환경 변수(쓰기 토큰)를 잡 실행 환경에 준다
@@ -107,7 +107,7 @@ D22 (2): 서비스가 없는 run-once 잡이라 Dockerfile 없이 `requirements.
 
 ## 학습 실행 감싸기: 설정 + 명령 + doctor (D78, G06)
 
-학습의 정본은 학습 서버의 코드(`train_lora_a.py`, `train_lora_b.py`)다. 이 리포지토리는 그 코드를 복사하지 않고 부르기만 한다. `trainers/hf.py`(파이프라인용 사본)는 서버 정본과 다르므로 **서버와 같은 어댑터를 만들 수 없다**(비정본, 파이프라인 검증용).
+학습의 정본은 학습 서버의 코드(`train_lora_a.py`, `train_lora_b.py`)다. 이 리포지토리는 그 코드를 복사하지 않고 부르기만 한다. `components/lora_train_hf.py`(파이프라인용 사본)는 서버 정본과 다르므로 **서버와 같은 어댑터를 만들 수 없다**(비정본, 파이프라인 검증용).
 
 현재 상태: 설정 검증·명령 조립·dry-run·doctor·산출물 확인은 대역 스크립트로 시험했다(`tests/test_train_wrap.py`). 서버 스크립트의 인자 이름은 서버 코드로 확인했으나(`--help` 실행은 안 함) **산출물 위치는 확인하지 못했고**, 진짜 학습은 GPU가 필요해 해 보지 못했다 [구멍: 산출물 위치, GPU].
 
@@ -145,11 +145,11 @@ D22 (2): 서비스가 없는 run-once 잡이라 Dockerfile 없이 `requirements.
 | `qwen3-8b` | `Qwen/Qwen3-8B` | 16 | 24GB급(model-runtime `rtx4090-24g`) 8B 어댑터 얹기 |
 
 - 14B 프로파일은 없다: 14B는 A만 학습되어 있어(`head/docs/impact-d74.md`) A·B를 함께 얹는 `package-adapters`에 쓸 수 없고, model-runtime 쪽도 14B는 bf16으로 24GB에 들어가지 않는다고 적고 있다.
-- 연결(코드 확인): model-lab은 프로파일을 `profiles/<이름>.yaml` 파일 이름으로만 찾는다(`model_lab/attach.py: load_profile`; `package-adapters --profile <이름>` 또는 설정의 `profile:`, `train` 설정에서는 `base_model.profile`). model-runtime의 프로파일 이름(`rtx4090-24g`)과 코드로 연결되지 않는다. 맞는 짝은 사람이 `base_model` 이름과 `max_lora_rank` 값을 같게 유지해 보장한다. 어댑터의 `base_model_name_or_path`가 프로파일의 `base_model.id`와 다르거나 `r`이 상한을 넘으면 `package-adapters`가 거부하고 아무것도 게시하지 않는다(`tests/test_attach.py`).
+- 연결(코드 확인): model-lab은 프로파일을 `profiles/<이름>.yaml` 파일 이름으로만 찾는다(`model_lab/config.py: load_profile`; `package-adapters --profile <이름>` 또는 설정의 `profile:`, `train` 설정에서는 `base_model.profile`). model-runtime의 프로파일 이름(`rtx4090-24g`)과 코드로 연결되지 않는다. 맞는 짝은 사람이 `base_model` 이름과 `max_lora_rank` 값을 같게 유지해 보장한다. 어댑터의 `base_model_name_or_path`가 프로파일의 `base_model.id`와 다르거나 `r`이 상한을 넘으면 `package-adapters`가 거부하고 아무것도 게시하지 않는다(`tests/test_attach.py`).
 
 ## 학습 서버 어댑터를 얹는 절차 (D84)
 
-학습 서버가 만든 LoRA 어댑터(A, B 각각 `adapter_model.safetensors` + `adapter_config.json`)를 모델 패키지로 만들어 model-registry에 게시한다. 파이프라인(학습·평가·패키징·게시)을 다시 돌리지 않는다. 명령은 `model-lab package-adapters`(`model_lab/attach.py`, 시험 `tests/test_attach.py`)다. 이 길은 **평가하지 않는다**: 게시되는 EvaluationReport는 지표 `evaluated`가 `n=0`이고 노트에 "평가하지 않았다"를 적는다. 평가는 별도다.
+학습 서버가 만든 LoRA 어댑터(A, B 각각 `adapter_model.safetensors` + `adapter_config.json`)를 모델 패키지로 만들어 model-registry에 게시한다. 파이프라인(학습·평가·패키징·게시)을 다시 돌리지 않는다. 명령은 `model-lab package-adapters`(`model_lab/wiring/attach_flow.py`, 시험 `tests/test_attach.py`)다. 이 길은 **평가하지 않는다**: 게시되는 EvaluationReport는 지표 `evaluated`가 `n=0`이고 노트에 "평가하지 않았다"를 적는다. 평가는 별도다.
 
 현재 상태: 가짜 어댑터(작은 safetensors)로 패키지가 만들어지고 파일 레지스트리에 게시·재게시(멱등)되고 어댑터 해시가 다시 맞는 것까지 시험했다. 진짜 어댑터로 실제 모델을 불러 서빙하는 것은 GPU가 필요해 확인하지 못했다 [구멍: GPU].
 

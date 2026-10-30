@@ -22,11 +22,11 @@
 
 | 경로 | 역할 |
 | --- | --- |
-| `model_lab/registry.py` | I3 레지스트리의 파일·메모리 구현 (패키지 저장, 해시 검증, 멱등) |
-| `model_lab/service/` | model-registry HTTP 서비스 (`/healthz`, `/readyz`, 읽기·쓰기 토큰 분리) |
-| `model_lab/attach.py` | `package-adapters`: 학습 서버 어댑터를 패키지로 만들어 게시 (평가 안 함) |
-| `model_lab/train_wrap.py` | `train`, `train-doctor`: 학습 서버의 정본 학습 스크립트를 설정으로 감싼다 (D78) |
-| `model_lab/pipeline.py` 외 | 설정 하나로 돌리는 파이프라인 `run`/`run-once`/`status` (적재→변환→학습→평가→패키징→게시). `transform.py`, `evaluate.py`, `packager.py`, `regression.py`, `trainers/`, `backends/` 포함 |
+| `schemas/` | 영역 내부 타입의 JSON Schema와 통과·거부 예시. "스키마 밖 조건" 표는 `schemas/README.md` |
+| `model_lab/types/` | `schemas/`에서 생성한 TypedDict (손으로 고치지 않는다, 생성 명령은 4절) |
+| `model_lab/components/` | 컴포넌트(업무 하나 = 입력 스키마 -> 출력 스키마). 표는 `docs/components.md`. 이웃 통신은 `link_*`: `link_dataset_fetch`(I2), `link_failure_read`(I7), `link_registry_publish`(I3 게시), `link_registry_serve`(I3 서버 면) |
+| `model_lab/wiring/` | 컴포넌트를 잇고 바깥 자원을 주입한다: `pipeline.py`(`run`/`run-once` 단계), `attach_flow.py`(`package-adapters`), `train_flow.py`(`train`), `evaluation.py`, `settings.py`, `schemas.py` |
+| `model_lab/cli.py`, `config.py`, `service/` | 진입점과 설정 읽기(업무 규칙 없음). `service/`는 model-registry 서비스 기동(`/healthz`, `/readyz`) |
 | `configs/`, `profiles/`, `prompts/` | 실행 설정, 하드웨어·기반 모델 프로파일, 서버 데이터와 같은 시스템 프롬프트 |
 | `scripts/smoke_registry.sh` | 서비스 이미지 스모크 (빌드→빈 포트 기동→healthz/readyz/토큰/게시/조회) |
 | `tests/` | 시험 (레지스트리 적합성은 memory/file/http 공통) |
@@ -41,7 +41,7 @@
 학습 서버 코드 <-- train / train-doctor (감싸기, 어댑터 산출물 점검)
 ```
 
-파이프라인의 `train` 단계는 아직 `train` 감싸기에 연결되지 않았다(`CHANGELOG.md` 0.2.3). 파이프라인 기본 학습기 `trainers/hf.py`는 비정본이라 서버와 같은 어댑터를 만들지 못한다(`docs/runbook.md`).
+파이프라인의 `train` 단계는 아직 `train` 감싸기에 연결되지 않았다(`CHANGELOG.md` 0.2.3). 파이프라인 기본 학습기 `components/lora_train_hf.py`는 비정본이라 서버와 같은 어댑터를 만들지 못한다(`docs/runbook.md`).
 
 ## 실행 방법
 
@@ -72,6 +72,8 @@ scripts/smoke_registry.sh
 확인된 것(근거 문서): CPU에서 가짜 모델로 파이프라인 끝까지, 레지스트리 파일·메모리·HTTP 적합성 시험, 이미지 스모크는 옛 계약 버전 때 통과(`docs/STATUS.md` 9차). 시험 개수는 5절만 정본이다. 평가 지표는 METRICS.md v2로 바뀌었고(ADR 0011) 데이터셋은 HTTP 클라이언트로 읽는다(ADR 0012, 실제 클라이언트로는 아직 시험하지 못함). GPU 호스트(gpu-dev)에서 작은 시험 데이터로 학습→게시 한 바퀴와 재실행 skip을 확인한 기록이 있으나 오래된 버전 기준이다(`docs/STATUS.md` 2차). 학습 품질과 학습 감싸기 결과는 의미 있는 값이 없다.
 
 확인 못 한 것: 서버 학습 스크립트의 `--help` 실제 출력·인자 타입 검사 방식·산출물 위치(인자 이름은 헤드가 서버 코드의 `add_argument`를 읽어 확인했고 `args_verified: true`이다. 근거는 `configs/train.yaml`의 `args_evidence`), 진짜 어댑터의 서빙, 실제 모델 평가 값(지금까지 오라클 가짜 모델), 재개한 학습의 비트 단위 재현(`docs/design.md` 4절), 현재 `requirements.txt` 버전에서의 이미지 스모크와 새 환경 설치(`docs/STATUS.md` 11차의 pip 해결 미시도 기록). 두 번째 독립 머신 확인은 U12로 열려 있다.
+
+**types/ 생성 (4절).** `pip install -r requirements-codegen.txt` 후 `python3 scripts/gen_types.py`(내부에서 `datamodel-codegen --input-file-type jsonschema --output-model-type typing.TypedDict --target-python-version 3.10 --disable-timestamp`을 부른다. 계약을 가리키는 `$ref`는 생성 입력에서 `object`로 바꾼다). `tests/test_structure.py::test_5_types_match_regenerated_output`이 다시 생성한 결과와 같은지 본다(도구가 없으면 건너뛴다).
 
 ## 시험 상태 (5절)
 
@@ -152,3 +154,4 @@ scripts/smoke_registry.sh
 | [0025](docs/adr/0025-setup-env는-마지막-줄에-SetupEnvReport를-낸다.md) | `scripts/setup-env.sh`는 마지막 줄에 SetupEnvReport |
 | [0026](docs/adr/0026-노출-선언은-전부-denied.md) | 노출 선언 라벨 `io.openit.exposure`, 이 서비스는 전부 denied |
 | [0027](docs/adr/0027-계약-3-0-0-전환과-라벨-정직성.md) | 계약 3.0.0 전환, 라벨은 실제 설치 버전 |
+| [0028](docs/adr/0028-영역-구조를-컴포넌트-스키마-wiring으로-나눈다.md) | 영역 구조: schemas / types / components / wiring (D117) |

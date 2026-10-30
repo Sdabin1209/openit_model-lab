@@ -8,12 +8,14 @@ import pytest
 from boundary_contracts import BoundaryError, validator
 from boundary_contracts.action_rules import _Flow    # 시험 전용: 합성 정답의 next_item을 계약과 같은 규칙으로 계산한다
 
-from model_lab import datasets, factories, metrics, pipeline, regression
+from model_lab.components import dataset_samples as datasets, eval_report as metrics, link_dataset_fetch
+from model_lab.wiring import factories, pipeline, regression
 from model_lab.config import ConfigError, load_config
-from model_lab.metric_names import DEPRECATED_V1
-from model_lab.evaluate import build_report, score_a, semantic_violations
-from model_lab.flow import default_flow
-from model_lab.text_rules import check_response, material_coverage
+from model_lab.components.eval_report import DEPRECATED_V1
+from model_lab.wiring.evaluation import build_report
+from model_lab.components.eval_sample import score_a, semantic_violations
+from model_lab.components.eval_sample import default_flow
+from model_lab.components.eval_sample import check_response, material_coverage
 from tests.doubles.dataset_server import DatasetServer
 from tests.doubles.fixtures import load_samples
 from tests.test_evaluate_v2 import QS, session_for, with_qs
@@ -208,7 +210,7 @@ def test_config_accepts_http_dataset_store_and_builds_client(cfg, monkeypatch, t
 
     class Fake:
         def __init__(self, **kw): seen.update(kw)
-    monkeypatch.setattr(factories, "load_callable", lambda path: Fake if path.endswith("HttpDatasetStore") else None)
+    monkeypatch.setattr(link_dataset_fetch, "connect", Fake)
     monkeypatch.setenv("T_DS_URL", "http://x:1"); monkeypatch.setenv("T_DS_TOKEN", "tok")
     assert isinstance(pipeline.make_dataset_store(c), Fake)
     assert seen == {"base_url": "http://x:1", "token": "tok", "timeout": 30}
@@ -233,7 +235,7 @@ def test_fetch_dataset_over_http_client(fixture_store, tmp_path):
     try:
         store = clients.HttpDatasetStore(base_url=srv.url, token="dt")
         assert store.list_versions("fx-golden") == ["v1"]
-        m = datasets.fetch_dataset(store, "fx-golden", "v1", tmp_path / "d", contract_version=1)
+        m = link_dataset_fetch.fetch_dataset(store, "fx-golden", "v1", tmp_path / "d", contract_version=1)
         assert all((tmp_path / "d" / f["path"]).is_file() for f in m["files"])
         with pytest.raises(BoundaryError) as e:
             store.get_manifest("fx-golden", "v9")

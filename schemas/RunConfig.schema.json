@@ -1,0 +1,807 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "config_version",
+    "run",
+    "inputs",
+    "roles",
+    "serving",
+    "evaluation",
+    "registry"
+  ],
+  "properties": {
+    "config_version": {
+      "const": 1
+    },
+    "profile": {
+      "type": "string"
+    },
+    "run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "seed"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "seed": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        },
+        "runs_dir": {
+          "type": "string"
+        }
+      }
+    },
+    "inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_dir",
+        "dataset",
+        "dataset_store"
+      ],
+      "properties": {
+        "schema_dir": {
+          "type": "string"
+        },
+        "dataset": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+              "maxLength": 128
+            },
+            "version": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "dataset_store": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "factory"
+              ],
+              "properties": {
+                "factory": {
+                  "type": "string",
+                  "pattern": "^[\\w.]+:\\w+$"
+                },
+                "args": {
+                  "type": "object"
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind"
+              ],
+              "properties": {
+                "kind": {
+                  "const": "http"
+                },
+                "base_url": {
+                  "type": "string"
+                },
+                "base_url_env": {
+                  "type": "string"
+                },
+                "token_env": {
+                  "type": "string"
+                },
+                "timeout": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                }
+              },
+              "anyOf": [
+                {
+                  "required": [
+                    "base_url"
+                  ]
+                },
+                {
+                  "required": [
+                    "base_url_env"
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "question_reader": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "factory"
+          ],
+          "properties": {
+            "factory": {
+              "type": "string",
+              "pattern": "^[\\w.]+:\\w+$"
+            },
+            "args": {
+              "type": "object"
+            }
+          }
+        },
+        "failure_store": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "factory"
+          ],
+          "properties": {
+            "factory": {
+              "type": "string",
+              "pattern": "^[\\w.]+:\\w+$"
+            },
+            "args": {
+              "type": "object"
+            }
+          }
+        }
+      }
+    },
+    "base_model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "revision": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "training": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "trainer": {
+          "enum": [
+            "hf",
+            "dry-run"
+          ]
+        },
+        "quantization": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "mode": {
+              "enum": [
+                "none",
+                "4bit-nf4",
+                "8bit"
+              ]
+            },
+            "compute_dtype": {
+              "enum": [
+                "float16",
+                "bfloat16",
+                "float32"
+              ]
+            }
+          }
+        },
+        "lora": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "r": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "alpha": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "dropout": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "target_modules": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "minItems": 1
+            }
+          }
+        },
+        "max_seq_len": {
+          "type": "integer",
+          "minimum": 16
+        },
+        "per_device_batch_size": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "grad_accum_steps": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "learning_rate": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "warmup_ratio": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "epochs": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "max_steps": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "max_train_samples": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "gpu_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "gpu_memory_fraction": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1
+        },
+        "gradient_checkpointing": {
+          "type": "boolean"
+        },
+        "checkpoint_every_steps": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "log_every_steps": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "deterministic": {
+          "type": "boolean"
+        },
+        "attn_implementation": {
+          "enum": [
+            "eager",
+            "sdpa",
+            "flash_attention_2"
+          ]
+        },
+        "dtype": {
+          "enum": [
+            "float16",
+            "bfloat16",
+            "float32"
+          ]
+        }
+      }
+    },
+    "roles": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "LORA_A": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "package_id",
+            "system_prompt_file"
+          ],
+          "properties": {
+            "package_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+              "maxLength": 128
+            },
+            "system_prompt_file": {
+              "type": "string",
+              "minLength": 1
+            },
+            "training": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "trainer": {
+                  "enum": [
+                    "hf",
+                    "dry-run"
+                  ]
+                },
+                "quantization": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "mode": {
+                      "enum": [
+                        "none",
+                        "4bit-nf4",
+                        "8bit"
+                      ]
+                    },
+                    "compute_dtype": {
+                      "enum": [
+                        "float16",
+                        "bfloat16",
+                        "float32"
+                      ]
+                    }
+                  }
+                },
+                "lora": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "r": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "alpha": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "dropout": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1
+                    },
+                    "target_modules": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "minItems": 1
+                    }
+                  }
+                },
+                "max_seq_len": {
+                  "type": "integer",
+                  "minimum": 16
+                },
+                "per_device_batch_size": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "grad_accum_steps": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "learning_rate": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "warmup_ratio": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "epochs": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "max_steps": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "minimum": 1
+                },
+                "max_train_samples": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "minimum": 1
+                },
+                "gpu_count": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "gpu_memory_fraction": {
+                  "type": "number",
+                  "exclusiveMinimum": 0,
+                  "maximum": 1
+                },
+                "gradient_checkpointing": {
+                  "type": "boolean"
+                },
+                "checkpoint_every_steps": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "log_every_steps": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "deterministic": {
+                  "type": "boolean"
+                },
+                "attn_implementation": {
+                  "enum": [
+                    "eager",
+                    "sdpa",
+                    "flash_attention_2"
+                  ]
+                },
+                "dtype": {
+                  "enum": [
+                    "float16",
+                    "bfloat16",
+                    "float32"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "LORA_B": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "package_id",
+            "system_prompt_file"
+          ],
+          "properties": {
+            "package_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+              "maxLength": 128
+            },
+            "system_prompt_file": {
+              "type": "string",
+              "minLength": 1
+            },
+            "training": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "trainer": {
+                  "enum": [
+                    "hf",
+                    "dry-run"
+                  ]
+                },
+                "quantization": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "mode": {
+                      "enum": [
+                        "none",
+                        "4bit-nf4",
+                        "8bit"
+                      ]
+                    },
+                    "compute_dtype": {
+                      "enum": [
+                        "float16",
+                        "bfloat16",
+                        "float32"
+                      ]
+                    }
+                  }
+                },
+                "lora": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "r": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "alpha": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "dropout": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1
+                    },
+                    "target_modules": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "minItems": 1
+                    }
+                  }
+                },
+                "max_seq_len": {
+                  "type": "integer",
+                  "minimum": 16
+                },
+                "per_device_batch_size": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "grad_accum_steps": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "learning_rate": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "warmup_ratio": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "epochs": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                },
+                "max_steps": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "minimum": 1
+                },
+                "max_train_samples": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "minimum": 1
+                },
+                "gpu_count": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "gpu_memory_fraction": {
+                  "type": "number",
+                  "exclusiveMinimum": 0,
+                  "maximum": 1
+                },
+                "gradient_checkpointing": {
+                  "type": "boolean"
+                },
+                "checkpoint_every_steps": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "log_every_steps": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "deterministic": {
+                  "type": "boolean"
+                },
+                "attn_implementation": {
+                  "enum": [
+                    "eager",
+                    "sdpa",
+                    "flash_attention_2"
+                  ]
+                },
+                "dtype": {
+                  "enum": [
+                    "float16",
+                    "bfloat16",
+                    "float32"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "serving": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "LORA_A": {
+          "$ref": "ServingConfig.schema.json"
+        },
+        "LORA_B": {
+          "$ref": "ServingConfig.schema.json"
+        }
+      }
+    },
+    "evaluation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "backend"
+      ],
+      "properties": {
+        "backend": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind"
+          ],
+          "properties": {
+            "kind": {
+              "enum": [
+                "hf",
+                "fake-oracle"
+              ]
+            },
+            "corrupt_every": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "split": {
+          "enum": [
+            "EVAL",
+            "VALIDATION"
+          ]
+        },
+        "limit_samples": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "max_listed_failures": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "regression": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "limit_cases": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 1
+            },
+            "label": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "registry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "file",
+            "http",
+            "factory"
+          ]
+        },
+        "path": {
+          "type": "string"
+        },
+        "base_url": {
+          "type": "string"
+        },
+        "base_url_env": {
+          "type": "string"
+        },
+        "token_env": {
+          "type": "string"
+        },
+        "timeout": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "factory": {
+          "type": "string",
+          "pattern": "^[\\w.]+:\\w+$"
+        },
+        "args": {
+          "type": "object"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "http"
+              }
+            }
+          },
+          "then": {
+            "anyOf": [
+              {
+                "required": [
+                  "base_url"
+                ]
+              },
+              {
+                "required": [
+                  "base_url_env"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "factory"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "factory"
+            ]
+          }
+        }
+      ]
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "max_lora_rank": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "publish": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    }
+  },
+  "title": "RunConfig",
+  "description": "실행 설정(프로파일 병합 뒤). 12GB 호스트 값은 프로파일에만 있다. 통과 임계치·지표 선정 키는 없다(O11): 모르는 키는 거부한다.",
+  "allOf": [
+    {
+      "$ref": "SecretFree.schema.json"
+    }
+  ]
+}

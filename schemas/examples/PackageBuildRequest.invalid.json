@@ -1,0 +1,178 @@
+{
+  "adapter_dir": "/work/adapters/LORA_A",
+  "base_model": {
+    "id": "Qwen/Qwen2.5-1.5B-Instruct",
+    "revision": "dry-run"
+  },
+  "contract_version": 1,
+  "created_at": "2026-10-15T00:00:00Z",
+  "dataset_manifest": {
+    "action_rules_version": "2",
+    "content_hash": "sha256:4d008a812a0b3ec44ac710cc8ef8f5b774a34734aa8d265aa6a57dfa58a07267",
+    "created_at": "2026-10-27T00:00:00Z",
+    "dataset_id": "fx-golden",
+    "files": [
+      {
+        "content_hash": "sha256:c5972704561ae3914f617708a352dbcd603647f5ec7a33d01ded13c7cf454652",
+        "path": "lora_a-eval-qs-train.jsonl",
+        "question_sets": [
+          {
+            "content_hash": "sha256:52bc7ee3060112434a43997e5864b6bfef221657ddb08dc63bf82e2cda45a49d",
+            "id": "qs-train",
+            "version": "1"
+          }
+        ],
+        "role": "LORA_A",
+        "sample_count": 23,
+        "split": "EVAL"
+      },
+      {
+        "content_hash": "sha256:60e76aa936d47d078420ad83ad2ecffa60e0f56517e5e6ec951cb6775034406a",
+        "path": "lora_a-eval-qs-unseen.jsonl",
+        "question_sets": [
+          {
+            "content_hash": "sha256:25852da6b6dbcde7cb5a500d4a18b30108394bf8965d1372c611a867f31e9f1f",
+            "id": "qs-unseen",
+            "version": "1"
+          }
+        ],
+        "role": "LORA_A",
+        "sample_count": 20,
+        "split": "EVAL"
+      },
+      {
+        "content_hash": "sha256:ccf681f33271b4ddb0f19497bed9cf0169533f4c590e791c62bbf6fd6146efa2",
+        "path": "lora_a-train-qs-train.jsonl",
+        "question_sets": [
+          {
+            "content_hash": "sha256:52bc7ee3060112434a43997e5864b6bfef221657ddb08dc63bf82e2cda45a49d",
+            "id": "qs-train",
+            "version": "1"
+          }
+        ],
+        "role": "LORA_A",
+        "sample_count": 122,
+        "split": "TRAIN"
+      },
+      {
+        "content_hash": "sha256:b0d5be489629809f2aab33d60e3f4652e5b619542731b7dc3a37af15f4d1075c",
+        "path": "lora_a-validation-qs-train.jsonl",
+        "question_sets": [
+          {
+            "content_hash": "sha256:52bc7ee3060112434a43997e5864b6bfef221657ddb08dc63bf82e2cda45a49d",
+            "id": "qs-train",
+            "version": "1"
+          }
+        ],
+        "role": "LORA_A",
+        "sample_count": 15,
+        "split": "VALIDATION"
+      },
+      {
+        "content_hash": "sha256:1704e7b30b07858531a50890b530ea1ce8b8f1077211f47b9f917bf822177460",
+        "path": "lora_b-eval-qs-train.jsonl",
+        "question_sets": [
+          {
+            "content_hash": "sha256:52bc7ee3060112434a43997e5864b6bfef221657ddb08dc63bf82e2cda45a49d",
+            "id": "qs-train",
+            "version": "1"
+          }
+        ],
+        "role": "LORA_B",
+        "sample_count": 23,
+        "split": "EVAL"
+      },
+      {
+        "content_hash": "sha256:d0037c096aea53c07df09a237b90385fb0147b34b456003449db37a128282e6a",
+        "path": "lora_b-eval-qs-unseen.jsonl",
+        "question_sets": [
+          {
+            "content_hash": "sha256:25852da6b6dbcde7cb5a500d4a18b30108394bf8965d1372c611a867f31e9f1f",
+            "id": "qs-unseen",
+            "version": "1"
+          }
+        ],
+        "role": "LORA_B",
+        "sample_count": 21,
+        "split": "EVAL"
+      },
+      {
+        "content_hash": "sha256:00e7a3309d01f2a0aac99edbb01678c74995d06d23dd2e18a1cf0f31dbf909b8",
+        "path": "lora_b-train-qs-train.jsonl",
+        "question_sets": [
+          {
+            "content_hash": "sha256:52bc7ee3060112434a43997e5864b6bfef221657ddb08dc63bf82e2cda45a49d",
+            "id": "qs-train",
+            "version": "1"
+          }
+        ],
+        "role": "LORA_B",
+        "sample_count": 122,
+        "split": "TRAIN"
+      },
+      {
+        "content_hash": "sha256:6a1aba655f305f7ae821adf41790bcda650f05f12af268f38312ad429182c768",
+        "path": "lora_b-validation-qs-train.jsonl",
+        "question_sets": [
+          {
+            "content_hash": "sha256:52bc7ee3060112434a43997e5864b6bfef221657ddb08dc63bf82e2cda45a49d",
+            "id": "qs-train",
+            "version": "1"
+          }
+        ],
+        "role": "LORA_B",
+        "sample_count": 15,
+        "split": "VALIDATION"
+      }
+    ],
+    "generator_version": "fixture-v2-1",
+    "pipeline_schema_version": "3.1",
+    "question_sets": [
+      {
+        "content_hash": "sha256:52bc7ee3060112434a43997e5864b6bfef221657ddb08dc63bf82e2cda45a49d",
+        "id": "qs-train",
+        "version": "1"
+      },
+      {
+        "content_hash": "sha256:25852da6b6dbcde7cb5a500d4a18b30108394bf8965d1372c611a867f31e9f1f",
+        "id": "qs-unseen",
+        "version": "1"
+      }
+    ],
+    "runtime_contract_version": 1,
+    "scenario_disjoint_across_splits": true,
+    "seed_case_ids": [],
+    "version": "v1"
+  },
+  "dataset_ref": {
+    "content_hash": "sha256:4d008a812a0b3ec44ac710cc8ef8f5b774a34734aa8d265aa6a57dfa58a07267",
+    "id": "fx-golden",
+    "version": "v1"
+  },
+  "ext": {},
+  "package_id": "lora-a-parser",
+  "run_id": "run-17849fe6b640010d",
+  "serving_config": {
+    "constraint": {
+      "backend": "fake",
+      "backend_version": "1",
+      "relax_policy_version": "relax-3",
+      "supported_features": []
+    },
+    "decoding": {
+      "constraint_mode": "none",
+      "max_tokens": 512,
+      "seed": 1000,
+      "temperature": 0
+    },
+    "max_attempts": 3,
+    "output_contract": 1,
+    "prompt_template_version": "prompt-4",
+    "protection_policy_version": "protect-2"
+  },
+  "system_prompt": {
+    "path": "system_prompt.txt",
+    "sha256": "sha256:53bc60fd4ceee006b1c63e4a9aa724856b5700e2ddbb5ab80022f795f35650bd"
+  },
+  "version": "v1-17849fe6"
+}

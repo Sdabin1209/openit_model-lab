@@ -1,0 +1,13 @@
+{
+  "adapter_dir": "/work/adapters/LORA_A",
+  "base": {
+    "id": "Qwen/Qwen2.5-1.5B-Instruct"
+  },
+  "dataset": {
+    "content_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+    "id": "fx-golden",
+    "version": "v1"
+  },
+  "path": "/work/lora_a.train-wrap.json",
+  "role": "LORA_A"
+}

@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from model_lab.service import tarutil
+from model_lab.components import link_registry_serve as tarutil
 from model_lab.service.app import Service
 from tests.conftest import ROOT
 from tests.doubles.serve import serve, stop

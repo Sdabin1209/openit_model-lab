@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DatasetSnapshot",
+  "description": "link_dataset_fetch의 출력: 내려받아 해시를 확인한 데이터셋의 매니페스트(계약 DatasetManifest).",
+  "type": "object",
+  "properties": {
+    "manifest": {
+      "$ref": "DatasetManifest.schema.json"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "manifest"
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AdapterConfig",
+  "description": "어댑터 디렉터리의 adapter_config.json(PEFT). 기반 모델 이름과 순위 r을 가진다. adapter_check의 출력.",
+  "type": "object",
+  "properties": {
+    "base_model_name_or_path": {
+      "type": "string",
+      "minLength": 1
+    },
+    "r": {
+      "type": "integer",
+      "minimum": 1
+    }
+  },
+  "additionalProperties": true,
+  "required": [
+    "base_model_name_or_path"
+  ]
+}

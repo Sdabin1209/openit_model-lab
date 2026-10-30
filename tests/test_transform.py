@@ -2,7 +2,7 @@ import json
 
 import model_runtime
 
-from model_lab.transform import render_output, to_example
+from model_lab.components.train_data import render_output, to_example
 from tests.conftest import SCHEMA_DIR
 from tests.doubles.fixtures import SYSTEM_PROMPT, load_samples
 
