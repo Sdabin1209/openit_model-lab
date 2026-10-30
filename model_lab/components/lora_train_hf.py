@@ -19,6 +19,8 @@ import shutil
 from importlib import metadata
 from pathlib import Path
 
+from ..types.TrainRequest_schema import TrainRequest
+from ..types.TrainResult_schema import TrainResult
 from ..wiring.errors import TrainerUnavailable
 
 
@@ -96,7 +98,7 @@ class HFLoraTrainer:
     def __init__(self, cached_commit=None):
         self.cached_commit = cached_commit
 
-    def train(self, req) -> dict:
+    def train(self, req: TrainRequest) -> TrainResult:
         req = _paths(req)
         torch, transformers, peft = _import()
         t = req["training"]

@@ -10,6 +10,9 @@ from pathlib import Path
 
 from boundary_contracts import canonical
 
+from ..types.TrainRequest_schema import TrainRequest
+from ..types.TrainResult_schema import TrainResult
+
 
 def read_jsonl(path: Path) -> list[dict]:
     with open(path, "r", encoding="utf-8") as f:
@@ -41,7 +44,7 @@ class DryRunTrainer:
     def __init__(self, interrupt_at_step: int | None = None):
         self.interrupt_at_step = interrupt_at_step
 
-    def train(self, req) -> dict:
+    def train(self, req: TrainRequest) -> TrainResult:
         req = _paths(req)
         rows = read_jsonl(req["train_path"])
         t = req["training"]

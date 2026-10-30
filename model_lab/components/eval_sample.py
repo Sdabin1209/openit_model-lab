@@ -16,6 +16,9 @@ import survey_schema
 from boundary_contracts import BoundaryError, validator
 from boundary_contracts.action_rules import check_action_extraction
 
+from ..types.EvalSampleRequest_schema import EvalSampleRequest
+from ..types.SampleRecord_schema import SampleRecord1, SampleRecord2
+
 OOS = frozenset({"SKIP", "REDIRECT"})
 
 
@@ -220,7 +223,7 @@ def check_response(request: Mapping, text: str) -> dict[str, bool]:
             "json_leak": text.lstrip().startswith("{")}
 
 
-def score(request: Mapping) -> dict:
+def score(request: EvalSampleRequest) -> SampleRecord1 | SampleRecord2:
     """EvalSampleRequest {role, sample, inference, flow?} -> SampleRecord. 입력은 wiring이 스키마로 검증해 넘긴다(R7)."""
     role, sample, inf = request["role"], request["sample"], request["inference"]
     flow = request.get("flow")

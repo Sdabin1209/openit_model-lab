@@ -12,7 +12,7 @@
 - 영역 공용인 스키마 적재(`wiring/schemas.py`)와 오류 어휘(`wiring/errors.py`)는 wiring에 둔다. 컴포넌트가 이 둘을 import하는 것은 허용한다(규칙 5: 컴포넌트 사이의 스키마는 영역이 책임진다).
 - 합친 것: 채점(`evaluate`+`text_rules`+`flow`)은 `eval_sample`, 보고·지표(`evaluate` 집계+`metrics`+`metric_names`+`regression.section`)는 `eval_report`. 이유: 같은 합계와 쪼개기 차원을 쓰는데 컴포넌트끼리 import할 수 없어 쪼개면 복사해야 한다.
 - 주입한 것: `lora_train_hf`의 `load_base`를 HF 백엔드 둘에, `check_adapter`를 `server_train_wrap`에, `layout_of`/`verify_system_prompt`를 `package_build`에, 파일 레지스트리를 `link_registry_serve`에, `cached_commit`을 `lora_train_hf`에.
-- 보내는 쪽 통신(`link_dataset_fetch`, `link_failure_read`, `link_registry_publish`)은 `openit_link.clients`(link v0.1.0, D118)로 클라이언트를 만든다. 받는 쪽 `link_registry_serve`는 link의 `App`이 본문 전체를 메모리에 읽어(최대 4GiB 스트리밍 게시를 못 한다) 아직 옮기지 못했다: `docs/change-requests/CR-L013-link-큰-본문-스트리밍과-서버-보호.md`.
+- 보내는 쪽 통신(`link_dataset_fetch`, `link_failure_read`, `link_registry_publish`)은 `openit_link.clients`(link v0.2.0, D118)로 클라이언트를 만든다. 받는 쪽 `link_registry_serve`는 link의 `App`이 본문 전체를 메모리에 읽어(최대 4GiB 스트리밍 게시를 못 한다) 아직 옮기지 못했다: `docs/change-requests/CR-L013-link-큰-본문-스트리밍과-서버-보호.md`.
 
 ## 왜
 D117/D104가 정한 구조다. 대안 비교는 헤드의 DESIGN.md에 있다. 이 영역의 몫인 선택(합치기, 주입, errors 위치)의 근거는 위와 같다.

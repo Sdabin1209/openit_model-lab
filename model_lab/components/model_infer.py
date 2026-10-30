@@ -4,10 +4,13 @@
 A는 raw 한 번(서빙 경로와 같은 재시도), B는 raw와 보호 적용 결과 두 가지를 모두 낸다."""
 from __future__ import annotations
 
-from typing import Any, Mapping
+from typing import Mapping
+
+from ..types.InferRequest_schema import InferRequest
+from ..types.InferenceResult_schema import InferenceResult
 
 
-def infer(session, request: Mapping) -> dict[str, Any]:
+def infer(session, request: InferRequest) -> InferenceResult:
     role, inp = request["role"], request["input"]
     if role == "LORA_A":
         raw = session.extract_raw(inp)

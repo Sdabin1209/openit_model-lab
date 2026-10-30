@@ -14,6 +14,12 @@ import tempfile
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 
 
+def _sibling():
+    """현재 파이썬과 같은 가상환경의 bin에 있는 도구(PATH에 venv가 없을 때)."""
+    p = pathlib.Path(sys.executable).parent / "datamodel-codegen"
+    return str(p) if p.exists() else None
+
+
 def prepare(dst: pathlib.Path) -> None:
     own = {p.name for p in (ROOT / "schemas").glob("*.schema.json")}
 
@@ -32,7 +38,7 @@ def prepare(dst: pathlib.Path) -> None:
 
 
 def generate(out: pathlib.Path) -> None:
-    exe = os.environ.get("DATAMODEL_CODEGEN") or shutil.which("datamodel-codegen")
+    exe = os.environ.get("DATAMODEL_CODEGEN") or shutil.which("datamodel-codegen") or _sibling()
     if not exe:
         raise SystemExit("datamodel-codegen이 없다: pip install -r requirements-codegen.txt")
     with tempfile.TemporaryDirectory() as t:

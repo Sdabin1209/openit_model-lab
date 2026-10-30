@@ -16,6 +16,11 @@ HTTP = re.compile(r"^\s*(from|import)\s+(boundary_contracts\.clients|openit_link
 ENTRY = re.compile(r"(^|/)(__main__|main|app|server|config|settings|migrate|cli|index)\.py$")
 
 
+def _sibling():
+    p = Path(sys.executable).parent / "datamodel-codegen"
+    return str(p) if p.exists() else None
+
+
 def code_files():
     return [p for p in PKG.rglob("*.py") if "__pycache__" not in p.parts]
 
@@ -61,7 +66,7 @@ def test_6_every_code_file_belongs_somewhere():
 
 
 def test_5_types_match_regenerated_output(tmp_path):
-    exe = os.environ.get("DATAMODEL_CODEGEN") or shutil.which("datamodel-codegen")
+    exe = os.environ.get("DATAMODEL_CODEGEN") or shutil.which("datamodel-codegen") or _sibling()
     if not exe:
         pytest.skip("datamodel-codegen이 없다(requirements-codegen.txt). 이 환경에서는 types/ 재생성 비교를 하지 못했다")
     out = tmp_path / "types"
