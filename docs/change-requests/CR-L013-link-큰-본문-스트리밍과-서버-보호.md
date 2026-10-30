@@ -1,4 +1,4 @@
-> **처리됨 (2026-10-30).** link v0.3.0이 `Route(stream_body=True)`/`Request.stream`을 넣었다. 인증 실패 제한·동시 게시 상한은 라이브러리 밖(App을 감싸는 WSGI 겉옷)에 두기로 했다(헤드). `link_registry_serve`는 App 위로 옮겼다. 아래는 요청 당시의 기록이다.
+> **처리됨 (2026-10-30).** link v0.4.0이 `Route(stream_body=True)`/`Request.stream`을 넣었다. 인증 실패 제한·동시 게시 상한은 라이브러리 밖(App을 감싸는 WSGI 겉옷)에 두기로 했다(헤드). `link_registry_serve`는 App 위로 옮겼다. 아래는 요청 당시의 기록이다.
 
 # CR-L013: link App으로 model-registry 받는 쪽을 옮기려면 필요한 것 (헤드에게)
 

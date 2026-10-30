@@ -1,11 +1,11 @@
 # 변경 이력
 
-## 미배포 - U400 영역 구조 개편(D117), 계약 v3.1.1, link v0.3.0
+## 미배포 - U400 영역 구조 개편(D117), 계약 v3.1.1, link v0.4.0
 - 모듈 이동(동작 불변): `registry.py`->`components/model_registry.py`, `service/app.py`->`components/link_registry_serve.py`(+tar 유틸, 진입점은 `service/app.py`에 남음), `datasets.py`->`components/dataset_samples.py`+`link_dataset_fetch.py`, `transform.py`->`components/train_data.py`+`server_row_convert.py`, `evaluate.py`·`text_rules.py`·`flow.py`->`components/eval_sample.py`, `metrics.py`·`metric_names.py`·`regression.section`->`components/eval_report.py`, `regression.py`->`components/regression_set.py`, `packager.py`->`components/package_build.py`, `attach.py`->`wiring/attach_flow.py`+`components/adapter_check.py`+`train_record_verify.py`, `train_wrap.py`->`components/server_train_wrap.py`, `trainers/`·`backends/`->`components/lora_train_*.py`·`backend_*.py`, `pipeline.py`->`wiring/pipeline.py`, `errors.py`->`wiring/errors.py`, `factories.py`->`wiring/factories.py`.
 - `docs/schemas/`의 학습 서버 형식 스키마 3개를 `schemas/`로 옮기고 코드가 쓴다(`ServerDatasetRow`는 `server_row_convert`가 검증). 새 스키마 35개와 예시.
 - `config.py`의 `CONFIG_SCHEMA`와 `train_wrap`의 `_SCHEMA`를 `schemas/RunConfig`, `TrainWrapConfig`로 옮김. 비밀 키 검사를 `SecretFree` 스키마로, 두 역할 필수를 `RunPlan`으로, 평가 온도 0을 `EvalServingPlan`으로.
 - 시험 import 경로 갱신, `tests/test_structure.py`·`tests/test_schemas.py` 추가(`test_owned_schemas.py` 대체).
-- 핀: boundary-contracts v3.1.1, openit-link v0.3.0(`requirements.txt`, `requirements.lock`, `requirements-service.txt`). 서비스 이미지에 link wheel 포함(Dockerfile `LINK_SPEC`, `scripts/build-image.sh`와 `scripts/smoke_registry.sh`가 만든다).
+- 핀: boundary-contracts v3.1.1, openit-link v0.4.0(`requirements.txt`, `requirements.lock`, `requirements-service.txt`). 서비스 이미지에 link wheel 포함(Dockerfile `LINK_SPEC`, `scripts/build-image.sh`와 `scripts/smoke_registry.sh`가 만든다).
 - `link_registry_serve`를 `openit_link.App` 위로 옮김(영역 안의 401/403·본문 상한·BoundaryError 본문 구현 삭제). 동작이 link 규약으로 바뀐 곳: 허용하지 않는 메서드 404 -> 405 + Allow, 경로 매칭이 인증보다 먼저(없는 경로는 인증 없이 404), 응답 Content-Type `application/json`(charset 없음), 매니페스트 응답을 ModelPackageManifest로 검증. 인증 실패 제한·동시 게시 상한·여유 공간 점검은 App을 감싸는 WSGI 겉옷과 처리 함수에 둠.
 
 ## 미배포 - model-runtime v0.11.2 핀 (v0.11.1에서 올림; 코드 변경 없음)

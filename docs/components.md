@@ -16,7 +16,7 @@
 | 데이터셋 읽기(로컬 파일) | `components/link_dataset_read_file.py` | 데이터셋 루트 폴더 | `DatasetStore` 읽기 SDK 구현 | synthetic-data의 파일 배치를 읽는 독립 읽기 구현(개발용). 읽기만 한다 |
 | 실패 사례 읽기(보내기, I7) | `components/link_failure_read.py` | `FailureReadRequest` (store 주입) | 계약 `FailureCase` 목록, trace | 확정(CONFIRMED)된 정답 있는 사례와 비식별 trace를 읽는다 |
 | 모델 게시(보내기, I3) | `components/link_registry_publish.py` | `PackagePublication` (registry 주입) | 계약 `ModelPackageManifest` | 원격 model-registry에 패키지를 게시한다(멱등은 서버가 정한다) |
-| 모델 레지스트리 서버(받기, I3) | `components/link_registry_serve.py` | HTTP 요청(`HTTP.md` I3, 설정 `RegistryServiceConfig`) | HTTP 응답, `BoundaryError` 본문 | I3 서버 면. `openit_link.App`(link v0.3.0) 위에 경로·처리 함수만 쓴다(인증 401/403, 413, BoundaryError 본문, /healthz·/readyz는 link). 영역 몫은 여유 공간·동시 게시 상한·인증 실패 제한(App을 감싸는 WSGI 겉옷)과 tar 묶기·풀기. 게시 본문은 `Route(stream_body=True)`의 `Request.stream`으로 받는다 |
+| 모델 레지스트리 서버(받기, I3) | `components/link_registry_serve.py` | HTTP 요청(`HTTP.md` I3, 설정 `RegistryServiceConfig`) | HTTP 응답, `BoundaryError` 본문 | I3 서버 면. `openit_link.App`(link v0.4.0) 위에 경로·처리 함수만 쓴다(인증 401/403, 413, BoundaryError 본문, /healthz·/readyz는 link). 영역 몫은 여유 공간·동시 게시 상한·인증 실패 제한(App을 감싸는 WSGI 겉옷)과 tar 묶기·풀기. 게시 본문은 `Route(stream_body=True)`의 `Request.stream`으로 받는다 |
 | 모델 레지스트리 | `components/model_registry.py` | `PackagePublication` | 계약 `ModelPackageManifest` | 불변 패키지 저장소의 규칙(스키마·해시·시스템 프롬프트·ModelPackageLayout 확인, 멱등, CONFLICT). 파일·메모리 구현. 읽기: 매니페스트, 목록, 어댑터, 평가 리포트 |
 | 샘플 분리·검증 | `components/dataset_samples.py` | `DatasetSamplesRequest` | `RoleSamples` | 내려받은 파일에서 역할별 TRAIN/VALIDATION/EVAL 샘플을 계약 샘플 스키마로 검증해 읽고, 평가와 학습·검증의 시나리오·샘플 ID 겹침을 막고, 문항 세트가 하나인 파일의 샘플에는 그것을 채운다 |
 | 서버 줄 변환 | `components/server_row_convert.py` | `ServerDatasetRow` 또는 계약 샘플 | 계약 샘플 또는 `ServerDatasetRow` | 학습 서버 데이터셋(messages 형식) 줄과 계약 샘플의 양방향 변환 |
@@ -52,4 +52,4 @@
 
 - 컴포넌트는 `wiring/schemas.py`(스키마 적재·검증)와 `wiring/errors.py`(오류 어휘)만 영역 공용으로 쓴다. 이 둘은 영역이 컴포넌트 사이 스키마를 책임진다(규칙 5)는 뜻의 몫이다.
 - `lora_train_hf`와 두 HF 백엔드가 같은 `load_base`를 쓰지만 서로 import하지 않으므로 wiring이 함수를 주입한다(복사하지 않았다).
-- `link_registry_serve`는 link v0.3.0의 `App` 위에 있다(CR-L013 해소). 보내는 쪽 세 컴포넌트는 `openit_link.clients`를 쓴다.
+- `link_registry_serve`는 link v0.4.0의 `App` 위에 있다(CR-L013 해소). 보내는 쪽 세 컴포넌트는 `openit_link.clients`를 쓴다.
