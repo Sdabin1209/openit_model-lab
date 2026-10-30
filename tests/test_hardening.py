@@ -151,13 +151,11 @@ def test_connection_cap_queues_extra_connections_and_idle_connection_times_out(t
     try:
         hold = socket.create_connection((host, port))                              # 요청을 보내지 않고 자리를 잡는다
         time.sleep(0.2)
-        over = socket.create_connection((host, port)); over.settimeout(8)
+        over = socket.create_connection((host, port)); over.settimeout(60)          # 소켓 timeout은 시간 판정이 아니라 바깥 마감(매달림 방지)이다
         over.sendall(b"GET /healthz HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n")
-        t0 = time.time()
-        assert b" 200 " in over.recv(4096).split(b"\r\n")[0] and time.time() - t0 < 7      # 자리가 풀린 뒤에 답을 받는다
+        assert b" 200 " in over.recv(4096).split(b"\r\n")[0]                       # 자리가 풀린 뒤에 답을 받는다
         over.close()
-        hold.settimeout(5)
-        t0 = time.time()
+        hold.settimeout(60)
         assert hold.recv(10) == b""                                                  # 소켓 timeout 뒤 서버가 연결을 닫는다
         hold.close()
         time.sleep(0.2)
@@ -317,10 +315,9 @@ def test_sigterm_with_idle_keepalive_connection_exits_fast(tmp_path):
         while b"}" not in got:
             got += s.recv(4096)
         assert b"200" in got                                 # 응답을 모두 받았고 연결은 keep-alive로 열려 있다(유휴)
-        t0 = time.time()
         p.send_signal(signal.SIGTERM)
-        assert p.wait(timeout=10) == 0
-        assert time.time() - t0 < 5                          # 소켓 timeout(30초)을 기다리지 않는다
+        # 유휴 연결 때문에 소켓 timeout(30초)을 기다리면 안 된다. 20초 마감 = 30초보다 짧은 바깥 마감(벽시계로 '빠름'을 재지 않는다).
+        assert p.wait(timeout=20) == 0
         s.settimeout(2)
         assert s.recv(10) == b""                             # 유휴 연결은 서버가 닫았다
         s.close()
@@ -334,9 +331,14 @@ def test_drain_lets_in_flight_request_finish(tmp_path):
     started = threading.Event()
     real = svc.registry.list_ids
 
+    release, done = threading.Event(), threading.Event()
+
     def slow(**kw):
-        started.set(); time.sleep(1.0)
-        return real(**kw)
+        started.set(); release.wait(60)      # drain이 시작될 때까지 붙잡는다(시간이 아니라 사건)
+        try:
+            return real(**kw)
+        finally:
+            done.set()
     svc.registry.list_ids = slow
     out = {}
 
@@ -345,11 +347,18 @@ def test_drain_lets_in_flight_request_finish(tmp_path):
         with urllib.request.urlopen(r) as resp:
             out["status"] = resp.status
     t = threading.Thread(target=call); t.start()
-    assert started.wait(5)
-    t0 = time.time()
-    drain(srv, 5.0)                                           # 진행 중 요청이 끝날 때까지 기다린다(drain이 서버도 닫는다)
-    t.join(5)
-    assert out["status"] == 200 and 0.5 < time.time() - t0 < 4
+    assert started.wait(30)
+
+    def release_when_draining():
+        deadline = time.monotonic() + 60
+        while srv.accepting and time.monotonic() < deadline:
+            time.sleep(0.01)
+        release.set()
+    threading.Thread(target=release_when_draining, daemon=True).start()
+    drain(srv, 60.0)                                          # 진행 중 요청이 끝날 때까지 기다린다(drain이 서버도 닫는다). 60초는 바깥 마감
+    assert done.is_set()                                      # drain이 돌아왔을 때 요청은 이미 끝나 있다 = 기다렸다
+    t.join(30)
+    assert out["status"] == 200
 
 
 # ---------- 3차 점검: 토큰 강도, 연결 재사용 상태 ----------

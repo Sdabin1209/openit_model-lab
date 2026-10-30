@@ -64,12 +64,11 @@ def test_stalled_connection_is_closed_after_the_timeout(tmp_path):
     svc, srv, port = start(tmp_path, socket_timeout=1.0)
     try:
         s = socket.create_connection(("127.0.0.1", port)); s.sendall(b"POST /v1/packages HTTP/1.1\r\nHost: x\r\nContent-Length: 100\r\n\r\nabc")
-        s.settimeout(8)
-        t0 = time.time()
-        assert s.recv(10) in (b"", ) or True       # 오류 응답을 먼저 줄 수도 있다
+        # 판정은 "서버가 끝내 연결을 닫는다"(recv가 b""를 낸다)이지 걸린 시간이 아니다. 소켓 timeout 30초는 매달리는 서버를 잡는 바깥 마감일 뿐이다
+        # (서버의 유휴 timeout은 1초이고 점검 주기가 더해져도 30초 안이다. 부하에서 느려도 판정은 같다).
+        s.settimeout(30)
         while s.recv(4096):
-            pass                                    # 끝내 서버가 연결을 닫아야 한다
-        assert time.time() - t0 < 7
+            pass                                    # 오류 응답을 먼저 줄 수도 있다. 끝내 서버가 연결을 닫아야 한다
         s.close()
     finally:
         stop(srv)
@@ -80,16 +79,19 @@ def test_a_slow_request_does_not_block_a_concurrent_one(tmp_path):
     started = threading.Event()
     real = svc.registry.list_ids
 
+    release = threading.Event()
+
     def slow(**kw):
-        started.set(); time.sleep(1.5)
+        started.set(); release.wait(60)      # 시간이 아니라 사건으로 붙잡는다: 다른 요청이 끝난 뒤에 풀어 준다
         return real(**kw)
     svc.registry.list_ids = slow
     try:
-        t = threading.Thread(target=lambda: get(port, "/v1/packages", RT, 10)); t.start()
-        assert started.wait(5)
-        t0 = time.time()
-        assert get(port) == 200 and time.time() - t0 < 1.0
-        t.join(10)
+        t = threading.Thread(target=lambda: get(port, "/v1/packages", RT, 60)); t.start()
+        assert started.wait(30)
+        assert get(port, timeout=30) == 200        # 느린 요청이 처리 중인 채로(release 전) 다른 요청이 응답을 받았다 = 막지 않는다
+        assert t.is_alive() and not release.is_set()
+        release.set()
+        t.join(60)
     finally:
         stop(srv)
 
@@ -121,12 +123,19 @@ def test_sigterm_lets_an_upload_in_progress_finish(tmp_path):
     p = subprocess.Popen([sys.executable, "-m", "model_lab.service"], env=_env(tmp_path), cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     try:
         port = int(p.stdout.readline().split()[-1])
-        s = socket.create_connection(("127.0.0.1", port)); s.settimeout(10)
+        s = socket.create_connection(("127.0.0.1", port)); s.settimeout(60)
         half = len(body) // 2
         s.sendall(b"POST /v1/packages HTTP/1.1\r\nHost: x\r\nAuthorization: Bearer " + WT.encode() + b"\r\nContent-Length: " + str(len(body)).encode() + b"\r\n\r\n" + body[:half])
-        time.sleep(0.5)
+        # 서버가 이 연결의 요청을 받는 중이라는 것을 사건으로 확인한다(sleep으로 가정하지 않는다): 연결은 FIFO로 받으므로 뒤이어 연 연결의
+        # /healthz에 답이 오면 앞 연결은 이미 받아들여졌다.
+        probe = socket.create_connection(("127.0.0.1", port)); probe.settimeout(30)
+        probe.sendall(b"GET /healthz HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n")
+        assert b" 200 " in probe.recv(4096).split(b"\r\n")[0]
+        probe.close()
         p.send_signal(signal.SIGTERM)
-        time.sleep(0.5)
+        for line in p.stdout:                    # 종료 신호를 처리하기 시작했다는 서버 로그(표준 출력)를 기다린다
+            if "종료 신호" in line:
+                break
         s.sendall(body[half:])
         got = b""
         while b"}" not in got:
@@ -135,7 +144,7 @@ def test_sigterm_lets_an_upload_in_progress_finish(tmp_path):
                 break
             got += chunk
         assert got.split(b"\r\n")[0].split()[1] == b"201", got[:200]
-        assert p.wait(timeout=15) == 0
+        assert p.wait(timeout=60) == 0
         s.close()
     finally:
         if p.poll() is None:

@@ -153,9 +153,7 @@ def test_rejection_does_not_read_a_huge_body_and_closes_the_connection(server):
     host, port = server.replace("http://", "").split(":")
     s = socket.create_connection((host, int(port)))
     s.sendall(b"POST /v1/packages HTTP/1.1\r\nHost: x\r\nAuthorization: Bearer rt\r\nContent-Length: " + str(8 << 30).encode() + b"\r\n\r\n")
-    s.settimeout(5)
-    t0 = time.time()
+    s.settimeout(30)                                                                  # 바깥 마감(매달림 방지). 판정은 시간이 아니다
     data = s.recv(4096)
     assert b" 413 " in data.split(b"\r\n")[0] and b"Connection: close" in data       # 본문을 한 바이트도 보내지 않았는데 답한다
-    assert time.time() - t0 < 5
     s.close()
