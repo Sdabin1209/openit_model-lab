@@ -6,12 +6,13 @@ import socket
 
 import pytest
 
+from tests.conftest import HANG_GUARD_SECONDS
 from tests.test_service import server  # noqa: F401  (fixture)
 
 
 def http(server, method, path, token=None, body=b"", extra=b""):
     host, port = server.replace("http://", "").split(":")
-    s = socket.create_connection((host, int(port))); s.settimeout(5)
+    s = socket.create_connection((host, int(port))); s.settimeout(HANG_GUARD_SECONDS)    # 매달림 감시(판정 아님)
     auth = b"Authorization: Bearer " + token.encode() + b"\r\n" if token is not None else b""
     s.sendall(f"{method} {path} HTTP/1.1\r\nHost: x\r\n".encode() + auth + extra +
               b"Content-Length: " + str(len(body)).encode() + b"\r\nConnection: close\r\n\r\n" + body)

@@ -23,12 +23,13 @@ import shutil
 import signal
 import sys
 import threading
+import time
 from pathlib import Path
 
 from boundary_contracts import SecretError, read_secret
 
 from ..components import link_registry_serve as _serve
-from ..components.link_registry_serve import drain, make_server  # noqa: F401  (re-export: 시험이 쓴다)
+from ..components.link_registry_serve import make_server  # noqa: F401  (re-export: 시험이 쓴다)
 from ..components.model_registry import FileModelRegistry
 
 
@@ -37,6 +38,8 @@ class Service(_serve.Service):
 
     def __init__(self, root, read_tokens, write_tokens, **kw):
         kw.setdefault("registry_factory", lambda r: FileModelRegistry(r, link_on_commit=True))
+        kw.setdefault("clock", time.monotonic)         # 실제 시계는 진입점이 넣는다(ADR 0029). 컴포넌트는 시간을 직접 읽지 않는다
+        kw.setdefault("utc_now", lambda: time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()))
         super().__init__(root, read_tokens, write_tokens, **kw)
 
 def parse_tokens(spec: str | None) -> dict[str, str]:
@@ -53,6 +56,11 @@ def parse_tokens(spec: str | None) -> dict[str, str]:
             raise ValueError("역할과 토큰은 비어 있을 수 없다")
         out[tok] = role
     return out
+
+
+def drain(srv, grace: float, log=lambda s: None) -> None:
+    """실제 시계·sleep을 넣어 우아한 종료를 한다(진입점의 연결, ADR 0029)."""
+    _serve.drain(srv, grace, log, clock=time.monotonic, sleep=time.sleep)
 
 
 # 토큰 최소 길이 32자. 무차별 대입에 대한 실제 방어는 토큰의 엔트로피이고(실패 제한은 아래 Service 주석처럼 로그 스팸·CPU 보호일 뿐이다),

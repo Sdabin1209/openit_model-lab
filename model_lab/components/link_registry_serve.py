@@ -23,7 +23,6 @@ import os
 import shutil
 import tempfile
 import threading
-import time
 from collections import defaultdict, deque
 from pathlib import Path
 
@@ -37,7 +36,7 @@ WRITE_ROLE = "model-lab"
 
 
 class Service:
-    def __init__(self, root: Path, read_tokens: dict, write_tokens: dict, *, registry_factory, max_body: int = 4 << 30,
+    def __init__(self, root: Path, read_tokens: dict, write_tokens: dict, *, registry_factory, clock, utc_now, max_body: int = 4 << 30,
                  log=lambda s: print(s, flush=True), socket_timeout: float = 30.0, max_connections: int = 32,
                  max_publishes: int = 1, auth_fail_limit: int = 10, auth_fail_window: float = 60.0,
                  min_free_gb: float = 1.0, free_bytes=None, shutdown_grace: float = 8.0):
@@ -50,6 +49,7 @@ class Service:
         self.socket_timeout, self.max_connections = socket_timeout, max_connections
         self.auth_fail_limit, self.auth_fail_window, self.min_free_gb = auth_fail_limit, auth_fail_window, min_free_gb
         self.shutdown_grace = shutdown_grace
+        self.clock, self.utc_now = clock, utc_now      # 시계는 주입받는다(ADR 0029): clock() = 단조 시계(초), utc_now() = "YYYY-MM-DDTHH:MM:SSZ"
         self._free_bytes = free_bytes or (lambda: shutil.disk_usage(self.root).free)    # 시험에서 주입한다
         self.publish_slots = threading.BoundedSemaphore(max(1, max_publishes))
         self._fails: dict = defaultdict(deque)
@@ -78,7 +78,7 @@ class Service:
     # 제한된 주소에서도 올바른 토큰은 통과하므로(같은 주소의 정상 클라이언트 보호) 추측이 맞으면 막지 못한다. 그 방어는 토큰 엔트로피(MIN_TOKEN_LEN)다.
     # 이 제한은 link App 밖, App을 감싸는 WSGI 겉옷의 몫이다(서버별 방어, 헤드 지시 2026-10-30).
     def auth_blocked(self, addr: str) -> bool:
-        now = time.monotonic()
+        now = self.clock()
         with self._fails_mu:
             q = self._fails[addr]
             while q and now - q[0] > self.auth_fail_window:
@@ -89,7 +89,7 @@ class Service:
 
     def note_auth_failure(self, addr: str) -> None:
         with self._fails_mu:
-            self._fails[addr].append(time.monotonic())
+            self._fails[addr].append(self.clock())
 
     def tokens(self) -> dict:
         """link App의 토큰 표(토큰 -> 역할). 같은 토큰이 읽기·쓰기에 모두 있으면 쓰기 역할로 둔다(읽기 경로도 쓰기 역할을 허용한다)."""
@@ -190,7 +190,7 @@ def make_routes(svc: Service) -> list[Route]:
                     raise
                 existed = False
             got = svc.registry.publish(manifest, ad, rp.read_bytes(), publisher={
-                "role": WRITE_ROLE, "remote": getattr(svc.remote, "addr", ""), "published_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())})
+                "role": WRITE_ROLE, "remote": getattr(svc.remote, "addr", ""), "published_at": svc.utc_now()})
         return Response(200 if existed else 201, got)
 
     return [Route("GET", "/v1/packages", list_ids, roles=all_roles),
@@ -250,11 +250,11 @@ def make_server(svc: Service, host: str = "127.0.0.1", port: int = 0, threads: i
         clear_untrusted_proxy_headers=True)
 
 
-def drain(srv, grace: float, log=lambda s: None) -> None:
+def drain(srv, grace: float, log=lambda s: None, *, clock, sleep) -> None:
     """우아한 종료(ML-2): 새 연결을 받지 않고, 유휴 연결은 보낼 것을 보낸 뒤 닫고, 요청이 진행 중인 연결(받는 중 포함)은 grace초까지 기다린다.
-    남은 연결은 grace 뒤 끊는다. waitress에는 이 기능이 없어(SIGINT면 작업 스레드만 멈추고 응답을 흘려보내지 못한다) 서버의 채널 목록으로 한다."""
+    남은 연결은 grace 뒤 끊는다. clock()·sleep(초)는 주입받는다(ADR 0029: 시험이 가짜 시계로 유예 만료를 일으킨다). waitress에는 이 기능이 없어(SIGINT면 작업 스레드만 멈추고 응답을 흘려보내지 못한다) 서버의 채널 목록으로 한다."""
     srv.accepting = False                                  # readable()이 False를 내 accept를 멈춘다. 이미 backlog에 있는 연결은 종료와 함께 끊긴다
-    deadline = time.monotonic() + grace
+    deadline = clock() + grace
     closed = 0
     while True:
         busy = 0
@@ -267,9 +267,9 @@ def drain(srv, grace: float, log=lambda s: None) -> None:
                 ch.close_when_flushed = True                # 이미 만든 응답은 보낸 뒤 닫는다
                 closed += 1
         srv.pull_trigger()
-        if not busy or time.monotonic() >= deadline:
+        if not busy or clock() >= deadline:
             break
-        time.sleep(0.05)
+        sleep(0.05)
     for ch in list(srv._map.values()):
         if hasattr(ch, "requests"):
             ch.will_close = True                            # 유예가 지나 남은 연결을 끊는다
@@ -277,9 +277,9 @@ def drain(srv, grace: float, log=lambda s: None) -> None:
     log(f"종료: 유휴 연결 {closed}개를 닫았고 진행 중 {busy}개는 " + ("끊었다" if busy else "없었다"))
     # 채널이 닫혀 사라지길 잠시 기다린 뒤 리스너와 트리거를 맵에서 뺀다. 맵이 비면 srv.run()의 루프가 끝난다.
     # 소켓을 닫는 일은 루프가 끝난 뒤 srv.close()가 한다: 루프가 select 중인 fd를 다른 스레드에서 닫으면 EBADF로 루프가 죽는다.
-    stop_by = time.monotonic() + 2.0
-    while time.monotonic() < stop_by and any(hasattr(ch, "requests") for ch in list(srv._map.values())):
-        time.sleep(0.02)
+    stop_by = clock() + 2.0
+    while clock() < stop_by and any(hasattr(ch, "requests") for ch in list(srv._map.values())):
+        sleep(0.02)
     srv.del_channel()
     srv.trigger.del_channel()
 

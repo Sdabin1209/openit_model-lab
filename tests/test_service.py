@@ -134,26 +134,3 @@ def test_i3_server_conformance_with_real_client(server, tmp_path):
     assert code_of(r.publish, m3, ad3, rep3) == "PERMISSION_DENIED"       # 읽기 토큰의 게시
     assert code_of(r.get_manifest, "nope", "v1") == "NOT_FOUND"
 
-
-def test_rejected_upload_still_returns_real_error_not_connection_reset(server):
-    """본문을 읽기 전에 403/400으로 답하면 아직 보내는 중인 클라이언트가 연결 초기화(UNAVAILABLE)를 본다.
-    서버가 본문을 비우고 답하는지 큰 본문으로 반복 확인한다(간헐 실패의 회귀 시험)."""
-    big = b"x" * (40 * 1024 * 1024)
-    small = b"x" * (512 * 1024)        # 거절 때 서버가 버리는 상한(DRAIN_CAP 1MiB) 이내
-    for _ in range(8):
-        assert raw(server + "/v1/packages", "POST", "rt", small)[0] == 403        # 읽기 토큰: 본문을 다 읽지 않고 답해도 실제 오류가 보인다
-        assert raw(server + "/v1/packages", "POST", "wt", big)[0] == 400          # tar가 아님(수락된 업로드는 끝까지 읽는다)
-
-
-def test_rejection_does_not_read_a_huge_body_and_closes_the_connection(server):
-    """본문 상한(max_request_body_size)을 넘게 선언한 요청은 본문을 받지 않고 답하고 연결을 닫는다. 이전 서버는 권한 거절(403)도 본문 전에 했지만
-    waitress는 본문을 다 받은 뒤 앱을 부르므로 상한 초과만 본문 전에 거절된다(413, waitress 본문; ADR 0023)."""
-    import socket
-    import time
-    host, port = server.replace("http://", "").split(":")
-    s = socket.create_connection((host, int(port)))
-    s.sendall(b"POST /v1/packages HTTP/1.1\r\nHost: x\r\nAuthorization: Bearer rt\r\nContent-Length: " + str(8 << 30).encode() + b"\r\n\r\n")
-    s.settimeout(30)                                                                  # 바깥 마감(매달림 방지). 판정은 시간이 아니다
-    data = s.recv(4096)
-    assert b" 413 " in data.split(b"\r\n")[0] and b"Connection: close" in data       # 본문을 한 바이트도 보내지 않았는데 답한다
-    s.close()

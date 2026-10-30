@@ -155,3 +155,4 @@ scripts/smoke_registry.sh
 | [0026](docs/adr/0026-노출-선언은-전부-denied.md) | 노출 선언 라벨 `io.openit.exposure`, 이 서비스는 전부 denied |
 | [0027](docs/adr/0027-계약-3-0-0-전환과-라벨-정직성.md) | 계약 3.0.0 전환, 라벨은 실제 설치 버전 |
 | [0028](docs/adr/0028-영역-구조를-컴포넌트-스키마-wiring으로-나눈다.md) | 영역 구조: schemas / types / components / wiring (D117) |
+| [0029](docs/adr/0029-서버-시계를-주입한다.md) | 서버의 시계와 sleep을 주입한다(시험에서 실제 시간 0) |

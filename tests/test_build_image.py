@@ -12,7 +12,7 @@ from boundary_contracts import validator
 
 from model_lab.config import validate_config
 from model_lab.wiring.errors import ConfigError
-from tests.conftest import ROOT
+from tests.conftest import EXTERNAL_TOOL_GUARD_SECONDS, ROOT
 
 SCRIPT = ROOT / "scripts" / "build-image.sh"
 BC_REPO = Path(os.environ.get("OPENIT_BC_REPO", "/home/user/sdabin/healthKiosk/boundary-contracts"))     # 읽기 전용(워크스페이스가 허용한 이웃)
@@ -52,7 +52,7 @@ def request(tmp_path, **over):
 
 
 def run(p, **env):
-    return subprocess.run(["bash", str(SCRIPT), str(p)], cwd=ROOT, capture_output=True, text=True, env={**os.environ, **env}, timeout=550)
+    return subprocess.run(["bash", str(SCRIPT), str(p)], cwd=ROOT, capture_output=True, text=True, env={**os.environ, **env}, timeout=EXTERNAL_TOOL_GUARD_SECONDS)   # 매달림 감시(판정 아님)
 
 
 @pytest.mark.parametrize("mutate,why", [

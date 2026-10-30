@@ -8,6 +8,11 @@ from tests.doubles.dataset_store import DirDatasetStore, MemoryDatasetStore
 from tests.doubles.fixtures import build_dataset
 
 ROOT = Path(__file__).resolve().parents[1]
+# 매달림 감시(판정이 아니다): 가짜에게서 신호를 기다리거나 외부 프로세스를 돌릴 때, 코드가 진짜로 멈췄을 때만 걸리는 바깥 마감. 시험에서 숫자 timeout은 이 상수뿐이다.
+# 300초 = 정상 경로(가짜와의 신호는 즉시, 소켓 왕복은 수 ms)의 수만 배. 시험이 시간을 재서 판정하는 곳은 없다(tests/TIMING.md, ADR 0029).
+HANG_GUARD_SECONDS = 300
+# 외부 도구(docker 빌드, pip 설치)는 정상이 수십~백 초라 300초가 정상 경로의 수십 배에 그친다. 같은 상수의 배수로 두어 숫자를 새로 만들지 않는다.
+EXTERNAL_TOOL_GUARD_SECONDS = HANG_GUARD_SECONDS * 12
 # vendor/survey-schema 사본이 있으면 먼저 쓰고(GPU 호스트), 없으면 태그로 설치된 survey_schema 패키지의 스키마 폴더를 쓴다.
 _vendor = ROOT / "vendor" / "survey-schema" / "schemas"
 

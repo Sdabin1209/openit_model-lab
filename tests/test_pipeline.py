@@ -287,7 +287,7 @@ def test_run_once_exit_code_3_when_remote_unreachable(cfg, tmp_path, monkeypatch
     from model_lab.cli import main
     monkeypatch.setenv("TEST_REGISTRY_TOKEN", "w")
     raw = {k: v for k, v in cfg.items() if k != "_base_dir"}
-    raw["registry"] = {"kind": "http", "base_url": "http://127.0.0.1:9", "token_env": "TEST_REGISTRY_TOKEN", "timeout": 2}
+    raw["registry"] = {"kind": "http", "base_url": "http://127.0.0.1:9", "token_env": "TEST_REGISTRY_TOKEN"}
     p = tmp_path / "remote.yaml"; p.write_text(yaml.safe_dump(raw))
     assert main(["run-once", "--config", str(p)]) == 3                  # 재시도 가능
     assert main(["run-once", "--config", str(p)]) == 3                  # 학습은 다시 하지 않고 게시만 재시도(아래 확인)
