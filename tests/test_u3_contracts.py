@@ -113,7 +113,7 @@ def _dockerfile_labels(args: dict) -> dict:
 
 
 def test_dockerfile_labels_satisfy_image_labels_contract():
-    labels = _dockerfile_labels({"REVISION": "3bfd0d7", "BC_VERSION": "v3.1.1"})
+    labels = _dockerfile_labels({"REVISION": "3bfd0d7", "BC_VERSION": "v3.1.2"})
     assert len(labels) == 5                                   # turn-engine 라벨은 계약 3.0.0에서 없어졌다
     validator("ImageLabels").validate(labels)
 
