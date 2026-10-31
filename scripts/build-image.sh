@@ -79,6 +79,7 @@ image, image_id, labels, revision, bc = sys.argv[1:]
 labels = {k: v for k, v in json.loads(labels).items() if k.startswith("io.openit.")}
 if labels.get("io.openit.revision") != revision or labels.get("io.openit.contracts.boundary") != bc:
     sys.exit("이미지 라벨이 요청 값과 다르다")
+validator("ImageLabels").validate(labels)      # 내보내기 전에 이미지 라벨을 계약 ImageLabels로 직접 검증한다(R7). BuildImageResult도 같은 스키마를 가리키지만 위반 위치를 라벨로 알리려고 먼저 본다
 out = {"image": image, "image_id": image_id, "labels": labels}
 validator("BuildImageResult").validate(out)
 print(json.dumps(out, ensure_ascii=False, separators=(",", ":")))
