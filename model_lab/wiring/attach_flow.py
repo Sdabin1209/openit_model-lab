@@ -9,8 +9,6 @@
 같은 패키지가 된다(멱등)."""
 from __future__ import annotations
 
-import hashlib
-import json
 import os
 import re
 import shutil

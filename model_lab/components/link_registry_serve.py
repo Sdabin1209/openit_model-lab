@@ -1,25 +1,10 @@
-"""model-registry 서비스(I3 서버) 통신 컴포넌트(받는 쪽). 요청을 계약 스키마로 검증하고 model_registry 컴포넌트에 넘긴다. 입력은 HTTP 요청, 출력은 HTTP 응답/BoundaryError 본문. HTTP.md의 I3 표와 CONVENTIONS 9절을 따른다. WSGI(PEP 3333) 앱을 waitress로 서빙한다(ADR 0023).
+"""model-registry 서비스(I3 서버) 통신 컴포넌트(받는 쪽). 요청 검증(인증·본문 상한·계약 스키마)은 openit_link.App이 하고, 이 컴포넌트는 경로·처리 함수와 서버별 방어(실패 제한, 동시 게시 상한, 여유 공간)만 둔다. 입력은 HTTP 요청, 출력은 HTTP 응답/BoundaryError 본문. HTTP.md의 I3 표와 CONVENTIONS 9절을 따른다. WSGI(PEP 3333) 앱을 waitress로 서빙한다(ADR 0023).
 
-환경 변수(진입점 `python -m model_lab.service`가 읽는다). 비밀 두 개는 boundary_contracts.read_secret(D84)으로 읽는다:
-  MODEL_REGISTRY_READ_TOKENS_FILE / MODEL_REGISTRY_READ_TOKENS    역할=토큰,역할=토큰  (읽기 경로만)
-  MODEL_REGISTRY_WRITE_TOKENS_FILE / MODEL_REGISTRY_WRITE_TOKENS  model-lab=토큰         (쓰기 경로. 역할은 model-lab만 허용)
-  (NAME_FILE이 있으면 그 파일 내용, 없으면 NAME 환경 변수. 운영은 파일, 환경 변수는 개발용)
-  MODEL_REGISTRY_ROOT          저장 볼륨(기본 /data)
-  MODEL_REGISTRY_PORT          기본 8080 (0이면 빈 포트)
-  MODEL_REGISTRY_MAX_BODY      게시 본문 최대 바이트(기본 4GiB)
-  MODEL_REGISTRY_SOCKET_TIMEOUT  waitress channel_timeout: 요청이 진행 중이지 않은 연결(유휴, 요청을 다 보내지 않은 연결)을 닫는 초(기본 30, ML-1)
-  MODEL_REGISTRY_MAX_CONNECTIONS waitress connection_limit: 동시 연결 상한(기본 32; 넘으면 새 연결은 받지 않고 backlog에서 기다린다. 503을 주지 않는다, ADR 0023)
-  MODEL_REGISTRY_THREADS         waitress 작업 스레드 수(기본 16, ADR 0023)
-  MODEL_REGISTRY_MAX_PUBLISHES   동시 게시 상한(기본 1; 넘으면 503 UNAVAILABLE, 디스크와 .tmp를 지킨다)
-  MODEL_REGISTRY_AUTH_FAIL_LIMIT 같은 주소의 인증 실패 상한(기본 10회 / 60초; 넘으면 그 주소는 잠시 503, 상수 시간 비교와 별개의 시도 제한)
-  MODEL_REGISTRY_SHUTDOWN_GRACE  SIGTERM 뒤 진행 중 요청을 기다리는 초(기본 8; 유휴 연결은 즉시 닫는다, Docker 기본 정지 유예 10초보다 짧게)
-  MODEL_REGISTRY_MIN_FREE_GB     게시 전 요구 여유 공간 GB(기본 1; 본문 크기의 2배 + 이 값이 모자라면 503, ML-2)
-로그는 표준 출력으로, 토큰과 본문은 남기지 않는다."""
+환경 변수와 기본값의 근거는 진입점 `model_lab/service/app.py`에 있다(한 곳에만 쓴다)."""
 from __future__ import annotations
 
-import tarfile
 import json
-import os
+import tarfile
 import shutil
 import tempfile
 import threading
@@ -193,9 +178,9 @@ def make_routes(svc: Service) -> list[Route]:
                 "role": WRITE_ROLE, "remote": getattr(svc.remote, "addr", ""), "published_at": svc.utc_now()})
         return Response(200 if existed else 201, got)
 
-    return [Route("GET", "/v1/packages", list_ids, roles=all_roles),
-            Route("POST", "/v1/packages", publish, roles=writers, stream_body=True, max_body=svc.max_body),
-            Route("GET", "/v1/packages/{pid}/versions", list_versions, roles=all_roles),
+    return [Route("GET", "/v1/packages", list_ids, roles=all_roles, response_schema="ListEnvelope"),
+            Route("POST", "/v1/packages", publish, roles=writers, stream_body=True, max_body=svc.max_body, response_schema="ModelPackageManifest"),
+            Route("GET", "/v1/packages/{pid}/versions", list_versions, roles=all_roles, response_schema="ListEnvelope"),
             Route("GET", "/v1/packages/{pid}/versions/{ver}", get_manifest, roles=all_roles, response_schema="ModelPackageManifest"),
             Route("GET", "/v1/packages/{pid}/versions/{ver}/adapter", get_adapter, roles=all_roles),
             Route("GET", "/v1/eval-reports/{ref}", get_report, roles=all_roles)]
@@ -225,7 +210,6 @@ def make_app(svc: Service):
         start_response(f"{status} {REASON.get(status, 'Error')}", list(headers.items()))
         return [body] if isinstance(body, (bytes, bytearray)) else body
 
-    wsgi.link_app = app
     return wsgi
 
 

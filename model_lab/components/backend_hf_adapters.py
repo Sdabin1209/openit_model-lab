@@ -28,7 +28,7 @@ class HFAdapterBackend:
         frac = training.get("gpu_memory_fraction")
         if frac:
             torch.cuda.set_per_process_memory_fraction(frac, 0)
-        self.tok, base = load_base(torch, transformers, base_model, training, for_training=False)
+        self.tok, base = load_base(torch, transformers, base_model, training)
         roles = sorted(adapters)
         self.model = peft.PeftModel.from_pretrained(base, str(adapters[roles[0]]), adapter_name=roles[0])
         for r in roles[1:]:

@@ -6,18 +6,16 @@
 from __future__ import annotations
 
 import copy
-import re
 import json
+import re
 from pathlib import Path
-from typing import Any
 
-import jsonschema
 import yaml
 from boundary_contracts import canonical
 
 from .wiring import schemas
 from .wiring.errors import ConfigError
-from .wiring.settings import CONFIG_VERSION, ROLES, ROLE_TO_FILE_ROLE, deep_merge  # noqa: F401
+from .wiring.settings import deep_merge
 
 
 # 왜: PyYAML은 YAML 1.1이라 off·no·yes·on이 불리언으로, 0123이 8진수 83으로 읽히고 중복 키는 마지막 값이 조용히 이긴다(점검 C2).

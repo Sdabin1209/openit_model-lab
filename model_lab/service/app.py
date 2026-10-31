@@ -31,6 +31,7 @@ from boundary_contracts import SecretError, read_secret
 from ..components import link_registry_serve as _serve
 from ..components.link_registry_serve import make_server  # noqa: F401  (re-export: 시험이 쓴다)
 from ..components.model_registry import FileModelRegistry
+from ..wiring import schemas
 
 
 class Service(_serve.Service):
@@ -41,6 +42,7 @@ class Service(_serve.Service):
         kw.setdefault("clock", time.monotonic)         # 실제 시계는 진입점이 넣는다(ADR 0029). 컴포넌트는 시간을 직접 읽지 않는다
         kw.setdefault("utc_now", lambda: time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()))
         super().__init__(root, read_tokens, write_tokens, **kw)
+
 
 def parse_tokens(spec: str | None) -> dict[str, str]:
     """'역할=토큰,역할=토큰' -> {토큰: 역할}"""
@@ -63,7 +65,7 @@ def drain(srv, grace: float, log=lambda s: None) -> None:
     _serve.drain(srv, grace, log, clock=time.monotonic, sleep=time.sleep)
 
 
-# 토큰 최소 길이 32자. 무차별 대입에 대한 실제 방어는 토큰의 엔트로피이고(실패 제한은 아래 Service 주석처럼 로그 스팸·CPU 보호일 뿐이다),
+# 토큰 최소 길이 32자. 무차별 대입에 대한 실제 방어는 토큰의 엔트로피이고(실패 제한은 link_registry_serve.Service 주석처럼 로그 스팸·CPU 보호일 뿐이다),
 # 32자 이상의 무작위 16진수는 128비트 이상이다. 근거(ADR 0009): 알고 있는 일반 지침 — OWASP 세션 관리 치트시트(예측 불가능한 ID는 CSPRNG로
 # 만들고 최소 64비트, 권장은 128비트 안팎)와 NIST SP 800-63B(무작위 인증 비밀의 엔트로피 하한)를 참고했다. 이번에 원문을 다시 확인하지는 않았다.
 # 길이는 엔트로피를 보증하지 못하므로 무작위로 만들 책임은 운영자 몫이다(`openssl rand -hex 32`).
@@ -83,7 +85,7 @@ def check_token_strength(tokens: dict[str, str], *, min_len: int = MIN_TOKEN_LEN
 #  channel_timeout 30초: 요청을 다 보내지 않았거나 유휴인 연결을 닫는 시간. 측정 안 함(기존 소켓 timeout 값을 그대로 옮김, ADR 0007·0023).
 #  동시 연결 32: 소비자가 release-gate 등 소수이고 게시는 1건뿐이라는 가정(측정 안 함); waitress connection_limit(기존 값을 그대로 옮김).
 #  스레드 16: 느린 다운로드가 스레드를 잡아도 /healthz가 막히지 않을 여유. waitress 기본 4는 너무 작다고 보았다. 측정 안 함(ADR 0023).
-#  동시 게시 1: 게시는 어차피 파일 잠금으로 직렬화되고(registry.py) 본문이 최대 4GiB라 대기시키면 디스크·스레드를 오래 잡는다.
+#  동시 게시 1: 게시는 어차피 파일 잠금으로 직렬화되고(model_registry.py) 본문이 최대 4GiB라 대기시키면 디스크·스레드를 오래 잡는다.
 #  인증 실패 10회/60초: 사람이 토큰을 잘못 넣는 정도는 허용하고 반복 추측만 막는 값(측정 안 함, 표준 값 아님).
 #  여유 공간 = 본문 2배 + 1GB: 본문 tar와 풀어 둔 사본이 동시에 있는 최대 순간(저장은 하드 링크라 추가 사본 없음) + 여유 1GB(근거 기록 없음).
 #  종료 유예 8초(MODEL_REGISTRY_SHUTDOWN_GRACE): Docker의 기본 정지 유예 10초(SIGKILL까지)보다 짧게 잡아 SIGKILL 전에 정리를 끝낸다. 8은 측정 안 함.
@@ -94,21 +96,26 @@ def main(env=os.environ) -> int:
                        parse_tokens(read_secret("MODEL_REGISTRY_WRITE_TOKENS", environ=env)))
         if not read and not write:
             raise ValueError("MODEL_REGISTRY_READ_TOKENS 또는 MODEL_REGISTRY_WRITE_TOKENS가 필요하다")
-        # 개발·시험에서 짧은 토큰이 꼭 필요하면 MODEL_REGISTRY_MIN_TOKEN_LEN으로 낮출 수 있다(운영에서는 쓰지 않는다)
-        check_token_strength({**read, **write}, min_len=int(env.get("MODEL_REGISTRY_MIN_TOKEN_LEN", MIN_TOKEN_LEN)))
-        svc = Service(Path(env.get("MODEL_REGISTRY_ROOT", "/data")), read, write,
-                      max_body=int(env.get("MODEL_REGISTRY_MAX_BODY", 4 << 30)),
-                      socket_timeout=float(env.get("MODEL_REGISTRY_SOCKET_TIMEOUT", 30)),
-                      max_connections=int(env.get("MODEL_REGISTRY_MAX_CONNECTIONS", 32)),
-                      max_publishes=int(env.get("MODEL_REGISTRY_MAX_PUBLISHES", 1)),
-                      auth_fail_limit=int(env.get("MODEL_REGISTRY_AUTH_FAIL_LIMIT", 10)),
-                      min_free_gb=float(env.get("MODEL_REGISTRY_MIN_FREE_GB", 1)),
-                      shutdown_grace=float(env.get("MODEL_REGISTRY_SHUTDOWN_GRACE", 8)))
+        # 설정 값의 형식·범위는 스키마 RegistryServiceConfig가 정한다(환경 변수 -> 설정 문서 -> 검증 -> 사용). 값 자체는 오류에 싣지 않는다
+        conf = {"root": env.get("MODEL_REGISTRY_ROOT", "/data"), "host": env.get("MODEL_REGISTRY_HOST", "0.0.0.0"),
+                "port": int(env.get("MODEL_REGISTRY_PORT", 8080)), "max_body": int(env.get("MODEL_REGISTRY_MAX_BODY", 4 << 30)),
+                "socket_timeout": float(env.get("MODEL_REGISTRY_SOCKET_TIMEOUT", 30)),
+                "max_connections": int(env.get("MODEL_REGISTRY_MAX_CONNECTIONS", 32)), "threads": int(env.get("MODEL_REGISTRY_THREADS", 16)),
+                "max_publishes": int(env.get("MODEL_REGISTRY_MAX_PUBLISHES", 1)), "auth_fail_limit": int(env.get("MODEL_REGISTRY_AUTH_FAIL_LIMIT", 10)),
+                "min_free_gb": float(env.get("MODEL_REGISTRY_MIN_FREE_GB", 1)), "shutdown_grace": float(env.get("MODEL_REGISTRY_SHUTDOWN_GRACE", 8)),
+                # 개발·시험에서 짧은 토큰이 꼭 필요하면 MODEL_REGISTRY_MIN_TOKEN_LEN으로 낮출 수 있다(운영에서는 쓰지 않는다)
+                "min_token_len": int(env.get("MODEL_REGISTRY_MIN_TOKEN_LEN", MIN_TOKEN_LEN))}
+        bad = schemas.errors("RegistryServiceConfig", conf)
+        if bad:
+            raise ValueError("서비스 설정 위반(RegistryServiceConfig): /" + "/".join(map(str, bad[0].absolute_path)))
+        check_token_strength({**read, **write}, min_len=conf["min_token_len"])
+        svc = Service(Path(conf["root"]), read, write, max_body=conf["max_body"], socket_timeout=conf["socket_timeout"],
+                      max_connections=conf["max_connections"], max_publishes=conf["max_publishes"], auth_fail_limit=conf["auth_fail_limit"],
+                      min_free_gb=conf["min_free_gb"], shutdown_grace=conf["shutdown_grace"])
     except (ValueError, OSError, SecretError) as e:
         print(f"시작 실패: {e}", file=sys.stderr, flush=True)
         return 2
-    srv = make_server(svc, env.get("MODEL_REGISTRY_HOST", "0.0.0.0"), int(env.get("MODEL_REGISTRY_PORT", 8080)),
-                      threads=int(env.get("MODEL_REGISTRY_THREADS", 16)))
+    srv = make_server(svc, conf["host"], conf["port"], threads=conf["threads"])
     # SIGTERM(컨테이너 종료)에도 진행 중 요청을 마친 뒤 멈춘다. shutdown은 serve_forever를 돌리는 스레드가 아닌 곳에서 불러야 한다.
     def _stop(signum, frame):
         # 신호 처리기는 메인 스레드의 어느 지점에서든 끼어들므로(출력 중일 수도 있다) 여기서는 출력하지 않고 스레드를 시작만 한다

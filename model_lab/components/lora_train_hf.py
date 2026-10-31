@@ -54,7 +54,7 @@ def _import():
         raise TrainerUnavailable(f"학습 환경이 없다({e.name}). requirements-train.txt를 설치한다.") from None
 
 
-def load_base(torch, transformers, base_model: dict, training: dict, *, for_training: bool):
+def load_base(torch, transformers, base_model: dict, training: dict):
     """토크나이저와 기반 모델. 양자화는 training.quantization으로 정한다."""
     q = training.get("quantization", {"mode": "none"})
     dtype = getattr(torch, training.get("dtype", "bfloat16"))
@@ -116,7 +116,7 @@ class HFLoraTrainer:
                 torch.cuda.set_per_process_memory_fraction(frac, i)
         random.seed(req["seed"])
         torch.manual_seed(req["seed"])
-        tok, model = load_base(torch, transformers, req["base_model"], t, for_training=True)
+        tok, model = load_base(torch, transformers, req["base_model"], t)
         if t.get("quantization", {}).get("mode", "none") != "none":
             model = peft.prepare_model_for_kbit_training(model, use_gradient_checkpointing=t.get("gradient_checkpointing", True))
         elif t.get("gradient_checkpointing", True):

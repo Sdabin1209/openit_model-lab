@@ -4,8 +4,6 @@
 A는 raw 한 번(서빙 경로와 같은 재시도), B는 raw와 보호 적용 결과 두 가지를 모두 낸다."""
 from __future__ import annotations
 
-from typing import Mapping
-
 from ..types.InferRequest_schema import InferRequest
 from ..types.InferenceResult_schema import InferenceResult
 

@@ -9,7 +9,7 @@ from boundary_contracts import PIPELINE_SCHEMA_VERSION, validator
 
 from tests.doubles.contract_facts import pipeline_version_pattern
 from model_lab.components.server_row_convert import (ConversionError, from_server_row, read_server_file, render_input, sample_id_of,
-                                 to_chat_example, to_messages, to_server_row, write_samples)
+                                 to_messages, to_server_row, write_samples)
 
 DATA = Path(__file__).parent / "data"
 FILES = {"LORA_A": DATA / "server_rows_lora_a.jsonl", "LORA_B": DATA / "server_rows_lora_b.jsonl"}
@@ -77,14 +77,6 @@ def test_sample_ids_are_unique_stable_and_valid_even_when_scenario_id_repeats():
     assert ids == [from_server_row("LORA_B", r)[0]["sample_id"] for r in b]
     assert all(len(i) <= 128 for i in ids)
     assert sample_id_of("s", "u", "a") != sample_id_of("s", "u", "b")
-
-
-def test_chat_example_has_no_answer_in_the_prompt():
-    row = rows("LORA_A")[0]
-    s, sysp = from_server_row("LORA_A", row)
-    ex = to_chat_example("LORA_A", s, sysp)
-    assert [m["role"] for m in ex["messages"]] == ["system", "user"] and ex["completion"] == row["messages"][2]["content"]
-    assert ex["messages"] == row["messages"][:2]
 
 
 @pytest.mark.parametrize("mutate,why", [

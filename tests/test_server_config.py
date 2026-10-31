@@ -187,3 +187,11 @@ def test_drain_cuts_connections_still_busy_when_the_grace_is_over():
     srv = FakeWaitress(stuck)
     clock = drain(srv, 8.0)
     assert stuck.will_close is True and clock.now >= 1000.0 + 8.0     # 가짜 시계가 유예를 넘긴 뒤에야 끊는다
+
+
+def test_main_refuses_out_of_range_or_malformed_settings_with_exit_code_2(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(app, "make_server", lambda *a, **k: (_ for _ in ()).throw(AssertionError("서버를 만들면 안 된다")))
+    base = {"MODEL_REGISTRY_ROOT": str(tmp_path / "r"), "MODEL_REGISTRY_WRITE_TOKENS": "model-lab=" + WT}
+    for key, bad in (("MODEL_REGISTRY_PORT", "70000"), ("MODEL_REGISTRY_PORT", "abc"), ("MODEL_REGISTRY_THREADS", "0"), ("MODEL_REGISTRY_MAX_CONNECTIONS", "0")):
+        assert app.main({**base, key: bad}) == 2, (key, bad)
+        assert "시작 실패" in capsys.readouterr().err

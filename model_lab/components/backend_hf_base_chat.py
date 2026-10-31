@@ -24,7 +24,7 @@ class HFBaseChatBackend:
         if frac:
             torch.cuda.set_per_process_memory_fraction(frac, 0)
         torch.cuda.reset_peak_memory_stats()
-        self.tok, self.model = load_base(torch, transformers, base_model, training, for_training=False)
+        self.tok, self.model = load_base(torch, transformers, base_model, training)
         self.model.eval()
         self.use_chat_template = use_chat_template
         self.fewshot = fewshot or []     # [(프롬프트, 정답 출력)] 앞선 대화 턴으로 넣는다

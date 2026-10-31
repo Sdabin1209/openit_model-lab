@@ -1,8 +1,6 @@
 """model-lab 내부 오류. 경계 호출의 실패는 BoundaryError를 그대로 쓴다."""
 from __future__ import annotations
 
-from boundary_contracts import BoundaryError  # noqa: F401  (재노출)
-
 
 class PipelineError(Exception):
     """파이프라인 내부 문제(설정 위반, 단계 선행 조건, 학습 환경 없음 등). 경계 호출 실패가 아니다."""

@@ -126,8 +126,3 @@ def write_samples(samples: Iterable[Mapping], path: Path) -> None:
         for s in samples:
             f.write(json.dumps(s, ensure_ascii=False) + "\n")
 
-
-def to_chat_example(role: str, sample: Mapping, system_prompt: str) -> dict:
-    """학습기에 넘기는 예시: 채팅 템플릿에 넣을 입력 messages와 정답 글자. (채팅 템플릿 적용은 학습기 몫)"""
-    return {"sample_id": sample["sample_id"], "messages": to_messages(role, sample, system_prompt, with_answer=False),
-            "completion": render_output(role, sample["expected"])}
