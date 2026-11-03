@@ -29,7 +29,13 @@ class Service:
             if role != WRITE_ROLE:
                 raise ValueError(f"쓰기 역할은 {WRITE_ROLE}만 허용한다")
         self.registry = registry_factory(root)    # wiring/진입점이 model_registry를 주입한다(컴포넌트끼리 import하지 않는다). 파일 구현은 하드 링크로 올려 디스크를 아낀다
-        self.root, self.read, self.write, self.max_body, self.log = Path(root), read_tokens, write_tokens, max_body, log
+        def safe_log(msg, _log=log):
+            # R10.5: 로그 쓰기 실패(닫힌 표준 출력 등)로 요청을 실패시키지 않는다
+            try:
+                _log(msg)
+            except Exception:   # noqa: BLE001
+                pass
+        self.root, self.read, self.write, self.max_body, self.log = Path(root), read_tokens, write_tokens, max_body, safe_log
         self.tmp = Path(root) / ".tmp"
         self.socket_timeout, self.max_connections = socket_timeout, max_connections
         self.auth_fail_limit, self.auth_fail_window, self.min_free_gb = auth_fail_limit, auth_fail_window, min_free_gb

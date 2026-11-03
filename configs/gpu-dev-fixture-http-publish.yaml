@@ -22,4 +22,4 @@ serving:
     protection_policy_version: protect-2
   LORA_B: *serving
 evaluation: {backend: {kind: hf}, split: EVAL, limit_samples: 4}
-registry: {kind: http, base_url_env: MODEL_REGISTRY_URL, token_env: MODEL_REGISTRY_WRITE_TOKEN, timeout: 120}   # 같은 호스트의 model-registry 서버(임시 포트)
+registry: {kind: http, base_url_env: MODEL_REGISTRY_URL, token_env: MODEL_REGISTRY_WRITE_TOKEN, timeout: 300}   # 같은 호스트의 model-registry 서버(임시 포트)

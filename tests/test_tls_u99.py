@@ -116,3 +116,13 @@ def test_client_rejects_plain_http_outside_loopback():
         factories.build_http("model_registry", spec, {**env, "U": "http://model-registry:8080"})
     factories.build_http("model_registry", spec, {**env, "U": "http://127.0.0.1:8080"})
     factories.build_http("model_registry", spec, {**env, "U": "https://model-registry:8443"})
+
+
+def test_http_calls_use_the_contract_default_time_limits():
+    """RUNTIME R10.3: 사슬 표에 없는 호출의 timeout은 30초, tar를 주고받는 I2·I3 게시·내려받기는 300초. 출하 설정의 http 대상은 그 값 이상을 넘지 않는다."""
+    import yaml
+    for f in (ROOT / "configs").glob("gpu-dev*.yaml"):
+        c = yaml.safe_load(f.read_text(encoding="utf-8"))
+        for spec in (c["inputs"].get("dataset_store"), c.get("registry")):
+            if spec and spec.get("kind") == "http":
+                assert spec["timeout"] == 300, (f.name, spec)       # 둘 다 tar 호출(I2 내려받기, I3 게시)

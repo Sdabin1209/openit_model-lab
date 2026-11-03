@@ -134,3 +134,16 @@ def test_i3_server_conformance_with_real_client(server, tmp_path):
     assert code_of(r.publish, m3, ad3, rep3) == "PERMISSION_DENIED"       # 읽기 토큰의 게시
     assert code_of(r.get_manifest, "nope", "v1") == "NOT_FOUND"
 
+
+
+def test_log_write_failure_does_not_fail_the_request(tmp_path):
+    """RUNTIME R10.5: 로그 쓰기가 실패해도 요청은 성공한다(상태+본문 단언)."""
+    def broken(_):
+        raise OSError("stdout closed")
+    svc = Service(tmp_path / "srv", {"rt": "release-gate"}, {"wt": "model-lab"}, log=broken)
+    srv, port = serve(svc)
+    try:
+        s, body = raw(f"http://127.0.0.1:{port}/v1/packages", token="rt")
+        assert s == 200 and "items" in json.loads(body)
+    finally:
+        stop(srv)
