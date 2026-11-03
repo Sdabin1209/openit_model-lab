@@ -217,3 +217,13 @@ def test_main_ignores_unprefixed_variables_and_accepts_declared_environment(tmp_
         pass
     else:
         raise AssertionError("서버 생성에 닿지 못했다")
+
+
+def test_bind_host_127_0_0_1_listens_only_on_that_address(tmp_path):
+    """MODEL_REGISTRY_HOST=127.0.0.1이면 실제 소켓이 그 주소에만 바인드된다(0.0.0.0이 아니다)."""
+    srv = lrs.make_server(make_service(tmp_path), "127.0.0.1", 0)
+    try:
+        bound = {s.getsockname()[0] for s in srv._map.values() if hasattr(s, "getsockname") and hasattr(s, "accepting")}
+        assert bound == {"127.0.0.1"}, bound
+    finally:
+        srv.close()
