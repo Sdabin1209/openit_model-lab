@@ -182,3 +182,7 @@ D22 (2): 서비스가 없는 run-once 잡이라 Dockerfile 없이 `requirements.
 - 학습 설정 `server.script_sha256.<역할>`에 `arg_map`을 확인한 시점의 서버 스크립트 sha256을 적는다. `train-doctor`와 `train`(실행 전)이 스크립트가 읽히는 환경에서 현재 해시와 비교해 다르면 FAIL/중단하고(서버 코드가 바뀌어 `arg_map`을 다시 확인해야 한다), 값이 없으면 현재 해시를 알려 주며 WARN이다. 이 PC처럼 스크립트가 읽히지 않는 곳에서는 비교하지 못했다고만 말한다. 이 영역은 서버에 접속하지 않으므로 `configs/train.yaml`의 `script_sha256`은 비어 있다: 서버에서 `train-doctor`를 한 번 돌려 나온 해시를 헤드가 확인해 채운다(미정). 서버 절대 경로·타인 홈 경로를 설정에서 분리하는 일(프로파일 변수)은 아직 하지 않았다.
 
 - 토큰 요건(3차 점검): 읽기·쓰기 토큰은 32자 이상이고 서로 다른 글자가 8개 이상이어야 서비스가 시작한다(`openssl rand -hex 32` 권장). 개발에서만 `MODEL_REGISTRY_MIN_TOKEN_LEN`으로 낮춘다. 인증 실패 제한은 무차별 대입 방어가 아니라 로그·CPU 보호다(ADR 0009).
+
+## 게이트웨이(https) 뒤 레지스트리에 게시 (U69)
+
+`registry: {kind: http, base_url_env: MODEL_REGISTRY_URL, token_env: MODEL_REGISTRY_WRITE_TOKEN}`처럼 주소와 토큰을 환경에서 받는다. 주소는 `https://…`여도 된다. 토큰은 `MODEL_REGISTRY_WRITE_TOKEN_FILE`(파일 경로, D84)로 주고 클라이언트가 `Authorization: Bearer`로 싣는다. TLS 신뢰는 표준 환경 변수 `SSL_CERT_FILE`(게이트웨이 CA 파일)로 정한다. 설정에 인증서 검증을 끄는 키는 없다. 시험: `tests/test_gateway_publish.py`(시험용 TLS 종단 중계기, 자체 서명 CA). 게이트웨이 경로 개설은 deploy 몫이고 여기서 확인한 것은 클라이언트 쪽 동작뿐이다.
