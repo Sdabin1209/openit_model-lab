@@ -68,6 +68,7 @@ def _cfg(tmp_path, model_id):
     import yaml
     from tests.conftest import ROOT
     raw = yaml.safe_load((ROOT / "configs" / "train.yaml").read_text())
+    raw["server"].pop("ssh"); raw["output"].pop("server_out_dir")     # 캐시는 서버가 이 컴퓨터일 때만 조회한다
     raw["base_model"] = {"id": model_id, "revision": "main"}
     raw["server"].update(python_modules=["json"], require_gpu=False)
     p = tmp_path / "t.yaml"

@@ -54,9 +54,9 @@ def make_trainer(kind: str):
         return lora_train_dryrun.DryRunTrainer()
     if kind == "hf":
         import warnings
-        warnings.warn("lora_train_hf는 학습 서버 정본(train_lora_a.py, train_lora_b.py)과 다르다(채팅 템플릿 없음, 양자화·모듈 다름). "
+        warnings.warn("[폐기 예정, ADR 0030] lora_train_hf는 학습 서버 정본(train_lora_a.py, train_lora_b.py)과 다르다(채팅 템플릿 없음, 양자화·모듈 다름). "
                       "정본이 아니다: 여기서 만든 어댑터는 서버 학습과 같지 않으며 파이프라인 검증용이다. 실제 학습은 `model-lab train`(D78, G06).",
-                      UserWarning, stacklevel=2)
+                      DeprecationWarning, stacklevel=2)
         return lora_train_hf.HFLoraTrainer(cached_commit=hf_cache_lookup.cached_commit)
     raise ValueError(kind)
 

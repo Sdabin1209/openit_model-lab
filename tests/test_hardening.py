@@ -164,7 +164,8 @@ def test_server_script_hash_comparison(env):  # noqa: F811
     sp = tw.script_path(tw.load_train_config(write()))
     good = hashlib.sha256(sp.read_bytes()).hexdigest()
     row = lambda c: [r for r in tw.doctor(c) if r[1] == "서버 코드 해시"][0]
-    assert row(tw.load_train_config(write()))[0] == "WARN"                         # 기록 없음: 현재 해시를 알려 준다
+    raw["server"]["script_sha256"] = {}
+    assert row(tw.load_train_config(write()))[0] == "FAIL"                         # 기록 없음: 실패하고 현재 해시를 알려 준다
     assert good in row(tw.load_train_config(write()))[2]
     raw["server"]["script_sha256"] = {"LORA_A": good}
     cfg = tw.load_train_config(write())

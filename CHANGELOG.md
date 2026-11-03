@@ -1,5 +1,8 @@
 # 변경 이력
 
+## 미배포 - G06 학습은 ssh로 서버 정본을 해시 고정해 실행 (ADR 0030)
+- `server.ssh`, `output.server_out_dir`(스키마 `TrainWrapConfig`). `train`/`train-doctor`가 ssh로 서버 스크립트를 읽고 해시를 확인해 실행, 어댑터(`<out_dir>/adapter/`)를 rsync로 가져옴. `script_sha256`이 비면 doctor FAIL + 채우는 방법, `train` 거부. `configs/train*.yaml`에 2026-11-03 읽은 해시와 ssh 설정 기입. 자체 학습기 `lora_train_hf` 폐기 표시(경고는 DeprecationWarning). 시험 `tests/test_train_ssh.py`(가짜 ssh/rsync).
+
 ## 미배포 - U400 영역 구조 개편(D117), 계약 v3.1.1, link v0.4.0
 - 모듈 이동(동작 불변): `registry.py`->`components/model_registry.py`, `service/app.py`->`components/link_registry_serve.py`(+tar 유틸, 진입점은 `service/app.py`에 남음), `datasets.py`->`components/dataset_samples.py`+`link_dataset_fetch.py`, `transform.py`->`components/train_data.py`+`server_row_convert.py`, `evaluate.py`·`text_rules.py`·`flow.py`->`components/eval_sample.py`, `metrics.py`·`metric_names.py`·`regression.section`->`components/eval_report.py`, `regression.py`->`components/regression_set.py`, `packager.py`->`components/package_build.py`, `attach.py`->`wiring/attach_flow.py`+`components/adapter_check.py`+`train_record_verify.py`, `train_wrap.py`->`components/server_train_wrap.py`, `trainers/`·`backends/`->`components/lora_train_*.py`·`backend_*.py`, `pipeline.py`->`wiring/pipeline.py`, `errors.py`->`wiring/errors.py`, `factories.py`->`wiring/factories.py`.
 - `docs/schemas/`의 학습 서버 형식 스키마 3개를 `schemas/`로 옮기고 코드가 쓴다(`ServerDatasetRow`는 `server_row_convert`가 검증). 새 스키마 35개와 예시.

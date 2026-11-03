@@ -107,6 +107,8 @@ D22 (2): 서비스가 없는 run-once 잡이라 Dockerfile 없이 `requirements.
 
 ## 학습 실행 감싸기: 설정 + 명령 + doctor (D78, G06)
 
+**ssh 실행(ADR 0030).** 설정에 `server.ssh.host`가 있으면 `model-lab train`은 이 컴퓨터에서 `ssh <호스트>`로 서버의 정본 스크립트를 부르고(서버에서 `sha256sum -c`로 `server.script_sha256`을 확인한 뒤에만 실행), 끝나면 `<output.server_out_dir>/adapter/`를 `output.adapter_dir`로 rsync해 점검·기록한다. 그 폴더와 `*.train-wrap.json`이 `package-adapters` 입력이다. `script_sha256`이 비면 `train-doctor`가 FAIL하고 `ssh <호스트> cat`/`sha256sum`으로 채우는 방법을 출력한다. 서버 안에서 직접 돌리려면 `server.ssh`와 `output.server_out_dir`를 지운다. 이 길은 가짜 ssh로만 시험했다(`tests/test_train_ssh.py`).
+
 학습의 정본은 학습 서버의 코드(`train_lora_a.py`, `train_lora_b.py`)다. 이 리포지토리는 그 코드를 복사하지 않고 부르기만 한다. `components/lora_train_hf.py`(파이프라인용 사본)는 서버 정본과 다르므로 **서버와 같은 어댑터를 만들 수 없다**(비정본, 파이프라인 검증용).
 
 현재 상태: 설정 검증·명령 조립·dry-run·doctor·산출물 확인은 대역 스크립트로 시험했다(`tests/test_train_wrap.py`). 서버 스크립트의 인자 이름은 서버 코드로 확인했으나(`--help` 실행은 안 함) **산출물 위치는 확인하지 못했고**, 진짜 학습은 GPU가 필요해 해 보지 못했다 [구멍: 산출물 위치, GPU].

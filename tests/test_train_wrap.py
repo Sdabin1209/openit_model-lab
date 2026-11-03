@@ -21,7 +21,9 @@ def env(tmp_path):
     for s in tw.SPLITS:
         (ds / f"lora_a_{s}.jsonl").write_text('{"messages": []}\n')
     raw = yaml.safe_load((ROOT / "configs" / "train.yaml").read_text())
-    raw["server"].update(code_dir=str(STUB), scripts={"LORA_A": "fake_server_train.py", "LORA_B": "fake_server_train.py"},
+    raw["server"].pop("ssh"); raw["output"].pop("server_out_dir")        # 이 파일의 시험은 이 컴퓨터가 서버인 경우(원격은 test_train_ssh.py)
+    stub_sha = __import__("hashlib").sha256((STUB / "fake_server_train.py").read_bytes()).hexdigest()
+    raw["server"].update(script_sha256={"LORA_A": stub_sha, "LORA_B": stub_sha}, code_dir=str(STUB), scripts={"LORA_A": "fake_server_train.py", "LORA_B": "fake_server_train.py"},
                          python="python3", require_gpu=False, args_verified=True, python_modules=["json"])
     raw["server"]["arg_map"] = {k: None for k in raw["server"]["arg_map"]}   # 대역은 자기 인자 이름을 쓴다
     raw["base_model"].update(id="Qwen/Qwen3-4B", profile="qwen3-4b")
@@ -93,7 +95,7 @@ def test_failures(env):
         tw.run_train(tw.load_train_config(write()), log=lambda m: None)
     raw["server"]["extra_args"] = []
     raw["server"]["code_dir"] = str(tmp / "nope")
-    with pytest.raises(PipelineError, match="서버 학습 스크립트가 없다"):
+    with pytest.raises(PipelineError, match="서버 학습 스크립트를 읽을 수 없다"):
         tw.run_train(tw.load_train_config(write()), log=lambda m: None)
 
 
@@ -150,7 +152,7 @@ def test_doctor_fail_exit_code_and_guidance(env, capsys):
 
 def test_hf_copy_warns_not_canonical():
     from model_lab.wiring.pipeline import make_trainer
-    with pytest.warns(UserWarning, match="정본이 아니다"):
+    with pytest.warns(DeprecationWarning, match="정본이 아니다"):
         make_trainer("hf")
 
 
@@ -181,6 +183,7 @@ def server_parse(cmd):
 def test_shipped_configs_match_server_run_config(fname, run, code_dir, tmp_path):
     raw = yaml.safe_load((ROOT / "configs" / fname).read_text())
     assert raw["server"]["args_verified"] is True and raw["server"]["args_evidence"]
+    raw["server"].pop("ssh"); raw["output"].pop("server_out_dir")          # 로컬 서버 모드의 명령줄을 대조한다
     raw["server"]["code_dir"] = code_dir                                   # ~는 이 PC의 홈으로 풀리므로 서버 절대 경로로 고정
     raw["output"]["adapter_dir"] = str(Path(code_dir) / run["out_dir"])    # 서버 상대 out_dir을 절대 경로로 쓴 것
     path = tmp_path / "t.yaml"; path.write_text(yaml.safe_dump(raw, sort_keys=False))
@@ -196,6 +199,7 @@ def test_shipped_configs_match_server_run_config(fname, run, code_dir, tmp_path)
 
 def test_command_order_is_stable_and_spaced_path_is_one_argument(tmp_path):
     raw = yaml.safe_load((ROOT / "configs" / "train-b.yaml").read_text())
+    raw["server"].pop("ssh"); raw["output"].pop("server_out_dir")
     raw["server"]["code_dir"] = "/home/openit/myungchan"
     path = tmp_path / "t.yaml"; path.write_text(yaml.safe_dump(raw, sort_keys=False))
     cfg = tw.load_train_config(path)
@@ -229,9 +233,13 @@ def _doctor_rows(write):
 
 def test_doctor_checks_server_script_hash(env):
     raw, write, tmp = env
-    assert _doctor_rows(write)["서버 코드 해시"][0] == "WARN"                      # 해시를 안 적으면 경고(현재 해시를 안내)
     import hashlib
     good = hashlib.sha256((STUB / "fake_server_train.py").read_bytes()).hexdigest()
+    raw["server"]["script_sha256"] = {}
+    st, msg = _doctor_rows(write)["서버 코드 해시"]
+    assert st == "FAIL" and good in msg and "채우는 방법" in msg and "script_sha256.LORA_A" in msg   # 비면 실패하고 현재 해시와 채우는 법을 말한다
+    with pytest.raises(PipelineError, match="비어 있다"):
+        tw.run_train(tw.load_train_config(write()), log=lambda m: None)
     raw["server"]["script_sha256"] = {"LORA_A": good}
     assert _doctor_rows(write)["서버 코드 해시"][0] == "OK"
     raw["server"]["script_sha256"] = {"LORA_A": "0" * 64}

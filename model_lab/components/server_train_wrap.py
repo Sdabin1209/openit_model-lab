@@ -52,12 +52,94 @@ def _fmt(v) -> str:
     return str(v).lower() if isinstance(v, bool) else str(v)
 
 
+# ---- 원격(ssh) 실행 (G06): server.ssh가 있으면 학습 서버의 스크립트를 ssh로 부른다. 스크립트는 복사하지 않는다 ----
+# 왜 BatchMode/ConnectTimeout: 비밀번호 질문으로 멈추지 않고 서버가 꺼져 있으면 빨리 실패한다(워크스페이스 ssh 관례, 측정한 값 아님).
+# 왜 ServerAliveInterval=60: 수 시간 걸리는 학습 중 유휴 NAT가 연결을 끊는 것을 줄인다. 60초는 ssh 문서 예시의 관례값이며 측정하지 않았다(ADR 0030).
+SSH_OPTS = ["-o", "BatchMode=yes", "-o", "ConnectTimeout=10"]
+SSH_LONG_OPTS = ["-o", "ServerAliveInterval=60"]
+
+
+def remote(cfg: dict) -> str | None:
+    """ssh 호스트(~/.ssh/config의 이름). 없으면 이 컴퓨터가 학습 서버다."""
+    return (cfg["server"].get("ssh") or {}).get("host")
+
+
+def _rq(path: str) -> str:
+    """원격 셸용 인용. 앞의 ~/는 서버 사용자 홈으로 풀리게 둔다."""
+    if path == "~" or path.startswith("~/"):
+        return '"$HOME"' + shlex.quote(path[1:])
+    return shlex.quote(path)
+
+
+def _rjoin(argv: list[str]) -> str:
+    return " ".join(_rq(a) if a.startswith("~/") else shlex.quote(a) for a in argv)
+
+
+def ssh_run(cfg: dict, remote_cmd: str, *, binary=False, timeout=60) -> subprocess.CompletedProcess:
+    """원격 명령을 한 번 실행한다. 종료 코드 255는 ssh 연결 실패다."""
+    return subprocess.run(["ssh", *SSH_OPTS, remote(cfg), remote_cmd], capture_output=True, text=not binary, timeout=timeout)
+
+
+def _srv(cfg: dict, key: str) -> str:
+    """서버 쪽 경로 문자열(원격이면 설정 값 그대로, 로컬이면 풀어낸 경로)."""
+    raw = {"code_dir": cfg["server"]["code_dir"], "data_dir": cfg["dataset"]["dir"]}[key]
+    return raw if remote(cfg) else str(_p(cfg, raw))
+
+
+def server_out_dir(cfg: dict) -> str:
+    """서버 스크립트에 --out_dir로 넘기는 값. 원격: output.server_out_dir(서버 쪽). 로컬: adapter_dir."""
+    return cfg["output"]["server_out_dir"] if remote(cfg) else str(adapter_dir(cfg))
+
+
+def server_out_abs(cfg: dict) -> str:
+    """서버 스크립트는 상대 --out_dir을 자기 작업 폴더(code_dir) 기준으로 쓴다(configs 주석). rsync는 홈 기준이므로 code_dir을 앞에 붙인다."""
+    o = server_out_dir(cfg)
+    return o if o.startswith(("/", "~")) else _srv(cfg, "code_dir").rstrip("/") + "/" + o
+
+
+def script_bytes(cfg: dict) -> bytes | None:
+    """서버 스크립트의 바이트. 읽지 못하면 None(로컬: 파일 없음, 원격: 연결·파일 없음)."""
+    if not remote(cfg):
+        sp = script_path(cfg)
+        return sp.read_bytes() if sp.is_file() else None
+    try:
+        r = ssh_run(cfg, f"cat {_rq(_srv(cfg, 'code_dir') + '/' + cfg['server']['scripts'][cfg['role']])}", binary=True)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return r.stdout if r.returncode == 0 else None
+
+
+def missing_datasets(cfg: dict) -> list[str]:
+    if not remote(cfg):
+        return [p.name for p in dataset_files(cfg).values() if not p.is_file()]
+    d, pre = _srv(cfg, "data_dir"), cfg["dataset"]["prefix"]
+    names = [f"{pre}_{s}.jsonl" for s in SPLITS]
+    try:
+        r = ssh_run(cfg, "for f in " + " ".join(_rq(d + "/" + n) for n in names) + '; do test -f "$f" || echo "$f"; done')
+    except (OSError, subprocess.SubprocessError):
+        return names
+    return names if r.returncode != 0 else [Path(x).name for x in r.stdout.split("\n") if x.strip()]
+
+
+def remote_gpu_state(cfg: dict) -> tuple[bool, str]:
+    try:
+        r = ssh_run(cfg, "nvidia-smi -L")
+    except (OSError, subprocess.SubprocessError):
+        return False, "ssh를 실행하지 못했다"
+    if r.returncode == 255:
+        return False, f"ssh {remote(cfg)} 연결 실패(서버가 꺼져 있거나 ~/.ssh/config·키를 확인한다)"
+    if r.returncode == 0 and r.stdout.strip():
+        return True, r.stdout.strip().splitlines()[0][:80]
+    return False, f"서버에서 GPU를 찾지 못했다(nvidia-smi 종료 코드 {r.returncode})"
+
+
 def build_command(cfg: dict) -> tuple[list[str], list[str]]:
     """(명령, 주의 목록). 명령은 셸을 거치지 않는 인자 목록이다."""
     s, am, notes, skipped = cfg["server"], cfg["server"].get("arg_map", {}), [], []
-    std = {"base_model": cfg["base_model"]["id"], "dataset_dir": str(_p(cfg, cfg["dataset"]["dir"])),
-           "dataset_prefix": cfg["dataset"]["prefix"], "output_dir": str(adapter_dir(cfg))}
-    cmd = [s.get("python", "python3"), str(script_path(cfg))]
+    std = {"base_model": cfg["base_model"]["id"], "dataset_dir": _srv(cfg, "data_dir"),
+           "dataset_prefix": cfg["dataset"]["prefix"], "output_dir": server_out_dir(cfg)}
+    # 원격은 code_dir로 cd한 뒤 스크립트 이름으로 부른다(sha256sum -c가 같은 상대 이름을 읽는다)
+    cmd = [s.get("python", "python3"), s["scripts"][cfg["role"]] if remote(cfg) else str(script_path(cfg))]
     for name, val in {**std, **cfg.get("hyperparams", {})}.items():
         flag = am.get(name)
         if flag and isinstance(val, bool):
@@ -75,8 +157,27 @@ def build_command(cfg: dict) -> tuple[list[str], list[str]]:
     return cmd, notes
 
 
+def remote_command(cfg: dict, cmd: list[str]) -> str:
+    """원격에서 돌릴 한 줄. 같은 연결 안에서 스크립트 해시를 확인하고 일치할 때만 실행한다(점검과 실행 사이에 파일이 바뀌는 틈을 없앤다).
+    sha256은 check_ready가 설정에 있음을 이미 보장한다."""
+    name = cfg["server"]["scripts"][cfg["role"]]
+    sha = cfg["server"]["script_sha256"][cfg["role"]]
+    return (f"cd {_rq(_srv(cfg, 'code_dir'))} && echo '{sha}  {name}' | sha256sum -c --quiet - && exec {_rjoin(cmd)}")
+
+
 def plan(cfg: dict) -> dict:
     cmd, notes = build_command(cfg)
+    if remote(cfg):
+        sha = cfg["server"].get("script_sha256", {}).get(cfg["role"])
+        if not sha:
+            notes.append("server.script_sha256가 없어 실행 명령(해시 확인 포함)을 만들 수 없다: train-doctor가 채우는 방법을 안내한다")
+        rc = remote_command(cfg, cmd) if sha else _rjoin(cmd)
+        full = ["ssh", *SSH_OPTS, *SSH_LONG_OPTS, remote(cfg), rc]
+        return {"role": cfg["role"], "command": full, "command_line": shlex.join(full), "cwd": f"{remote(cfg)}:{cfg['server']['code_dir']}",
+                "remote": remote(cfg), "server_out_dir": server_out_dir(cfg),
+                "expected_adapter_dir": str(adapter_dir(cfg)), "fetch_from": f"{remote(cfg)}:{server_out_abs(cfg)}/adapter/",
+                "expected_files": ["adapter_model.safetensors", "adapter_config.json"],
+                "record_file": str(record_path(cfg)), "notes": notes, "config_hash": cfg["_config_hash"]}
     return {"role": cfg["role"], "command": cmd, "command_line": shlex.join(cmd), "cwd": str(_p(cfg, cfg["server"]["code_dir"])),
             "expected_adapter_dir": str(adapter_dir(cfg)),
             "expected_files": ["adapter_model.safetensors", "adapter_config.json"],
@@ -119,27 +220,34 @@ def disk_free_gb(cfg: dict) -> tuple[float, Path]:
     return shutil.disk_usage(probe).free / 1e9, probe
 
 
+FILL_HOW = ("채우는 방법: 서버 스크립트를 읽어 arg_map·동작을 확인한 뒤(`ssh {host} cat {path}`), 해시를 구해 configs의 "
+            "server.script_sha256.{role}에 적는다(`ssh {host} sha256sum {path}`, 출력의 앞 64자). 해시를 적는다는 것은 그 코드를 확인했다는 서명이다")
+
+
 def script_hash_state(cfg: dict) -> tuple[str, str]:
-    """(상태, 설명). 상태: OK | UNSET | MISMATCH | UNREADABLE. 서버 스크립트가 읽히는 환경에서만 비교한다(서버에 접속하지 않는다)."""
-    want = cfg["server"].get("script_sha256", {}).get(cfg["role"])
-    sp = script_path(cfg)
-    if not sp.is_file():
-        return "UNREADABLE", f"{sp}를 읽을 수 없어 해시를 비교하지 못했다"
-    got = _sha256(sp)
+    """(상태, 설명). 상태: OK | UNSET | MISMATCH | UNREADABLE. 원격이면 ssh로 스크립트를 읽어 비교한다."""
+    role, want = cfg["role"], cfg["server"].get("script_sha256", {}).get(cfg["role"])
+    name = cfg["server"]["scripts"][role]
+    data = script_bytes(cfg)
+    spath = _srv(cfg, "code_dir") + "/" + name
+    how = FILL_HOW.format(host=remote(cfg) or "<서버>", path=spath, role=role)
+    if data is None:
+        return "UNREADABLE", f"{spath}를 읽을 수 없어 해시를 비교하지 못했다" + (f"(ssh {remote(cfg)})" if remote(cfg) else "")
+    got = hashlib.sha256(data).hexdigest()
     if not want:
-        return "UNSET", f"server.script_sha256.{cfg['role']}가 없다. 현재 {sp.name}의 sha256은 {got}. arg_map을 확인한 코드라면 이 값을 적는다"
+        return "UNSET", f"server.script_sha256.{role}가 비어 있다. 현재 {name}의 sha256은 {got}. {how}"
     if got != want:
-        return "MISMATCH", (f"{sp.name}의 sha256({got[:12]}...)이 설정({want[:12]}...)과 다르다. 서버 코드가 바뀌었다: "
+        return "MISMATCH", (f"{name}의 sha256({got[:12]}...)이 설정({want[:12]}...)과 다르다. 서버 코드가 바뀌었다: "
                             "인자 이름(arg_map)을 다시 확인하고 script_sha256을 갱신한다")
-    return "OK", f"{sp.name} sha256 일치"
+    return "OK", f"{name} sha256 일치"
 
 
-def declared_args(script: Path) -> set[str] | None:
+def declared_args(script: Path | bytes) -> set[str] | None:
     """스크립트가 add_argument로 선언한 `--이름`을 코드를 실행하지 않고 읽는다(ast). 읽거나 해석하지 못하면 None.
     왜 실행하지 않나: 서버 스크립트를 import하면 torch 적재와 부작용이 따른다. 정적으로 읽으면 GPU 없는 곳에서도 점검된다."""
     import ast
     try:
-        tree = ast.parse(script.read_text(encoding="utf-8"))
+        tree = ast.parse(script.decode("utf-8") if isinstance(script, bytes) else script.read_text(encoding="utf-8"))
     except (OSError, SyntaxError, UnicodeDecodeError):
         return None
     names = {a.value for n in ast.walk(tree) if isinstance(n, ast.Call) and getattr(n.func, "attr", "") == "add_argument"
@@ -150,7 +258,8 @@ def declared_args(script: Path) -> set[str] | None:
 def arg_compat(cfg: dict) -> tuple[str, str]:
     """(상태, 설명). 상태: OK | MISMATCH | UNKNOWN. arg_map이 넘기는 인자(와 extra_args의 --이름)가 스크립트 선언에 있는지 본다."""
     s = cfg["server"]
-    declared = declared_args(script_path(cfg)) if script_path(cfg).is_file() else None
+    data = script_bytes(cfg)
+    declared = declared_args(data) if data is not None else None
     if declared is None:
         return "UNKNOWN", "스크립트에서 add_argument 선언을 읽지 못해 인자 호환을 확인하지 못했다"
     used = {v for v in s.get("arg_map", {}).values() if v} | {x for x in s.get("extra_args", []) if isinstance(x, str) and x.startswith("--")}
@@ -161,18 +270,21 @@ def arg_compat(cfg: dict) -> tuple[str, str]:
 
 
 def check_ready(cfg: dict) -> None:
-    sp = script_path(cfg)
-    if not sp.is_file():
-        raise PipelineError(f"서버 학습 스크립트가 없다: {sp}. server.code_dir을 확인한다(`train-doctor`)")
-    miss = [str(p) for p in dataset_files(cfg).values() if not p.is_file()]
+    where = f"ssh {remote(cfg)}의 " if remote(cfg) else ""
+    if script_bytes(cfg) is None:
+        raise PipelineError(f"서버 학습 스크립트를 읽을 수 없다: {where}{_srv(cfg, 'code_dir')}/{cfg['server']['scripts'][cfg['role']]}. server.code_dir·server.ssh를 확인한다(`train-doctor`)")
+    miss = missing_datasets(cfg)
     if miss:
         raise PipelineError(f"데이터셋 파일이 없다: {miss}. dataset.dir/prefix를 확인한다")
+    # 왜 비어 있어도 거부하나(G06): 해시가 없으면 어떤 코드를 돌리는지 확인하지 않은 채 학습하게 된다. 정본 코드가 바뀌면 같은 설정이 다른 어댑터를 낸다
     st, why = script_hash_state(cfg)
-    if st == "MISMATCH":
+    if st != "OK":
         raise PipelineError(why)
     ast_, awhy = arg_compat(cfg)
     if ast_ == "MISMATCH":
         raise PipelineError(awhy)
+    if remote(cfg) and not cfg["output"].get("server_out_dir"):
+        raise PipelineError("server.ssh를 쓰려면 output.server_out_dir(서버 쪽 출력 폴더)가 필요하다")
     policy = cfg["output"].get("disk_policy", "block")
     if policy == "block":
         free, probe = disk_free_gb(cfg)
@@ -180,8 +292,8 @@ def check_ready(cfg: dict) -> None:
         if free < need:
             raise PipelineError(f"디스크 여유가 부족하다: {free:.0f}GB < 필요 {need}GB(기준 {probe}). 정리하거나 output.min_free_gb를 조정한다. "
                                 "WSL처럼 df가 호스트 여유를 보여 주지 않는 곳은 output.disk_policy를 warn으로 둔다(docs/runbook.md)")
-    if cfg["server"].get("require_gpu", True) and not gpu_state()[0]:
-        raise PipelineError("[구멍: GPU 필요] 이 PC에는 GPU가 없다. 학습 서버에서 실행한다(docs/runbook.md). 미리 보려면 --dry-run")
+    if cfg["server"].get("require_gpu", True) and not (remote_gpu_state(cfg) if remote(cfg) else gpu_state())[0]:
+        raise PipelineError("[구멍: GPU 필요] GPU를 찾지 못했다. GPU가 있는 학습 서버에서(또는 server.ssh로) 실행한다(docs/runbook.md). 미리 보려면 --dry-run")
 
 
 def verify_output(cfg: dict, check_adapter) -> dict:
@@ -194,13 +306,18 @@ def run_train(cfg: dict, *, check_adapter, log=print) -> dict:
     check_ready(cfg)
     pl = plan(cfg)
     log("실행: " + pl["command_line"])
-    r = subprocess.run(pl["command"], cwd=pl["cwd"])
+    r = subprocess.run(pl["command"], cwd=None if remote(cfg) else pl["cwd"])
+    if r.returncode == 255 and remote(cfg):
+        raise PipelineError(f"ssh {remote(cfg)} 연결에 실패했거나 끊겼다(종료 코드 255). 서버에서 학습이 이어졌는지 확인한다: 학습은 서버에서 계속될 수 있다")
     if r.returncode != 0:
-        raise PipelineError(f"서버 학습 스크립트가 실패했다(종료 코드 {r.returncode}). 위 출력을 확인한다")
+        raise PipelineError(f"서버 학습 스크립트가 실패했다(종료 코드 {r.returncode}). 위 출력을 확인한다"
+                            + (" (해시 확인 실패라면 서버 코드가 바뀐 것이다)" if remote(cfg) else ""))
     if cfg.get("hyperparams", {}).get("dry_run"):
         # 왜: 서버 스크립트의 --dry_run은 학습 없이 점검만 하므로 어댑터가 없다. 어댑터 확인·기록을 하면 성공한 점검이 실패로 보인다(어댑터 없음).
         log("서버 dry_run 완료(종료 코드 0). 학습하지 않았으므로 어댑터 확인과 기록은 건너뛴다")
         return {"dry_run": True, "role": cfg["role"], "command": pl["command"], "exit_code": r.returncode}
+    if remote(cfg):
+        fetch_adapter(cfg, pl)
     conf = verify_output(cfg, check_adapter)
     rec = write_record(cfg, pl, conf, r.returncode)
     log(f"완료: 어댑터 {pl['expected_adapter_dir']}, 기록 {pl['record_file']}")
@@ -208,15 +325,36 @@ def run_train(cfg: dict, *, check_adapter, log=print) -> dict:
     return rec
 
 
+def fetch_adapter(cfg: dict, pl: dict) -> None:
+    """서버의 <out_dir>/adapter/를 adapter_dir로 읽기 전용 복사한다(서버 쪽은 수정하지 않는다). 서버 스크립트의 저장 위치 규칙은 train_lora_a.py:143(`OUT / "adapter"`).
+    이후 단계(package-adapters)는 이 로컬 폴더를 입력으로 받는다."""
+    dst = adapter_dir(cfg)
+    dst.mkdir(parents=True, exist_ok=True)
+    r = subprocess.run(["rsync", "-a", "-e", shlex.join(["ssh", *SSH_OPTS]), pl["fetch_from"], str(dst) + "/"])
+    if r.returncode != 0:
+        raise PipelineError(f"서버의 어댑터를 가져오지 못했다(rsync 종료 코드 {r.returncode}): {pl['fetch_from']}. 서버에 어댑터가 있으면 같은 rsync를 손으로 다시 실행한다")
+
+
+def _remote_dataset_hashes(cfg: dict) -> dict:
+    d, pre = _srv(cfg, "data_dir"), cfg["dataset"]["prefix"]
+    r = ssh_run(cfg, "sha256sum " + " ".join(_rq(f"{d}/{pre}_{s}.jsonl") for s in SPLITS))
+    if r.returncode != 0:
+        raise PipelineError("서버 데이터셋 해시를 구하지 못했다")
+    return {Path(line.split(None, 1)[1].strip()).name: line.split()[0] for line in r.stdout.splitlines() if line.strip()}
+
+
 def write_record(cfg: dict, pl: dict, conf: dict, rc: int) -> dict:
     a = adapter_dir(cfg)
     rec = {"record_version": 1, "role": cfg["role"], "config_hash": cfg["_config_hash"], "command": pl["command"], "exit_code": rc,
-           "server_script": str(script_path(cfg)), "server_script_sha256": _sha256(script_path(cfg)),
+           # 원격: 실행 명령 안의 sha256sum -c가 이 값과 같음을 서버에서 확인하고 실행했다
+           "server_script": (f"{remote(cfg)}:{_srv(cfg, 'code_dir')}/{cfg['server']['scripts'][cfg['role']]}" if remote(cfg) else str(script_path(cfg))),
+           "server_script_sha256": (cfg["server"]["script_sha256"][cfg["role"]] if remote(cfg) else _sha256(script_path(cfg))),
            "base_model": {"id": cfg["base_model"]["id"], "requested_revision": cfg["base_model"].get("revision", "unspecified"),
                           "base_model_revision": None},
            "dataset": {"id": cfg["dataset"]["id"], "version": cfg["dataset"]["version"],
                        "content_hash": cfg["dataset"].get("content_hash"),
-                       "file_sha256": {f"{cfg['dataset']['prefix']}_{s}.jsonl": _sha256(p) for s, p in dataset_files(cfg).items()}},
+                       "file_sha256": (_remote_dataset_hashes(cfg) if remote(cfg) else
+                                           {f"{cfg['dataset']['prefix']}_{s}.jsonl": _sha256(p) for s, p in dataset_files(cfg).items()})},
            "adapter": {"dir": str(a), "r": conf.get("r"), "files": {f: _sha256(a / f) for f in ("adapter_model.safetensors", "adapter_config.json")}},
            "hyperparams": cfg.get("hyperparams", {}), "notes": pl["notes"]}
     src = cfg["output"].get("server_run_record")
@@ -248,14 +386,21 @@ def doctor(cfg: dict, *, profiles_dir: Path, cached_snapshot=None) -> list[tuple
     """(상태, 항목, 안내). 상태는 OK | WARN | FAIL | HOLE."""
     out, s = [], cfg["server"]
     sp = script_path(cfg)
-    out.append(("OK", "서버 스크립트", str(sp)) if sp.is_file() else
-               ("FAIL", "서버 스크립트", f"{sp} 없음. 학습 서버에서 실행하거나 configs/train.yaml의 server.code_dir을 고친다"))
-    miss = [p.name for p in dataset_files(cfg).values() if not p.is_file()]
+    spath = f"{_srv(cfg, 'code_dir')}/{s['scripts'][cfg['role']]}"
+    if remote(cfg):
+        out.append(("OK", "서버 접속", f"ssh {remote(cfg)}"))
+        if script_bytes(cfg) is None:
+            out[-1] = ("FAIL", "서버 접속", f"ssh {remote(cfg)}에서 {spath}를 읽지 못했다. 서버가 켜져 있는지, ~/.ssh/config의 호스트 이름, server.code_dir을 확인한다")
+    out.append(("OK", "서버 스크립트", spath) if script_bytes(cfg) is not None else
+               ("FAIL", "서버 스크립트", f"{spath} 없음. 학습 서버에서 실행하거나 configs/train.yaml의 server.code_dir·server.ssh를 고친다"))
+    miss = missing_datasets(cfg)
     out.append(("OK", "데이터셋", f"{cfg['dataset']['prefix']}_{{train,val,test}}.jsonl 있음") if not miss else
-               ("FAIL", "데이터셋", f"없음: {miss} (dataset.dir={_p(cfg, cfg['dataset']['dir'])})"))
-    ok, why = gpu_state()
+               ("FAIL", "데이터셋", f"없음: {miss} (dataset.dir={_srv(cfg, 'data_dir')}{' @' + remote(cfg) if remote(cfg) else ''})"))
+    ok, why = remote_gpu_state(cfg) if remote(cfg) else gpu_state()
     if ok:
         out.append(("OK", "GPU", why))
+    elif remote(cfg):
+        out.append(("FAIL", "GPU", why))    # 원격은 서버를 직접 물었는데 없다는 답이므로 구멍이 아니라 실패다
     else:
         out.append(("HOLE", "GPU", "구멍: GPU 필요. " + why + ". 학습은 GPU가 있는 학습 서버에서 실행한다. 이 PC에서는 --dry-run까지만"))
     if s.get("args_verified", False) and any(s.get("arg_map", {}).values()):
@@ -267,7 +412,7 @@ def doctor(cfg: dict, *, profiles_dir: Path, cached_snapshot=None) -> list[tuple
     py = s.get("python", "python3")
     code = "import importlib.util as u,sys;print(' '.join(m for m in sys.argv[1:] if u.find_spec(m) is None))"
     try:
-        r = subprocess.run([py, "-c", code, *mods], capture_output=True, text=True, timeout=60)
+        r = (ssh_run(cfg, _rjoin([py, "-c", code, *mods])) if remote(cfg) else subprocess.run([py, "-c", code, *mods], capture_output=True, text=True, timeout=60))
         if r.returncode != 0:
             out.append(("FAIL", "파이썬 의존", f"{py}를 실행하지 못했다. server.python을 고친다"))
         elif r.stdout.strip():
@@ -276,12 +421,15 @@ def doctor(cfg: dict, *, profiles_dir: Path, cached_snapshot=None) -> list[tuple
             out.append(("OK", "파이썬 의존", f"{', '.join(mods)} 있음"))
     except (OSError, subprocess.SubprocessError):
         out.append(("FAIL", "파이썬 의존", f"{py}를 실행하지 못했다. server.python을 고친다"))
-    try:   # 캐시 조회는 huggingface_hub 공개 API로 한다(T24)
-        snap = cached_snapshot(cfg["base_model"]["id"], cfg["base_model"].get("revision"))
-        out.append(("OK", "기반 모델 캐시", str(snap)) if snap else
-                   ("WARN", "기반 모델 캐시", f"{cfg['base_model']['id']} 캐시가 없다. 첫 실행 때 내려받는다(오프라인이면 미리 받아 둔다)"))
-    except ImportError:
-        out.append(("WARN", "기반 모델 캐시", "huggingface_hub가 없어 캐시를 확인하지 못했다"))
+    if remote(cfg):
+        out.append(("HOLE", "기반 모델 캐시", "구멍: 서버의 모델 캐시는 이 PC에서 조회하지 않는다. 서버 스크립트가 첫 실행에 내려받는다"))
+    else:
+        try:   # 캐시 조회는 huggingface_hub 공개 API로 한다(T24)
+            snap = cached_snapshot(cfg["base_model"]["id"], cfg["base_model"].get("revision"))
+            out.append(("OK", "기반 모델 캐시", str(snap)) if snap else
+                       ("WARN", "기반 모델 캐시", f"{cfg['base_model']['id']} 캐시가 없다. 첫 실행 때 내려받는다(오프라인이면 미리 받아 둔다)"))
+        except ImportError:
+            out.append(("WARN", "기반 모델 캐시", "huggingface_hub가 없어 캐시를 확인하지 못했다"))
     prof = cfg["base_model"].get("profile")
     if not prof:
         out.append(("WARN", "프로파일", "base_model.profile이 없다. package-adapters에 필요한 프로파일 이름을 적는다"))
@@ -296,8 +444,8 @@ def doctor(cfg: dict, *, profiles_dir: Path, cached_snapshot=None) -> list[tuple
         bad = "FAIL" if policy == "block" else "WARN"
         out.append(("OK" if free >= need else bad, "디스크", f"{free:.0f}GB 여유(필요 {need}GB, 기준 {probe}, 정책 {policy}). WSL이면 호스트 여유와 다를 수 있다"))
     st, why = script_hash_state(cfg)
-    out.append({"OK": ("OK", "서버 코드 해시", why), "UNSET": ("WARN", "서버 코드 해시", why),
-                "MISMATCH": ("FAIL", "서버 코드 해시", why), "UNREADABLE": ("WARN", "서버 코드 해시", why)}[st])
+    out.append({"OK": ("OK", "서버 코드 해시", why), "UNSET": ("FAIL", "서버 코드 해시", why),
+                "MISMATCH": ("FAIL", "서버 코드 해시", why), "UNREADABLE": ("FAIL", "서버 코드 해시", why)}[st])
     ast_, awhy = arg_compat(cfg)
     out.append({"OK": ("OK", "서버 인자 호환", awhy), "MISMATCH": ("FAIL", "서버 인자 호환", awhy), "UNKNOWN": ("WARN", "서버 인자 호환", awhy)}[ast_])
     return out

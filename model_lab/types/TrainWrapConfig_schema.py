@@ -18,6 +18,10 @@ class ScriptSha256(TypedDict, closed=True):
     LORA_B: NotRequired[str]
 
 
+class Ssh(TypedDict, closed=True):
+    host: str
+
+
 class Server(TypedDict, closed=True):
     code_dir: str
     scripts: Scripts
@@ -29,6 +33,7 @@ class Server(TypedDict, closed=True):
     arg_map: NotRequired[dict[str, str | None]]
     extra_args: NotRequired[list[str]]
     python_modules: NotRequired[list[str]]
+    ssh: NotRequired[Ssh]
 
 
 class BaseModel(TypedDict, closed=True):
@@ -52,6 +57,7 @@ class Output(TypedDict, closed=True):
     min_free_gb: NotRequired[float]
     disk_policy: NotRequired[Literal['block', 'warn', 'off']]
     max_lora_rank: NotRequired[int]
+    server_out_dir: NotRequired[str]
 
 
 class TrainWrapConfig(TypedDict, closed=True):
