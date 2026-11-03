@@ -17,12 +17,19 @@ def load():
     return json.loads(EXPOSURE.read_text(encoding="utf-8"))
 
 
-def test_exposure_file_satisfies_the_contract_and_denies_everything():
+def test_exposure_file_satisfies_the_contract_and_exposes_only_publish():
     ex = load()
     validator("Exposure").validate(ex)
     assert ex["service"] == "model-registry"
-    # 왜 전부 denied: deploy/config/Caddyfile에 이 서비스로 가는 블록이 없다. release-gate가 내부망에서 직접 읽는다(GATE_I3_URL). 목록에 없는 /v1/*는 gateway가 404로 막는다.
-    assert all(r["auth"]["kind"] == "denied" for r in ex["routes"])
+    # 왜 게시만 machine-token: 학습 서버(다른 호스트)의 파이프라인이 게이트웨이(https)를 거쳐 POST /v1/packages로 게시한다(U69). 게이트웨이가 Bearer를 비밀
+    # model-registry-write-model-lab과 대조하고 상류에는 레지스트리 쓰기 토큰을 붙인다. 읽기 경로는 release-gate가 내부망에서 직접 읽으므로(GATE_I3_URL) 전부 denied.
+    open_routes = [r for r in ex["routes"] if r["auth"]["kind"] != "denied"]
+    assert len(open_routes) == 1
+    r = open_routes[0]
+    assert r["paths"] == ["/v1/packages"] and r["methods"] == ["POST"] and r["auth"]["kind"] == "machine-token"
+    assert r["upstream_token"] == "model-registry-write-model-lab"
+    # 같은 경로의 다른 메서드는 denied로 명시한다(메서드를 비운 선언이 게시 선언과 겹치지 않게)
+    assert any(x["paths"] == ["/v1/packages"] and "GET" in x["methods"] and x["auth"]["kind"] == "denied" for x in ex["routes"])
 
 
 @pytest.fixture
