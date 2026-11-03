@@ -1,5 +1,8 @@
 # 변경 이력
 
+## 미배포 - 잠금 올림: 계약 v3.4.0, openit-link v0.4.6, model-runtime v0.11.13, 문진 스키마 survey-schema-v4.1.0
+- requirements.txt, requirements-service.txt, requirements.lock. `tests/test_build_image.py`는 고정 버전을 requirements-service.txt에서 읽는다(시험에 복사해 둔 v3.2.0이 낡아 있었다).
+
 ## 미배포 - G06 학습은 ssh로 서버 정본을 해시 고정해 실행 (ADR 0030)
 - `server.ssh`, `output.server_out_dir`(스키마 `TrainWrapConfig`). `train`/`train-doctor`가 ssh로 서버 스크립트를 읽고 해시를 확인해 실행, 어댑터(`<out_dir>/adapter/`)를 rsync로 가져옴. `script_sha256`이 비면 doctor FAIL + 채우는 방법, `train` 거부. `configs/train*.yaml`에 2026-11-03 읽은 해시와 ssh 설정 기입. 자체 학습기 `lora_train_hf` 폐기 표시(경고는 DeprecationWarning). 시험 `tests/test_train_ssh.py`(가짜 ssh/rsync).
 
