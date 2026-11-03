@@ -127,9 +127,12 @@ def load_profile(name: str) -> dict:
 STD_ARGS = ("base_model", "dataset_dir", "dataset_prefix", "output_dir")
 
 
-def load_train_config(path: str | Path) -> dict:
+def load_train_config(path: str | Path, overrides: dict | None = None) -> dict:
+    """overrides: 파이프라인이 실행마다 바꾸는 값(데이터 폴더, 출력 폴더)을 설정 위에 덮는다. 덮은 뒤 같은 검증을 한다."""
     path = Path(path).resolve()
     cfg = _read(path)
+    if overrides:
+        cfg = deep_merge(cfg, overrides)
     check_inline_secrets(cfg)
     errs = schemas.errors("TrainWrapConfig", cfg)
     if errs:

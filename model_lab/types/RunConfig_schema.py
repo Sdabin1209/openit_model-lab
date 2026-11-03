@@ -76,7 +76,7 @@ class Lora(TypedDict, closed=True):
 
 
 class Training(TypedDict, closed=True):
-    trainer: NotRequired[Literal['hf', 'dry-run']]
+    trainer: NotRequired[Literal['server', 'dry-run']]
     quantization: NotRequired[Quantization]
     lora: NotRequired[Lora]
     max_seq_len: NotRequired[int]
@@ -95,10 +95,11 @@ class Training(TypedDict, closed=True):
     deterministic: NotRequired[bool]
     attn_implementation: NotRequired[Literal['eager', 'sdpa', 'flash_attention_2']]
     dtype: NotRequired[Literal['float16', 'bfloat16', 'float32']]
+    server_train_config: NotRequired[str]
 
 
 class Training1(TypedDict, closed=True):
-    trainer: NotRequired[Literal['hf', 'dry-run']]
+    trainer: NotRequired[Literal['server', 'dry-run']]
     quantization: NotRequired[Quantization]
     lora: NotRequired[Lora]
     max_seq_len: NotRequired[int]
@@ -117,6 +118,7 @@ class Training1(TypedDict, closed=True):
     deterministic: NotRequired[bool]
     attn_implementation: NotRequired[Literal['eager', 'sdpa', 'flash_attention_2']]
     dtype: NotRequired[Literal['float16', 'bfloat16', 'float32']]
+    server_train_config: NotRequired[str]
 
 
 class LORAA(TypedDict, closed=True):
@@ -126,7 +128,7 @@ class LORAA(TypedDict, closed=True):
 
 
 class Training2(TypedDict, closed=True):
-    trainer: NotRequired[Literal['hf', 'dry-run']]
+    trainer: NotRequired[Literal['server', 'dry-run']]
     quantization: NotRequired[Quantization]
     lora: NotRequired[Lora]
     max_seq_len: NotRequired[int]
@@ -145,6 +147,7 @@ class Training2(TypedDict, closed=True):
     deterministic: NotRequired[bool]
     attn_implementation: NotRequired[Literal['eager', 'sdpa', 'flash_attention_2']]
     dtype: NotRequired[Literal['float16', 'bfloat16', 'float32']]
+    server_train_config: NotRequired[str]
 
 
 class LORAB(TypedDict, closed=True):

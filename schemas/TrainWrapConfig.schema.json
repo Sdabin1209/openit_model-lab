@@ -164,6 +164,12 @@
         "content_hash": {
           "type": "string",
           "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "upload_root": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[^\\s']+$",
+          "description": "파이프라인(run)이 변환한 데이터를 서버에 올리는 서버 쪽 폴더. 아래에 <run_id>/<role>/을 만든다. 서버 쓰기 허락을 받은 폴더여야 하므로 기본값이 없다"
         }
       }
     },

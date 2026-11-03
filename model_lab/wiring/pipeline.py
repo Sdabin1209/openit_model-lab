@@ -17,7 +17,8 @@ import model_runtime
 from boundary_contracts import BoundaryError, canonical
 
 from ..components import (adapter_check, backend_oracle, dataset_samples, eval_report, evaluation_report_build, hf_cache_lookup,
-                         link_dataset_fetch, link_failure_read, lora_train_dryrun, lora_train_hf, regression_set, run_record, train_data)
+                         link_dataset_fetch, link_failure_read, lora_train_dryrun, lora_train_hf, regression_set, run_record, server_row_convert, train_data)
+from ..config import load_train_config
 from . import evaluation, factories, packaging, schemas
 from .errors import ConfigError, PipelineError
 from .settings import (ROLE_TO_FILE_ROLE, ROLES, config_hash, contract_version, ref_of, resolved_path, role_training,
@@ -48,16 +49,15 @@ def _extra_versions() -> dict:
     return out
 
 
-def make_trainer(kind: str):
-    """설정의 학습기 이름 -> 학습 컴포넌트. hf는 기반 모델 커밋 조회(hf_cache_lookup)를 주입한다(컴포넌트끼리 import하지 않는다)."""
+def make_trainer(kind: str, **ctx):
+    """설정의 학습기 이름 -> 학습 컴포넌트. server가 실제 학습이다(서버 정본 실행, ADR 0031). 자체 학습기 hf는 폐기되어 파이프라인에서 쓰지 않는다."""
     if kind == "dry-run":
         return lora_train_dryrun.DryRunTrainer()
+    if kind == "server":
+        from .server_trainer import ServerTrainer
+        return ServerTrainer(**ctx)
     if kind == "hf":
-        import warnings
-        warnings.warn("[폐기 예정, ADR 0030] lora_train_hf는 학습 서버 정본(train_lora_a.py, train_lora_b.py)과 다르다(채팅 템플릿 없음, 양자화·모듈 다름). "
-                      "정본이 아니다: 여기서 만든 어댑터는 서버 학습과 같지 않으며 파이프라인 검증용이다. 실제 학습은 `model-lab train`(D78, G06).",
-                      DeprecationWarning, stacklevel=2)
-        return lora_train_hf.HFLoraTrainer(cached_commit=hf_cache_lookup.cached_commit)
+        raise ConfigError("trainer=hf(자체 학습기)는 폐기되었다(ADR 0031): trainer=server와 training.server_train_config를 쓴다")
     raise ValueError(kind)
 
 
@@ -72,7 +72,8 @@ class Run:
             raise ConfigError("실행 설정 위반(RunPlan): " + "; ".join(f"/{'/'.join(map(str, e.absolute_path))}: {e.message[:120]}" for e in errs[:4]))
         self.store = dataset_store or make_dataset_store(cfg)
         self.registry = registry or make_registry(cfg)
-        self.trainer_factory = trainer_factory or (lambda kind: make_trainer(kind))
+        self.trainer_factory = trainer_factory or (lambda kind: make_trainer(
+            kind, run_id=self.run_id, base_dir=self.cfg["_base_dir"], dataset={"id": self.dataset_id, "version": self.dataset_version}, log=self.log))
         self.clock, self.log = clock, log
         self._failure_store = failure_store
         self._rset = None
@@ -165,6 +166,13 @@ class Run:
     def _manifest(self) -> dict:
         return json.loads((self.dir / "dataset" / "manifest.json").read_text(encoding="utf-8"))
 
+    def _server_prefix(self, role: str) -> str:
+        """서버 데이터 파일 이름의 앞부분(<prefix>_train.jsonl). 학습 설정의 dataset.prefix가 정한다. 설정이 없으면 서버 규칙(lora_a/lora_b)."""
+        ref = role_training(self.cfg, role).get("server_train_config")
+        if ref:
+            return load_train_config(resolved_path(self.cfg, ref))["dataset"]["prefix"]
+        return "lora_" + ROLE_TO_FILE_ROLE[role][-1].lower()
+
     # 2. 학습 데이터 변환(render_prompt, 시스템 프롬프트는 설정의 파일)
     def stage_transform(self) -> None:
         if self._done("transform"):
@@ -179,6 +187,22 @@ class Run:
             sysp = system_prompt_text(self.cfg, role)
             splits = dataset_samples.load_role_samples(dm, base, fr)
             labels: dict = {}
+            if role_training(self.cfg, role).get("trainer", "server") == "server":
+                # 서버 정본 학습기는 서버가 이미 쓰는 messages 형식을 읽는다(학습 형식은 바꾸지 않는다, D78). train/val/test 세 파일이 필요하다
+                prefix = self._server_prefix(role)
+                sd = out / "server"
+                sd.mkdir(parents=True, exist_ok=True)
+                for split, name in (("TRAIN", "train"), ("VALIDATION", "val"), ("EVAL", "test")):
+                    with open(sd / f"{prefix}_{name}.jsonl", "w", encoding="utf-8") as fh:
+                        for sm in splits[split]:
+                            fh.write(json.dumps(server_row_convert.to_server_row(role, sm, sysp), ensure_ascii=False) + "\n")
+                for split in ("EVAL", "VALIDATION"):
+                    with open(out / f"{split.lower()}_samples.jsonl", "w", encoding="utf-8") as fh:
+                        for sm in splits[split]:
+                            fh.write(json.dumps(sm, ensure_ascii=False, sort_keys=True) + "\n")
+                self._mark("transform", role, status="done", train=len(splits["TRAIN"]), validation=len(splits["VALIDATION"]),
+                           eval=len(splits["EVAL"]), conflicting_train_prompts=0, train_file_hash=canonical.file_hash(sd / f"{prefix}_train.jsonl"))
+                continue
             for split, name in (("TRAIN", "train"), ("VALIDATION", "val")):
                 with open(out / f"{name}.jsonl", "w", encoding="utf-8") as fh:
                     for s in splits[split]:   # 학습·검증에는 해당 분할만 들어간다. EVAL은 여기에 쓰지 않는다.
@@ -204,11 +228,13 @@ class Run:
             if info.get("status") == "done" and adapter.is_dir() and canonical.directory_hash(adapter) == info["adapter_hash"]:
                 continue
             tr = role_training(self.cfg, role)
-            trainer = self.trainer_factory(tr.get("trainer", "hf"))
+            trainer = self.trainer_factory(tr.get("trainer", "server"))
             base = {"id": self.cfg["base_model"]["id"], "revision": self.cfg["base_model"].get("revision", "unspecified")}
             d = self.dir / "data" / role
-            req = {"role": role, "base_model": base, "training": tr, "seed": self.seed, "train_path": str(d / "train.jsonl"),
-                   "val_path": str(d / "val.jsonl"), "adapter_dir": str(adapter), "work_dir": str(self.dir / "work" / role)}
+            if tr.get("trainer", "server") == "server":
+                d = d / "server"        # 서버 형식 파일 폴더. 파일 이름은 서버 규칙(<prefix>_{train,val,test}.jsonl)
+            req = {"role": role, "base_model": base, "training": tr, "seed": self.seed, "train_path": str(d / (f"{self._server_prefix(role)}_train.jsonl" if tr.get("trainer", "server") == "server" else "train.jsonl")),
+                   "val_path": str(d / (f"{self._server_prefix(role)}_val.jsonl" if tr.get("trainer", "server") == "server" else "val.jsonl")), "adapter_dir": str(adapter), "work_dir": str(self.dir / "work" / role)}
             schemas.check("TrainRequest", req)
             self.log(f"[{self.run_id}] {role} 학습 시작({trainer.name})")
             self._mark("train", role, status="running", started_at=self.clock())

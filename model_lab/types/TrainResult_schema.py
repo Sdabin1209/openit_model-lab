@@ -9,7 +9,7 @@ from typing_extensions import NotRequired, TypedDict
 
 
 class TrainResult(TypedDict, closed=True):
-    steps: int
+    steps: NotRequired[int]
     resumed_from_step: int
     base_model_revision: str
     library_versions: dict[str, str]

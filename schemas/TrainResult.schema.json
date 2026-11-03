@@ -6,7 +6,8 @@
   "properties": {
     "steps": {
       "type": "integer",
-      "minimum": 1
+      "minimum": 1,
+      "description": "서버 정본 학습(trainer=server)은 단계 수를 알려 주지 않아 없을 수 있다"
     },
     "resumed_from_step": {
       "type": "integer",
@@ -36,7 +37,6 @@
   },
   "additionalProperties": false,
   "required": [
-    "steps",
     "resumed_from_step",
     "base_model_revision",
     "library_versions",

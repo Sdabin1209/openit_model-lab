@@ -182,7 +182,7 @@
       "properties": {
         "trainer": {
           "enum": [
-            "hf",
+            "server",
             "dry-run"
           ]
         },
@@ -307,6 +307,11 @@
             "bfloat16",
             "float32"
           ]
+        },
+        "server_train_config": {
+          "type": "string",
+          "minLength": 1,
+          "description": "trainer=server일 때 서버 정본 학습 설정(configs/train*.yaml) 경로. 설정 파일 기준 상대 경로"
         }
       }
     },
@@ -338,7 +343,7 @@
               "properties": {
                 "trainer": {
                   "enum": [
-                    "hf",
+                    "server",
                     "dry-run"
                   ]
                 },
@@ -463,6 +468,11 @@
                     "bfloat16",
                     "float32"
                   ]
+                },
+                "server_train_config": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "trainer=server일 때 서버 정본 학습 설정(configs/train*.yaml) 경로. 설정 파일 기준 상대 경로"
                 }
               }
             }
@@ -491,7 +501,7 @@
               "properties": {
                 "trainer": {
                   "enum": [
-                    "hf",
+                    "server",
                     "dry-run"
                   ]
                 },
@@ -616,6 +626,11 @@
                     "bfloat16",
                     "float32"
                   ]
+                },
+                "server_train_config": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "trainer=server일 때 서버 정본 학습 설정(configs/train*.yaml) 경로. 설정 파일 기준 상대 경로"
                 }
               }
             }

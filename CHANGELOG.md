@@ -1,5 +1,8 @@
 # 변경 이력
 
+## 미배포 - G06 파이프라인 train 단계가 서버 정본 경로를 부른다 (ADR 0031)
+- `training.trainer`: `server`(기본)/`dry-run`. `hf` 폐기(설정 오류). transform이 서버 messages 형식 파일을 만들고, `wiring/server_trainer.py`가 올리기(rsync)+`run_train`. `dataset.upload_root`, `training.server_train_config` 추가. `TrainResult.steps` 선택. 시험 `tests/test_pipeline_server_train.py`.
+
 ## 미배포 - 잠금 올림: 계약 v3.4.0, openit-link v0.4.6, model-runtime v0.11.13, 문진 스키마 survey-schema-v4.1.0
 - requirements.txt, requirements-service.txt, requirements.lock. `tests/test_build_image.py`는 고정 버전을 requirements-service.txt에서 읽는다(시험에 복사해 둔 v3.2.0이 낡아 있었다).
 

@@ -48,6 +48,7 @@ class Dataset(TypedDict, closed=True):
     id: str
     version: str
     content_hash: NotRequired[str]
+    upload_root: NotRequired[str]
 
 
 class Output(TypedDict, closed=True):

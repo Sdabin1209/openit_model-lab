@@ -150,12 +150,6 @@ def test_doctor_fail_exit_code_and_guidance(env, capsys):
     assert "[FAIL] 서버 스크립트" in out and "no_such_module_xyz" in out
 
 
-def test_hf_copy_warns_not_canonical():
-    from model_lab.wiring.pipeline import make_trainer
-    with pytest.warns(DeprecationWarning, match="정본이 아니다"):
-        make_trainer("hf")
-
-
 # ---- 실제 서버 스크립트 인자(헤드가 add_argument를 읽어 확인, 2026-10-27)와 v2 학습 run_config.json 대조 ----
 # 아래 값은 서버 run_config.json의 값이다. out_dir은 서버가 자기 작업 폴더 기준 상대 경로로 기록한 값이다.
 RUN_CONFIG_A = {"data_dir": "/home/openit/taehyeon/data/dataset_10_14", "prefix": "lora_a", "model": "Qwen/Qwen3-8B", "out_dir": "runs/a_8b_v2",

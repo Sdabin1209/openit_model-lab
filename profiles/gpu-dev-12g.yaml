@@ -4,7 +4,7 @@ base_model:
   id: Qwen/Qwen2.5-1.5B-Instruct        # 임시 기반 모델(Apache-2.0). 실제 선정은 헤드가 별도로 올린다.
   revision: main                        # 실행 때 해석된 커밋은 run 기록과 매니페스트에 남는다
 training:
-  trainer: hf
+  trainer: server                       # 자체 학습기(hf)는 폐기(ADR 0031). 학습은 서버 정본(model-lab train). 학습 값은 server_train_config가 가리키는 configs/train*.yaml에 있고 이 파일의 학습 값은 평가 백엔드가 쓴다
   quantization: {mode: 4bit-nf4, compute_dtype: bfloat16}
   dtype: bfloat16
   lora: {r: 16, alpha: 32, dropout: 0.05, target_modules: [q_proj, k_proj, v_proj, o_proj]}

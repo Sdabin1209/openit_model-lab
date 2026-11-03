@@ -29,6 +29,11 @@ FAKE_RSYNC = f'''#!{sys.executable}
 import json, os, shutil, sys
 a = sys.argv[1:]
 open(os.environ["FAKE_LOG"], "a").write(json.dumps({{"tool": "rsync", "argv": a}}, ensure_ascii=False) + "\\n")
+if ":" in a[-1]:              # 올리기(로컬 -> 서버)
+    dst = a[-1].split(":", 1)[1]
+    dst = os.path.join(os.environ["FAKE_HOME"], dst[2:]) if dst.startswith("~/") else dst
+    shutil.copytree(a[-2], dst, dirs_exist_ok=True)
+    sys.exit(0)
 src, dst = a[-2].split(":", 1)[1], a[-1]
 if src.startswith("~/"):      # 원격 셸이 ~를 서버 홈으로 푸는 것을 흉내 낸다
     src = os.path.join(os.environ["FAKE_HOME"], src[2:])
