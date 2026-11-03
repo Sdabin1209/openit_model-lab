@@ -22,6 +22,9 @@ class ServerTrainer:
         self.run_id, self.base_dir, self.dataset, self.log = run_id, Path(base_dir), dataset, log
 
     def train(self, req: dict) -> dict:
+        from ..config import RESUME_MSG, has_resume
+        if has_resume(req["training"]):      # 파이프라인 설정에서 온 재개 항목도 같은 이유로 거부한다
+            raise PipelineError(f"{RESUME_MSG}: training/{has_resume(req['training'])}")
         ref = req["training"].get("server_train_config")
         if not ref:
             raise PipelineError(f"{req['role']}: training.server_train_config가 없다. trainer=server는 학습 설정(configs/train*.yaml) 경로가 필요하다")

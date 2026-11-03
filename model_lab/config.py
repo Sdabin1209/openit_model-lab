@@ -127,6 +127,35 @@ def load_profile(name: str) -> dict:
 STD_ARGS = ("base_model", "dataset_dir", "dataset_prefix", "output_dir")
 
 
+RESUME_MSG = "정본 학습 스크립트는 재개를 지원하지 않는다(ADR 0030), 처음부터 학습하려면 resume 항목을 지운다"
+
+
+def has_resume(o) -> str | None:
+    """설정 어디에든 이름이나 값에 resume이 든 항목이 있으면 그 위치. 왜: 서버 정본 스크립트(train_lora_a/b.py)는 trainer.train()을 재개 없이 부른다(2026-11-03 코드 확인).
+    재개를 지원하는 척하는 설정은 이름과 동작이 달라 거부한다."""
+    if isinstance(o, dict):
+        for k, v in o.items():
+            if "resume" in str(k).lower():
+                return str(k)
+            r = has_resume(v)
+            if r:
+                return f"{k}/{r}"
+    elif isinstance(o, list):
+        for v in o:
+            r = has_resume(v)
+            if r:
+                return r
+    elif isinstance(o, str) and "resume" in o.lower():
+        return o
+    return None
+
+
+def _reject_resume(cfg: dict) -> None:
+    where = has_resume({k: v for k, v in cfg.items() if k not in ("server",)} | {"server": {k: v for k, v in cfg.get("server", {}).items() if k in ("arg_map", "extra_args")}})
+    if where:
+        raise ConfigError(f"{RESUME_MSG}: {where}")
+
+
 def load_train_config(path: str | Path, overrides: dict | None = None) -> dict:
     """overrides: 파이프라인이 실행마다 바꾸는 값(데이터 폴더, 출력 폴더)을 설정 위에 덮는다. 덮은 뒤 같은 검증을 한다."""
     path = Path(path).resolve()
@@ -134,6 +163,7 @@ def load_train_config(path: str | Path, overrides: dict | None = None) -> dict:
     if overrides:
         cfg = deep_merge(cfg, overrides)
     check_inline_secrets(cfg)
+    _reject_resume(cfg)
     errs = schemas.errors("TrainWrapConfig", cfg)
     if errs:
         raise ConfigError("학습 설정 형식 위반: " + "; ".join(f"/{'/'.join(map(str, e.absolute_path))}: {e.message[:120]}" for e in errs[:8]))

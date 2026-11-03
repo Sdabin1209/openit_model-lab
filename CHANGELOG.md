@@ -1,5 +1,8 @@
 # 변경 이력
 
+## 미배포 - 재개를 지원하는 척하지 않는다 (ADR 0030)
+- `configs/gpu-dev-fixture-resume-{check,ref}.yaml` 삭제(서버 정본은 재개를 지원하지 않아 이름과 동작이 달랐다). `resume` 항목이 있는 학습 설정은 `train`이 거부. 시험 `tests/test_no_resume.py`.
+
 ## 미배포 - 공유 학습 서버 안전 (ADR 0033)
 - `server.sandbox_root`, `output.expected_gb`. 서버 쓰기는 ~/dabin 아래뿐(스크립트 사본을 code/에 복사해 해시 확인 후 거기서 실행, TMPDIR·MPLCONFIGDIR만 돌림, HF 캐시는 기본 위치). 실행 직전 GPU 점유·서버 디스크 검사(거부=종료 코드 2), doctor 행 3개. `train.yaml`/`train-b.yaml`의 upload_root·server_out_dir 확정.
 
