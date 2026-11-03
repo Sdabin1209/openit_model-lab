@@ -190,3 +190,25 @@ D22 (2): 서비스가 없는 run-once 잡이라 Dockerfile 없이 `requirements.
 ## 게이트웨이(https) 뒤 레지스트리에 게시 (U69)
 
 `registry: {kind: http, base_url_env: MODEL_REGISTRY_URL, token_env: MODEL_REGISTRY_WRITE_TOKEN}`처럼 주소와 토큰을 환경에서 받는다. 주소는 `https://…`여도 된다. 토큰은 `MODEL_REGISTRY_WRITE_TOKEN_FILE`(파일 경로, D84)로 주고 클라이언트가 `Authorization: Bearer`로 싣는다. TLS 신뢰는 표준 환경 변수 `SSL_CERT_FILE`(게이트웨이 CA 파일)로 정한다. 설정에 인증서 검증을 끄는 키는 없다. 시험: `tests/test_gateway_publish.py`(시험용 TLS 종단 중계기, 자체 서명 CA). 게이트웨이 경로 개설은 deploy 몫이고 여기서 확인한 것은 클라이언트 쪽 동작뿐이다.
+
+
+## 기존 패키지 재게시: lineage.question_sets 채우기 (계약 3.4.4 B-04, 최종 검증 단계에서 헤드가 지시할 때)
+
+이미 게시한 패키지는 불변이라 고치지 않고, `lineage.question_sets`가 채워진 **새 버전**으로 다시 게시한다. 어댑터 바이트는 같으므로 `adapter_hash`는 그대로이고 매니페스트(`content_hash`)와 버전만 새로 생긴다. 코드 길은 `package-adapters`이다(저장소 매니페스트에서 문항 세트를 채우고, 비면 게시를 거부한다). 아직 실행하지 않았다 [구멍: 서버 어댑터·데이터셋 저장소].
+
+입력(전부 인자·설정 파일·명시한 환경 이름으로만, R9.1):
+1. **어댑터**(읽기만): 학습 서버의 `~/dabin/openit-model-lab/runs/<이름>/<run_id>/adapter/`(이 영역의 `train`이 만든 것) 또는 이전 학습 기록 `~/taehyeon/runs/a_8b_v2/adapter`, `~/myungchan/runs/b_8b_1014/adapter`(**읽기**만). 이 PC로 `rsync -a openit:<경로>/ ./attach/LORA_A/`처럼 가져온다. 쓰기는 `~/dabin` 안에서만 허락되므로 서버 쪽에는 아무것도 쓰지 않는다. 또는 이미 게시된 패키지를 `HttpModelRegistry.open_adapter`(읽기 토큰)로 내려받는다.
+2. **시스템 프롬프트**: 학습에 쓴 파일 `prompts/lora_a.system.txt`, `prompts/lora_b.system.txt`.
+3. **데이터셋**: `--dataset-id`, `--dataset-version`, `--dataset-hash`. 해시는 dataset-store 매니페스트의 `content_hash`여야 한다(다르면 거부). 설정의 `inputs.dataset_store`(`DATASET_STORE_URL`, `DATASET_STORE_TOKEN_FILE`)가 가리키는 저장소에서 문항 세트를 읽는다.
+4. **학습 기록**(선택): `--train-record-a/-b`로 `*.train-wrap.json`.
+5. **게시 대상**: 설정 `registry`(`MODEL_REGISTRY_URL`, `MODEL_REGISTRY_WRITE_TOKEN_FILE`). 영역 밖 호출은 `OPENIT_EGRESS_PROXY`(같은 서버의 자기 영역 게이트웨이)와 `SSL_CERT_FILE`(루트 인증서)로 나간다(R1.5, R1.8).
+
+명령(새 버전 이름은 옛 버전과 달라야 한다):
+```
+.venv/bin/python -m model_lab package-adapters --config configs/gpu-dev.yaml --profile qwen3-8b \
+  --adapter-a ./attach/LORA_A --adapter-b ./attach/LORA_B \
+  --prompt-a prompts/lora_a.system.txt --prompt-b prompts/lora_b.system.txt \
+  --dataset-id <id> --dataset-version <version> --dataset-hash <저장소 content_hash> \
+  --version <새 버전, 예: v2-qs> --created-at <UTC> --out runs/republish-<날짜>
+```
+확인: (a) 게시한 매니페스트의 `lineage.question_sets`가 1개 이상(`HttpModelRegistry.get_manifest`), (b) `adapter_hash`가 옛 버전과 같음, (c) release-gate 판정 조회(`inputs.release_reader`를 둔 `run` 보고의 `decisions`, 또는 `find_decisions(lora_a=…)`)에서 새 조합의 판정이 `QUESTION_MODEL_COMPAT` 때문에 FAIL이 아닌지는 release-gate 쪽에서 본다. 후보 제출은 이 영역이 하지 않는다.

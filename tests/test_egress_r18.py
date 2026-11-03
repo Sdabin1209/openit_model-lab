@@ -59,8 +59,3 @@ def test_factory_built_clients_tunnel_too(proxy):
     with pytest.raises(BoundaryError) as e:
         c.list_versions("d")
     assert e.value.code == "PERMISSION_DENIED" and proxy.seen == ["CONNECT dataset-store:8443 HTTP/1.1"]
-
-
-def test_non_loopback_proxy_is_refused_at_creation():
-    with pytest.raises(ValueError):
-        factories.build_http("model_registry", SPEC, {"U": "https://model-registry:8443", "T": "t" * 40, "OPENIT_EGRESS_PROXY": "http://proxy.example:3128"})

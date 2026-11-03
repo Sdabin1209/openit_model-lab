@@ -165,3 +165,11 @@ def test_same_content_different_mtime_gives_same_content_hash(setup, tmp_path):
     r1, r2 = package_adapters(**kw), package_adapters(**kw2)
     for role in r1:
         assert r1[role]["content_hash"] == r2[role]["content_hash"]
+
+
+def test_dataset_hash_that_differs_from_the_store_manifest_is_refused(setup):
+    """lineage.question_sets의 출처인 저장소 매니페스트가 --dataset-hash와 다르면 계보가 거짓이 되므로 거부한다."""
+    kw, tmp = setup
+    with pytest.raises(PipelineError, match="content_hash"):
+        package_adapters(**{**kw, "dataset": {**kw["dataset"], "content_hash": "sha256:" + "0" * 64}}, publish=False)
+    assert not (tmp / "registry" / "manifests").exists() or not list((tmp / "registry" / "manifests").iterdir())

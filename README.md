@@ -83,6 +83,8 @@ scripts/smoke_registry.sh
 
 확인한 것(2026-10-28, 이웃 폴더와 `vendor/`가 없는 새 `git clone`, Linux, Python 3.12.3): `bash scripts/setup-env.sh`를 두 번 실행해 둘 다 종료 코드 0, 그 뒤 `.venv/bin/python -m pytest -q` 통과·실패·건너뜀 수는 문서에 적지 않고 같은 명령의 출력 요약 줄로 센다(숫자를 적으면 시점이 어긋난다). 문진 스키마는 `requirements.lock`의 `openit-survey-schema`(태그 설치)에서 읽는다(`tests/conftest.py`, `configs/dryrun.yaml`의 `installed:survey-schema`). 한 환경(이 PC의 새 clone)에서만 확인했다.
 
+**잡 선언.** 이 이미지는 model-registry 서비스뿐이라 라벨 `io.openit.jobs`는 달지 않는다: 학습 파이프라인(`run-once`)은 deploy가 띄우는 잡이 아니라 학습 서버의 가상환경에서 도는 실행이다(D22, [ADR 0034](docs/adr/0034-RUNTIME-조항-준수-서비스-동작.md)). 기존 패키지 재게시 절차는 `docs/runbook.md` 끝에 있다.
+
 ## 이 영역의 열린 항목
 
 출처: `head/docs/OPEN_GAPS.md` (읽기 전용으로 읽음).
