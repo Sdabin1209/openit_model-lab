@@ -9,6 +9,7 @@ import os
 from typing import Mapping
 
 from boundary_contracts import SecretError, read_secret
+from boundary_contracts.clients import egress_proxy_from
 
 from ..components import link_dataset_fetch, link_failure_read, link_registry_publish
 from .errors import ConfigError, PipelineError
@@ -56,7 +57,8 @@ def load_callable(path: str):
 
 def build(spec: Mapping, *, default_factory: str | None = None, env: Mapping = os.environ):
     factory = spec.get("factory") or default_factory
-    return load_callable(factory)(**resolve_args(spec.get("args", {}), env))
+    extra = {"egress_proxy": egress_proxy_from(env)} if factory in HTTP_CLIENTS.values() else {}      # 계약 클라이언트는 모두 영역 게이트웨이 출구로(R1.8)
+    return load_callable(factory)(**resolve_args(spec.get("args", {}), env), **extra)
 
 
 def build_http(kind: str, spec: Mapping, env: Mapping = os.environ):
@@ -65,4 +67,5 @@ def build_http(kind: str, spec: Mapping, env: Mapping = os.environ):
     # 왜 link 컴포넌트의 connect: HTTP 클라이언트는 통신 컴포넌트(link_*)만 만든다(DESIGN 6절 3항)
     connect = {"model_registry": link_registry_publish.connect, "dataset_store": link_dataset_fetch.connect,
                "failure_store": link_failure_read.connect}[kind]
-    return connect(**resolve_args(args, env))
+    # RUNTIME R1.8, CONVENTIONS 13절: 영역 밖 호출은 자기 영역 게이트웨이의 출구(OPENIT_EGRESS_PROXY)로만 나간다. 환경을 통째로 넘기지 않고 이 이름 하나만 꺼낸다(R9.1)
+    return connect(**resolve_args(args, env), egress_proxy=egress_proxy_from(env))
