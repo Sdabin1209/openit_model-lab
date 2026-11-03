@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import collections
 import re
+import json
+from pathlib import Path
 from functools import lru_cache
 from typing import Any, Mapping
 
@@ -116,7 +118,7 @@ def score_a(gold: Mapping, pred: Mapping | None) -> dict[str, int]:
 def semantic_violations(inp: Mapping, output, flow: Mapping | None = None) -> list[str] | None:
     """계약 check_action_extraction(boundary_contracts.action_rules)이 낸 위반 코드(중복 없이 정렬). 검사할 수 없으면 None(형식 실패 출력, 입력 계약 위반).
     왜: 서비스가 쓰는 것과 같은 검증기로 재야 지표가 운영 실패율과 같은 뜻이다(D97). 형식 실패 행은 출력이 없어 분모에서 빠지고
-    output_invalid_rate가 따로 센다. flow의 기본값은 문진 스키마 question_flow(학습 데이터셋 v2의 문항 순서·건너뛰기)이며 서비스 동작의 근거는 아니다(D99, D109)."""
+    output_invalid_rate가 따로 센다. flow의 기본값은 학습 데이터셋 v2의 문항 순서·건너뛰기(model_lab/data/dataset_v2_flow.json)이며 서비스 동작의 근거는 아니다(D99, D109)."""
     if not isinstance(output, Mapping):
         return None
     try:
@@ -130,7 +132,9 @@ def semantic_violations(inp: Mapping, output, flow: Mapping | None = None) -> li
 
 @lru_cache(maxsize=1)
 def default_flow() -> dict:
-    data = survey_schema.load_data("question_flow")
+    # 왜 패키지 자료인가: 문진 스키마 4.0.0(계약 3.3.0)부터 흐름은 세션의 문진표에서 나오고 고정 파일이 없다. 평가는 모델이 학습한
+    # 데이터셋 v2 흐름으로 규칙 위반을 재야 하므로 그 표를 이 영역의 자료(model_lab/data/dataset_v2_flow.json)로 둔다(D97·D99).
+    data = json.loads((Path(__file__).resolve().parents[1] / "data" / "dataset_v2_flow.json").read_text(encoding="utf-8"))
     flow = {"order": list(data["order"]), "skips": [dict(s) for s in data["skips"]]}
     validator("QuestionFlowTable").validate(flow)
     return flow

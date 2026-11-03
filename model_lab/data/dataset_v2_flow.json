@@ -1,0 +1,80 @@
+{
+  "$comment": "평가 기준 흐름표(계약 QuestionFlowTable): 학습 데이터셋 v2의 문항 순서·건너뛰기(31문항, 7규칙). 3.3.0부터 운영 흐름은 survey-service가 세션의 문진표에서 만들며 문진 스키마에 고정 파일이 없다. 이 파일은 평가(semantic_violation_rate)가 모델이 학습한 흐름으로 규칙 위반을 재기 위한 모델 실험 영역의 자료다(D97·D99). 운영 동작의 근거가 아니다.",
+  "order": [
+    "Q1.D01",
+    "Q1.D02",
+    "Q1.D03",
+    "Q1.D04",
+    "Q1.D05",
+    "Q1.D06",
+    "Q1.D07",
+    "Q1.D08",
+    "Q1.D09",
+    "Q1.D10",
+    "Q1.D11",
+    "Q2.D01",
+    "Q2.D02",
+    "Q2.D03",
+    "Q2.D04",
+    "Q2.D05",
+    "Q3",
+    "Q4",
+    "Q4_1",
+    "Q5",
+    "Q5_1",
+    "Q6",
+    "Q6_1",
+    "Q7",
+    "Q7_1",
+    "Q7_2",
+    "Q8_1",
+    "Q8_2",
+    "Q9_1",
+    "Q9_2",
+    "Q10"
+  ],
+  "skips": [
+    {
+      "slot": "Q4.answer",
+      "op": "==",
+      "value": false,
+      "skip_item": "Q4_1"
+    },
+    {
+      "slot": "Q5.answer",
+      "op": "==",
+      "value": false,
+      "skip_item": "Q5_1"
+    },
+    {
+      "slot": "Q6.answer",
+      "op": "==",
+      "value": false,
+      "skip_item": "Q6_1"
+    },
+    {
+      "slot": "Q7.does_not_drink",
+      "op": "==",
+      "value": true,
+      "skip_item": "Q7_1"
+    },
+    {
+      "slot": "Q7.does_not_drink",
+      "op": "==",
+      "value": true,
+      "skip_item": "Q7_2"
+    },
+    {
+      "slot": "Q8_1.days",
+      "op": "==",
+      "value": 0,
+      "skip_item": "Q8_2"
+    },
+    {
+      "slot": "Q9_1.days",
+      "op": "==",
+      "value": 0,
+      "skip_item": "Q9_2"
+    }
+  ]
+}
