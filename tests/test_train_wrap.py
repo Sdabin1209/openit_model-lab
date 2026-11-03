@@ -220,3 +220,43 @@ def test_boolean_flag_has_no_value(tmp_path):
     assert c.count("--dry_run") == 1 and c[c.index("--dry_run") + 1:] == []            # true: 값 없이 마지막 위치에 플래그만
     assert server_parse(c)["dry_run"] is True
     assert "true" not in c and "True" not in c
+
+
+# ---- 코드 해시·인자 호환·서버 dry_run (G06: 서버 접속 없이 가짜 스크립트로) ----
+def _doctor_rows(write):
+    return {n: (st, m) for st, n, m in tw.doctor(tw.load_train_config(write()))}
+
+
+def test_doctor_checks_server_script_hash(env):
+    raw, write, tmp = env
+    assert _doctor_rows(write)["서버 코드 해시"][0] == "WARN"                      # 해시를 안 적으면 경고(현재 해시를 안내)
+    import hashlib
+    good = hashlib.sha256((STUB / "fake_server_train.py").read_bytes()).hexdigest()
+    raw["server"]["script_sha256"] = {"LORA_A": good}
+    assert _doctor_rows(write)["서버 코드 해시"][0] == "OK"
+    raw["server"]["script_sha256"] = {"LORA_A": "0" * 64}
+    assert _doctor_rows(write)["서버 코드 해시"][0] == "FAIL"
+    with pytest.raises(PipelineError, match="서버 코드가 바뀌었다"):
+        tw.run_train(tw.load_train_config(write()), log=lambda m: None)
+
+
+def test_doctor_and_run_reject_args_the_script_does_not_declare(env):
+    raw, write, tmp = env
+    assert _doctor_rows(write)["서버 인자 호환"][0] == "OK"
+    raw["server"]["arg_map"]["epochs"] = "--epoch"                               # 오타: 스크립트는 --epochs
+    st, msg = _doctor_rows(write)["서버 인자 호환"]
+    assert st == "FAIL" and "--epoch" in msg
+    with pytest.raises(PipelineError, match="--epoch"):
+        tw.run_train(tw.load_train_config(write()), log=lambda m: None)
+    assert not (tmp / "run").exists()                                            # 스크립트를 실행하기 전에 막았다
+
+
+def test_server_dry_run_calls_script_with_flag_and_skips_adapter_check(env):
+    raw, write, tmp = env
+    raw["server"]["arg_map"]["dry_run"] = "--dry_run"
+    raw["hyperparams"]["dry_run"] = True
+    cfg = tw.load_train_config(write())
+    assert tw.build_command(cfg)[0].count("--dry_run") == 1
+    rec = tw.run_train(cfg, log=lambda m: None)
+    assert rec["dry_run"] is True and rec["exit_code"] == 0
+    assert not (tmp / "run" / "adapter").exists() and not tw.record_path(cfg).exists()      # 학습 안 함: 어댑터도 기록도 없다

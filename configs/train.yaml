@@ -9,6 +9,7 @@ server:
   code_dir: ~/taehyeon             # 정본 코드 위치 [확인: 헤드가 서버에서 읽음]. 서버 사용자 홈 기준
   scripts: {LORA_A: train_lora_a.py, LORA_B: train_lora_b.py}
   python: python3                  # 학습 환경의 파이썬(가상환경이면 그 경로)
+  # script_sha256: {LORA_A: <sha256>, LORA_B: <sha256>}   # 서버 코드 해시. 서버에 접속하지 않으면 값을 알 수 없어 적지 않았다: 서버에서 train-doctor가 현재 해시를 안내한다(WARN)
   require_gpu: true
   args_verified: true              # 뜻: 인자 이름을 서버 스크립트 코드로 확인함. 스크립트 --help 실제 실행은 안 했다(아래 근거)
   args_evidence: "헤드가 2026-10-27에 서버 ~/taehyeon/train_lora_a.py의 add_argument를 읽어 확인함. --help 실제 실행·타입 검사 방식은 미확인. B 스크립트도 인자 이름이 같다"

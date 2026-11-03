@@ -6,10 +6,12 @@ from pathlib import Path
 ap = argparse.ArgumentParser()
 ap.add_argument("--model", required=True); ap.add_argument("--data_dir", required=True); ap.add_argument("--prefix", required=True)
 ap.add_argument("--out", required=True); ap.add_argument("--lr", type=float, default=0.0); ap.add_argument("--epochs", type=int, default=0)
-ap.add_argument("--fail", action="store_true"); ap.add_argument("--wrong_base", action="store_true")
+ap.add_argument("--fail", action="store_true"); ap.add_argument("--dry_run", action="store_true"); ap.add_argument("--wrong_base", action="store_true")
 a = ap.parse_args()
 if a.fail:
     sys.exit(3)
+if a.dry_run:
+    print('dry_run ok'); sys.exit(0)      # 서버 스크립트처럼 학습·산출물 없이 점검만
 for s in ("train", "val"):
     assert (Path(a.data_dir) / f"{a.prefix}_{s}.jsonl").is_file()
 out = Path(a.out); out.mkdir(parents=True, exist_ok=True)

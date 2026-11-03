@@ -134,6 +134,32 @@ def script_hash_state(cfg: dict) -> tuple[str, str]:
     return "OK", f"{sp.name} sha256 일치"
 
 
+def declared_args(script: Path) -> set[str] | None:
+    """스크립트가 add_argument로 선언한 `--이름`을 코드를 실행하지 않고 읽는다(ast). 읽거나 해석하지 못하면 None.
+    왜 실행하지 않나: 서버 스크립트를 import하면 torch 적재와 부작용이 따른다. 정적으로 읽으면 GPU 없는 곳에서도 점검된다."""
+    import ast
+    try:
+        tree = ast.parse(script.read_text(encoding="utf-8"))
+    except (OSError, SyntaxError, UnicodeDecodeError):
+        return None
+    names = {a.value for n in ast.walk(tree) if isinstance(n, ast.Call) and getattr(n.func, "attr", "") == "add_argument"
+             for a in n.args if isinstance(a, ast.Constant) and isinstance(a.value, str) and a.value.startswith("--")}
+    return names or None
+
+
+def arg_compat(cfg: dict) -> tuple[str, str]:
+    """(상태, 설명). 상태: OK | MISMATCH | UNKNOWN. arg_map이 넘기는 인자(와 extra_args의 --이름)가 스크립트 선언에 있는지 본다."""
+    s = cfg["server"]
+    declared = declared_args(script_path(cfg)) if script_path(cfg).is_file() else None
+    if declared is None:
+        return "UNKNOWN", "스크립트에서 add_argument 선언을 읽지 못해 인자 호환을 확인하지 못했다"
+    used = {v for v in s.get("arg_map", {}).values() if v} | {x for x in s.get("extra_args", []) if isinstance(x, str) and x.startswith("--")}
+    miss = sorted(used - declared)
+    if miss:
+        return "MISMATCH", f"스크립트가 선언하지 않은 인자: {', '.join(miss)}. server.arg_map을 스크립트의 add_argument에 맞춘다"
+    return "OK", f"넘기는 인자 {len(used)}개가 모두 스크립트에 선언되어 있다"
+
+
 def check_ready(cfg: dict) -> None:
     sp = script_path(cfg)
     if not sp.is_file():
@@ -144,6 +170,9 @@ def check_ready(cfg: dict) -> None:
     st, why = script_hash_state(cfg)
     if st == "MISMATCH":
         raise PipelineError(why)
+    ast_, awhy = arg_compat(cfg)
+    if ast_ == "MISMATCH":
+        raise PipelineError(awhy)
     policy = cfg["output"].get("disk_policy", "block")
     if policy == "block":
         free, probe = disk_free_gb(cfg)
@@ -168,6 +197,10 @@ def run_train(cfg: dict, *, check_adapter, log=print) -> dict:
     r = subprocess.run(pl["command"], cwd=pl["cwd"])
     if r.returncode != 0:
         raise PipelineError(f"서버 학습 스크립트가 실패했다(종료 코드 {r.returncode}). 위 출력을 확인한다")
+    if cfg.get("hyperparams", {}).get("dry_run"):
+        # 왜: 서버 스크립트의 --dry_run은 학습 없이 점검만 하므로 어댑터가 없다. 어댑터 확인·기록을 하면 성공한 점검이 실패로 보인다(어댑터 없음).
+        log("서버 dry_run 완료(종료 코드 0). 학습하지 않았으므로 어댑터 확인과 기록은 건너뛴다")
+        return {"dry_run": True, "role": cfg["role"], "command": pl["command"], "exit_code": r.returncode}
     conf = verify_output(cfg, check_adapter)
     rec = write_record(cfg, pl, conf, r.returncode)
     log(f"완료: 어댑터 {pl['expected_adapter_dir']}, 기록 {pl['record_file']}")
@@ -265,6 +298,8 @@ def doctor(cfg: dict, *, profiles_dir: Path, cached_snapshot=None) -> list[tuple
     st, why = script_hash_state(cfg)
     out.append({"OK": ("OK", "서버 코드 해시", why), "UNSET": ("WARN", "서버 코드 해시", why),
                 "MISMATCH": ("FAIL", "서버 코드 해시", why), "UNREADABLE": ("WARN", "서버 코드 해시", why)}[st])
+    ast_, awhy = arg_compat(cfg)
+    out.append({"OK": ("OK", "서버 인자 호환", awhy), "MISMATCH": ("FAIL", "서버 인자 호환", awhy), "UNKNOWN": ("WARN", "서버 인자 호환", awhy)}[ast_])
     return out
 
 
