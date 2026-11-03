@@ -106,3 +106,13 @@ def test_https_call_trusts_private_root_via_ssl_cert_file_only(tmp_path, monkeyp
         assert items == ["pkg-a"] and nxt is None
     finally:
         srv.shutdown(); srv.server_close(); t.join(timeout=5)
+
+
+def test_client_rejects_plain_http_outside_loopback():
+    """계약 v3.4.1: 같은 기계(loopback) 밖의 http://는 생성 시 거부한다. 이 영역은 계약 클라이언트로만 다른 서비스를 부른다(직접 urllib 호출 없음)."""
+    spec = {"kind": "http", "base_url_env": "U", "token_env": "T", "timeout": 5}
+    env = {"T": "t" * 40}
+    with pytest.raises(ValueError):
+        factories.build_http("model_registry", spec, {**env, "U": "http://model-registry:8080"})
+    factories.build_http("model_registry", spec, {**env, "U": "http://127.0.0.1:8080"})
+    factories.build_http("model_registry", spec, {**env, "U": "https://model-registry:8443"})
