@@ -79,7 +79,7 @@ scripts/smoke_registry.sh
 
 시험 개수의 정본은 이 절이다. 다른 문서는 개수를 복사하지 않고 여기를 가리킨다.
 
-확인한 것(2026-10-28, 이웃 폴더와 `vendor/`가 없는 새 `git clone`, Linux, Python 3.12.3): `bash scripts/setup-env.sh`를 두 번 실행해 둘 다 종료 코드 0, 그 뒤 `.venv/bin/python -m pytest -q` 결과는 **196 통과 / 0 실패 / 0 건너뜀**이다. 문진 스키마는 `requirements.lock`의 `openit-survey-schema`(태그 설치)에서 읽는다(`tests/conftest.py`, `configs/dryrun.yaml`의 `installed:survey-schema`). 한 환경(이 PC의 새 clone)에서만 확인했다.
+확인한 것(2026-10-28, 이웃 폴더와 `vendor/`가 없는 새 `git clone`, Linux, Python 3.12.3): `bash scripts/setup-env.sh`를 두 번 실행해 둘 다 종료 코드 0, 그 뒤 `.venv/bin/python -m pytest -q` 통과·실패·건너뜀 수는 문서에 적지 않고 같은 명령의 출력 요약 줄로 센다(숫자를 적으면 시점이 어긋난다). 문진 스키마는 `requirements.lock`의 `openit-survey-schema`(태그 설치)에서 읽는다(`tests/conftest.py`, `configs/dryrun.yaml`의 `installed:survey-schema`). 한 환경(이 PC의 새 clone)에서만 확인했다.
 
 ## 이 영역의 열린 항목
 
@@ -107,7 +107,7 @@ scripts/smoke_registry.sh
 | `docs/design.md` | 내부 설계: 컴포넌트, 설정 스키마, 재현성, 평가 리포트, 패키징 |
 | `docs/runbook.md` | 환경 변수, 실행, GPU 호스트 절차, 학습 감싸기, 어댑터 얹기 |
 | `docs/STATUS.md` | 세션별 진행 기록(최신이 위) |
-| `docs/change-requests/` | 헤드에게 보낸 변경 요청 CR-L001~L008 |
+| `docs/change-requests/` | 헤드에게 보낸 변경 요청 CR-L001~L013 |
 | `docs/rules/` | 업무 규칙 문서. 모델·평가 코드는 읽지 않는다. v1 전용 4건은 `보관(v1)`(`manifest.yaml`의 `archived_v1`, 다음 릴리스에서 삭제, D99) |
 | `docs/base-model-comparison.md` | 기반 모델 후보 비교 참고 자료 (비교는 중단됨) |
 | `CHANGELOG.md` | 변경 이력 |
