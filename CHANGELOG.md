@@ -1,5 +1,8 @@
 # 변경 이력
 
+## 미배포 - gpu-dev가 서버 정본 스크립트를 로컬로 실행 (ADR 0032)
+- `model-lab fetch-train-script`, `configs/train-gpu-dev-{a,b}.yaml`, `configs/gpu-dev*.yaml` 역할에 `server_train_config`. 로컬 모드의 `output.server_out_dir`(어댑터 복사). `upload_root` 비었을 때 거부 메시지가 정할 것을 말함. 시험 `tests/test_gpu_dev_local_train.py`.
+
 ## 미배포 - G06 파이프라인 train 단계가 서버 정본 경로를 부른다 (ADR 0031)
 - `training.trainer`: `server`(기본)/`dry-run`. `hf` 폐기(설정 오류). transform이 서버 messages 형식 파일을 만들고, `wiring/server_trainer.py`가 올리기(rsync)+`run_train`. `dataset.upload_root`, `training.server_train_config` 추가. `TrainResult.steps` 선택. 시험 `tests/test_pipeline_server_train.py`.
 

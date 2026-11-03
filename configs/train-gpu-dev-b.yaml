@@ -1,0 +1,57 @@
+# gpu-dev(이 PC의 GPU, 12GB)에서 서버 정본 스크립트를 로컬로 실행하는 학습 설정 (G06, ADR 0032): LORA_B
+# server.ssh가 없다: 이 컴퓨터가 학습 서버 역할이다. 정본 스크립트는 `model-lab fetch-train-script --config configs/train-b.yaml`가 train-scripts/(git 밖)에 가져온다(sha256 일치할 때만).
+# 값은 profiles/gpu-dev-12g.yaml(1.5B 임시 기반 모델, 배치 1 x 누적 8, 학습률, 에폭 1)을 서버 스크립트의 인자로 옮긴 것이다.
+# [미확인] 12GB에서 이 값으로 서버 스크립트가 메모리에 들어가는지(스크립트는 bf16 전체 적재, 양자화 없음; 측정하지 않았다). 실제 학습은 돌리지 않았다.
+config_version: 1
+role: LORA_B
+server:
+  code_dir: ../train-scripts
+  scripts: {LORA_A: train_lora_a.py, LORA_B: train_lora_b.py}
+  python: python3                     # 학습 의존(torch 등)이 든 가상환경의 파이썬으로 바꾼다(requirements-train.txt). train-doctor가 없으면 FAIL로 알려 준다
+  require_gpu: true
+  args_verified: true
+  args_evidence: "configs/train-b.yaml와 같은 arg_map(2026-11-03 서버 스크립트 add_argument 15개와 일치 확인)"
+  script_sha256:
+    LORA_B: 11c385b6029302c4daa8efd6f2748539d5395dc4b6a3b0be32b7617ba2d98435   # configs/train-b.yaml와 같은 값
+  arg_map:
+    base_model: --model
+    dataset_dir: --data_dir
+    dataset_prefix: --prefix
+    output_dir: --out_dir
+    learning_rate: --lr
+    epochs: --epochs
+    per_device_batch_size: --batch
+    grad_accum_steps: --accum
+    max_len: --max_len
+    seed: --seed
+    lora_r: --rank
+    lora_alpha: --alpha
+    lora_dropout: --dropout
+    eval_steps: --eval_steps
+    dry_run: --dry_run
+base_model:
+  id: Qwen/Qwen2.5-1.5B-Instruct
+  revision: main
+  profile: gpu-dev-12g
+dataset:
+  dir: ../runs/gpu-dev-data           # 단독 실행용 자리표시. 파이프라인(run)은 변환 폴더로 덮어쓴다
+  prefix: lora_b
+  id: gpu-dev-fixture
+  version: v1
+hyperparams:
+  learning_rate: 0.0002
+  epochs: 1
+  per_device_batch_size: 1
+  grad_accum_steps: 8
+  max_len: 4096
+  seed: 42
+  lora_r: 16
+  lora_alpha: 32
+  lora_dropout: 0.05
+  eval_steps: 25
+  dry_run: false
+output:
+  server_out_dir: ../runs/train-gpu-dev/lora_b   # 서버 스크립트의 --out_dir(로컬). 어댑터는 그 아래 adapter/에 나와 adapter_dir로 복사된다
+  adapter_dir: ../runs/train-gpu-dev/lora_b-adapter
+  max_lora_rank: 16
+  min_free_gb: 10

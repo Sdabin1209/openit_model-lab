@@ -29,17 +29,31 @@ class ServerTrainer:
         base = load_train_config(path)
         if base["role"] != req["role"]:
             raise PipelineError(f"{path.name}의 role({base['role']})이 단계의 역할({req['role']})과 다르다")
+        local_data = Path(req["train_path"]).parent
         if not w.remote(base):
-            raise PipelineError("파이프라인의 서버 학습은 server.ssh가 필요하다(이 컴퓨터로 데이터를 옮겨 올리는 길이 없다)")
+            # 이 컴퓨터가 학습 서버다(gpu-dev: ssh 없음, 정본 스크립트는 fetch-train-script가 가져온 로컬 사본). 올릴 곳이 없으니 변환 폴더를 그대로 읽는다
+            cfg = load_train_config(path, {"dataset": {"dir": str(local_data), "id": self.dataset["id"], "version": self.dataset["version"]},
+                                           "output": {"adapter_dir": str(req["adapter_dir"]), "server_out_dir": str(Path(req["work_dir"]) / "server_out")}})
+            rec = run_train(cfg, log=self.log)
+            return self._result(rec, cfg)
         root, out0 = base["dataset"].get("upload_root"), base["output"].get("server_out_dir")
-        if not root or not out0:
-            raise PipelineError("dataset.upload_root(서버에 데이터를 올릴 허락된 폴더)와 output.server_out_dir가 학습 설정에 필요하다")
+        if not root:
+            raise PipelineError(
+                f"{path.name}: dataset.upload_root가 비어 있다. 사용자가 정해야 할 것: 학습 서버({w.remote(base)})에서 이 파이프라인이 데이터를 써도 되는 폴더. "
+                "그 경로를 dataset.upload_root에 적는다(예: ~/<본인 폴더>/openit-uploads). 데이터는 <upload_root>/<run_id>/<role>/ 아래에 올라가고 기존 기록은 건드리지 않는다. "
+                "서버에 올리지 않고 이 컴퓨터에서 실행하려면 server.ssh를 지운 설정(gpu-dev)을 쓴다")
+        if not out0:
+            raise PipelineError(f"{path.name}: output.server_out_dir(서버 쪽 출력 폴더)가 필요하다")
         # 왜 run_id를 경로에 넣나: 서버의 기존 기록·다른 실행과 겹치지 않고, 같은 입력의 재실행은 같은 폴더라 멱등이다
         dest = f"{root.rstrip('/')}/{self.run_id}/{req['role']}"
         cfg = load_train_config(path, {"dataset": {"dir": dest, "id": self.dataset["id"], "version": self.dataset["version"]},
                                        "output": {"adapter_dir": str(req["adapter_dir"]), "server_out_dir": f"{out0.rstrip('/')}/{self.run_id}"}})
-        self.upload(cfg, Path(req["train_path"]).parent, dest)
+        self.upload(cfg, local_data, dest)
         rec = run_train(cfg, log=self.log)
+        return self._result(rec, cfg)
+
+    @staticmethod
+    def _result(rec: dict, cfg: dict) -> dict:
         return {"resumed_from_step": 0, "base_model_revision": rec["base_model"]["requested_revision"], "library_versions": {},
                 "metrics": {"train_wrap_record": str(w.record_path(cfg)), "script_sha256": rec["server_script_sha256"]}}
 

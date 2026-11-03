@@ -1,4 +1,4 @@
-"""명령줄: model-lab run | run-once | status | package-adapters | train | train-doctor. 모든 동작은 설정 파일 하나가 정한다."""
+"""명령줄: model-lab run | run-once | status | package-adapters | train | train-doctor | fetch-train-script. 모든 동작은 설정 파일 하나가 정한다."""
 from __future__ import annotations
 
 import argparse
@@ -38,10 +38,19 @@ def main(argv=None) -> int:
     t = sub.add_parser("train", help="학습 서버의 정본 학습 스크립트를 감싸 실행한다(D78). --dry-run은 명령만 보여 준다")
     t.add_argument("--config", required=True, help="학습 설정(configs/train.yaml)")
     t.add_argument("--dry-run", action="store_true")
+    f = sub.add_parser("fetch-train-script", help="학습 서버의 정본 스크립트를 읽기만 해 로컬 폴더에 저장한다(sha256이 설정값과 같을 때만). gpu-dev가 로컬에서 정본을 실행하는 데 쓴다")
+    f.add_argument("--config", required=True, help="server.ssh와 script_sha256이 있는 학습 설정(configs/train.yaml)")
+    f.add_argument("--dest", default="train-scripts", help="저장할 폴더(기본 train-scripts/, git 밖)")
     d = sub.add_parser("train-doctor", help="학습을 돌릴 수 있는지 점검하고 해결 안내를 말한다")
     d.add_argument("--config", required=True)
     a = ap.parse_args(argv)
     try:
+        if a.cmd == "fetch-train-script":
+            from .components import server_train_wrap as w
+            from .wiring import train_flow as tw
+            saved = w.fetch_script(tw.load_train_config(a.config), Path(a.dest))
+            print(f"저장: {saved}")
+            return 0
         if a.cmd in ("train", "train-doctor"):
             from .wiring import train_flow as tw
             tcfg = tw.load_train_config(a.config)

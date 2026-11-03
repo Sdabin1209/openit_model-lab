@@ -87,8 +87,38 @@ def _srv(cfg: dict, key: str) -> str:
 
 
 def server_out_dir(cfg: dict) -> str:
-    """서버 스크립트에 --out_dir로 넘기는 값. 원격: output.server_out_dir(서버 쪽). 로컬: adapter_dir."""
-    return cfg["output"]["server_out_dir"] if remote(cfg) else str(adapter_dir(cfg))
+    """서버 스크립트에 --out_dir로 넘기는 값. 원격: output.server_out_dir(서버 쪽). 로컬: server_out_dir가 있으면 그 경로(설정 파일 기준 절대 경로로 풀어),
+    없으면 adapter_dir(이전 동작). 서버 스크립트는 어댑터를 <out_dir>/adapter/에 저장하므로 로컬에서 쓰려면 server_out_dir를 둔다(ADR 0032)."""
+    o = cfg["output"].get("server_out_dir")
+    if remote(cfg):
+        return o
+    return str(_p(cfg, o)) if o else str(adapter_dir(cfg))
+
+
+def copy_local_adapter(cfg: dict) -> None:
+    """로컬 실행: <server_out_dir>/adapter/를 adapter_dir로 복사한다(원격의 rsync에 해당). 같으면 아무것도 하지 않는다."""
+    if not cfg["output"].get("server_out_dir"):
+        return
+    src, dst = Path(server_out_dir(cfg)) / "adapter", adapter_dir(cfg)
+    if not src.is_dir():
+        raise PipelineError(f"서버 스크립트가 어댑터를 {src}에 만들지 않았다")
+    shutil.copytree(src, dst, dirs_exist_ok=True)
+
+
+def fetch_script(cfg: dict, dest: Path) -> Path:
+    """학습 서버의 정본 스크립트를 읽기만 해 dest에 저장한다. 설정의 script_sha256과 같을 때만 저장한다(다르면 아무것도 쓰지 않는다)."""
+    if not remote(cfg):
+        raise PipelineError("fetch-train-script는 server.ssh가 있는 설정(서버에서 가져올 설정)에 쓴다")
+    role, name = cfg["role"], cfg["server"]["scripts"][cfg["role"]]
+    st, why = script_hash_state(cfg)
+    if st != "OK":
+        raise PipelineError(f"저장하지 않았다. {why}")
+    data = script_bytes(cfg)
+    dest.mkdir(parents=True, exist_ok=True)
+    tmp = dest / (name + ".tmp")
+    tmp.write_bytes(data)
+    os.replace(tmp, dest / name)      # 왜 임시 파일: 중간에 끊겨도 반쪽 스크립트가 정본 이름으로 남지 않는다
+    return dest / name
 
 
 def server_out_abs(cfg: dict) -> str:
@@ -318,6 +348,8 @@ def run_train(cfg: dict, *, check_adapter, log=print) -> dict:
         return {"dry_run": True, "role": cfg["role"], "command": pl["command"], "exit_code": r.returncode}
     if remote(cfg):
         fetch_adapter(cfg, pl)
+    else:
+        copy_local_adapter(cfg)
     conf = verify_output(cfg, check_adapter)
     rec = write_record(cfg, pl, conf, r.returncode)
     log(f"완료: 어댑터 {pl['expected_adapter_dir']}, 기록 {pl['record_file']}")

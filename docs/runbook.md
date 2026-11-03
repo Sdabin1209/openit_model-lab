@@ -107,6 +107,8 @@ D22 (2): 서비스가 없는 run-once 잡이라 Dockerfile 없이 `requirements.
 
 ## 학습 실행 감싸기: 설정 + 명령 + doctor (D78, G06)
 
+**gpu-dev 로컬 실행(ADR 0032).** `model-lab fetch-train-script --config configs/train.yaml`와 `--config configs/train-b.yaml`로 정본 스크립트를 `train-scripts/`에 가져오고(해시가 같을 때만), `server.python`을 학습 의존이 든 가상환경으로 바꾼 뒤 `train-doctor --config configs/train-gpu-dev-a.yaml`로 점검한다. `configs/gpu-dev*.yaml`의 `run`은 이 설정으로 train 단계를 로컬 실행한다.
+
 **ssh 실행(ADR 0030).** 설정에 `server.ssh.host`가 있으면 `model-lab train`은 이 컴퓨터에서 `ssh <호스트>`로 서버의 정본 스크립트를 부르고(서버에서 `sha256sum -c`로 `server.script_sha256`을 확인한 뒤에만 실행), 끝나면 `<output.server_out_dir>/adapter/`를 `output.adapter_dir`로 rsync해 점검·기록한다. 그 폴더와 `*.train-wrap.json`이 `package-adapters` 입력이다. `script_sha256`이 비면 `train-doctor`가 FAIL하고 `ssh <호스트> cat`/`sha256sum`으로 채우는 방법을 출력한다. 서버 안에서 직접 돌리려면 `server.ssh`와 `output.server_out_dir`를 지운다. 이 길은 가짜 ssh로만 시험했다(`tests/test_train_ssh.py`).
 
 학습의 정본은 학습 서버의 코드(`train_lora_a.py`, `train_lora_b.py`)다. 이 리포지토리는 그 코드를 복사하지 않고 부르기만 한다. `components/lora_train_hf.py`(파이프라인용 사본)는 서버 정본과 다르므로 **서버와 같은 어댑터를 만들 수 없다**(비정본, 파이프라인 검증용).

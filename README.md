@@ -158,3 +158,4 @@ scripts/smoke_registry.sh
 | [0029](docs/adr/0029-서버-시계를-주입한다.md) | 서버의 시계와 sleep을 주입한다(시험에서 실제 시간 0) |
 | [0030](docs/adr/0030-train은-ssh로-서버-정본을-실행한다.md) | `train`은 ssh로 서버 정본을 해시 고정해 실행하고 자체 학습기는 폐기 표시 |
 | [0031](docs/adr/0031-파이프라인-train-단계는-서버-정본을-부른다.md) | 파이프라인 train 단계는 서버 정본 경로를 부르고 transform은 서버 형식을 만든다 |
+| [0032](docs/adr/0032-gpu-dev는-정본-스크립트를-로컬로-실행한다.md) | gpu-dev는 서버 정본 스크립트를 가져와(fetch-train-script) 이 PC에서 로컬 실행 |

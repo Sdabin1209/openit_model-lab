@@ -11,8 +11,8 @@ inputs:
   dataset_store: {kind: http, base_url_env: DATASET_STORE_URL, token_env: DATASET_STORE_TOKEN, timeout: 300}   # 같은 호스트 파일 읽기가 필요하면 factory: model_lab.components.link_dataset_read_file:file_dataset_store (로컬 개발용)
   failure_store: {factory: "boundary_contracts.clients:HttpFailureStore", args: {base_url_env: FAILURE_STORE_URL, token_env: FAILURE_STORE_TOKEN}}
 roles:
-  LORA_A: {package_id: lora-a-parser, system_prompt_file: ../prompts/lora_a.system.txt}
-  LORA_B: {package_id: lora-b-generator, system_prompt_file: ../prompts/lora_b.system.txt}
+  LORA_A: {package_id: lora-a-parser, system_prompt_file: ../prompts/lora_a.system.txt, training: {server_train_config: train-gpu-dev-a.yaml}}
+  LORA_B: {package_id: lora-b-generator, system_prompt_file: ../prompts/lora_b.system.txt, training: {server_train_config: train-gpu-dev-b.yaml}}
 serving:
   LORA_A: &serving
     prompt_template_version: prompt-4
