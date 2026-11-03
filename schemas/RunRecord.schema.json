@@ -107,6 +107,32 @@
     },
     "last_error": {
       "type": "object"
+    },
+    "decisions": {
+      "type": "object",
+      "description": "게시한 패키지에 대한 release-gate 판정(I4 find_decisions) 조회 결과. status: not_configured | none | found | unavailable",
+      "required": [
+        "status"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "not_configured",
+            "none",
+            "found",
+            "unavailable"
+          ]
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "code": {
+          "type": "string"
+        }
+      }
     }
   },
   "additionalProperties": false,

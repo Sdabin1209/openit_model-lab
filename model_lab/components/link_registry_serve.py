@@ -12,6 +12,7 @@ from collections import defaultdict, deque
 from pathlib import Path
 
 import waitress
+from prometheus_client import CollectorRegistry, Counter, generate_latest, CONTENT_TYPE_LATEST
 from boundary_contracts import BoundaryError
 from openit_link import App, Request, Response, Route
 from openit_link.server import REASON
@@ -195,9 +196,17 @@ def make_routes(svc: Service) -> list[Route]:
 def make_app(svc: Service):
     """WSGI 앱 = openit_link.App + 겉옷. 겉옷이 하는 일(서버별 방어, link 밖): 틀린 토큰이 쏟아질 때의 인증 실패 제한(503), 내부 오류를 503으로,
     요청 한 줄 로그. 연결 상한·timeout·본문 상한·스레드는 서버(waitress) 설정이 맡는다(ADR 0023)."""
-    app = App(make_routes(svc), svc.tokens(), ready=lambda: (lambda ok: (ok, {"status": "ready" if ok else "not-ready"}))(svc.ready()))
+    app = App(make_routes(svc), svc.tokens(), ready=lambda: (lambda ok: (ok, {"status": "ready" if ok else "not_ready"}))(svc.ready()))
+
+    # R10.11: /metrics는 Prometheus 표준 형식이고 인증이 없다(토큰이 와도 무시). 저장소가 멈춘 동안에도 200이어야 하므로 프로세스 안의 값만 낸다(저장소를 읽지 않는다)
+    mreg = CollectorRegistry()
+    requests_total = Counter("model_registry_http_requests_total", "처리한 HTTP 요청 수(상태 코드별)", ["status"], registry=mreg)
 
     def wsgi(environ, start_response):
+        if environ.get("PATH_INFO") == "/metrics" and environ.get("REQUEST_METHOD", "GET") == "GET":
+            body = generate_latest(mreg)
+            start_response("200 OK", [("Content-Type", CONTENT_TYPE_LATEST), ("Content-Length", str(len(body)))])
+            return [body]
         addr = environ.get("REMOTE_ADDR", "")
         svc.remote.addr = addr
         try:
@@ -212,6 +221,7 @@ def make_app(svc: Service):
         except Exception as e:   # 내부 오류는 원문 없이 503으로 알리고 로그에는 형식만 남긴다
             svc.log(f"내부 오류 {type(e).__name__}")
             status, headers, body = app._error(BoundaryError("UNAVAILABLE", "서비스 내부 오류"))
+        requests_total.labels(status=str(status)).inc()
         svc.log(f"{environ.get('REQUEST_METHOD')} {environ.get('PATH_INFO')} {status}")      # 경로만(쿼리·토큰 제외)
         start_response(f"{status} {REASON.get(status, 'Error')}", list(headers.items()))
         return [body] if isinstance(body, (bytes, bytearray)) else body

@@ -118,6 +118,18 @@
           "minLength": 1,
           "pattern": "^[^\\s']+$",
           "description": "server.ssh일 때 필수. 서버에서 쓰기를 허락받은 폴더(사용자 결정: ~/dabin 아래만). 정본 스크립트 사본(code/), TMPDIR, 실행 작업 폴더가 이 아래에 놓인다. ~/dabin 밖이면 doctor가 FAIL하고 train이 거부한다"
+        },
+        "pass_env": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]*$",
+            "not": {
+              "pattern": "_FILE$|TOKEN|SECRET|PASSWORD|KEY"
+            }
+          },
+          "description": "자식 프로세스(ssh, rsync, 학습)에 더 넘길 환경 변수 이름(RUNTIME R9.1: 기본은 PATH, HOME, LANG, LC_ALL, SSH_AUTH_SOCK뿐). 비밀 이름은 허용하지 않는다"
         }
       }
     },

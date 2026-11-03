@@ -45,6 +45,9 @@ echo "healthz: $(curl -fsS "$URL/healthz")"
 echo "readyz: $(curl -fsS "$URL/readyz")"
 echo "user: $(docker exec "$NAME" id -u)"
 echo "labels: $(docker inspect -f '{{json .Config.Labels}}' "$TAG")"
+# RUNTIME R10.11: /metrics는 인증 없이 200 Prometheus 텍스트
+[ "$(curl -s -o /dev/null -w '%{http_code}' "$URL/metrics")" = 200 ]
+curl -fsS "$URL/metrics" | grep -q model_registry_http_requests_total
 # 읽기 토큰 없이는 401, 있으면 200
 [ "$(curl -s -o /dev/null -w '%{http_code}' "$URL/v1/packages")" = 401 ]
 [ "$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $RT" "$URL/v1/packages")" = 200 ]

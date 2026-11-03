@@ -66,6 +66,6 @@ class ServerTrainer:
         r = w.ssh_run(cfg, "mkdir -p " + w._rq(dest))
         if r.returncode != 0:
             raise PipelineError(f"서버에 {dest}를 만들지 못했다(종료 코드 {r.returncode}). dataset.upload_root가 쓰기 허락된 폴더인지 확인한다")
-        r = subprocess.run(["rsync", "-a", "-e", shlex.join(["ssh", *w.SSH_OPTS]), str(local) + "/", f"{w.remote(cfg)}:{dest}/"])
+        r = subprocess.run(["rsync", "-a", "-e", shlex.join(["ssh", *w.SSH_OPTS]), str(local) + "/", f"{w.remote(cfg)}:{dest}/"], env=w.child_env(cfg))
         if r.returncode != 0:
             raise PipelineError(f"데이터를 서버로 올리지 못했다(rsync 종료 코드 {r.returncode}): {dest}")

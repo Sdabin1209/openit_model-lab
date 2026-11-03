@@ -1,6 +1,8 @@
 """어댑터 얹기: 어댑터 두 디렉터리 + 시스템 프롬프트 두 개 + 프로파일 -> 패키지 -> 게시 (`model-lab package-adapters`).
 가짜 어댑터(작은 safetensors 파일)로 시험한다. 학습 서버에는 닿지 않는다."""
 import json
+import tempfile
+from pathlib import Path
 
 import pytest
 import yaml
@@ -11,9 +13,13 @@ from model_lab.cli import main as cli_main
 from model_lab.wiring.errors import ConfigError, PipelineError
 from model_lab.components.model_registry import FileModelRegistry
 from tests.conftest import ROOT, SCHEMA_DIR
+from tests.doubles.fixtures import build_dataset
 
 H = "sha256:" + "b" * 64
-DS = {"id": "openit-dataset", "version": "v1", "content_hash": H}
+# 어댑터를 학습한 데이터셋: 실제 저장소 매니페스트(문항 세트가 lineage.question_sets가 된다)
+_DS_ROOT = Path(tempfile.mkdtemp(prefix="attach-ds-"))
+_DM = build_dataset(_DS_ROOT, "openit-dataset", "v1")
+DS = {"id": "openit-dataset", "version": "v1", "content_hash": _DM["content_hash"]}
 BASE = "Qwen/Qwen2.5-1.5B-Instruct"        # profiles/gpu-dev-12g.yaml의 기반 모델
 
 
@@ -31,7 +37,7 @@ def setup(tmp_path):
     for k in ("base_model", "training"):
         raw.pop(k)
     raw["inputs"]["schema_dir"] = str(SCHEMA_DIR)
-    raw["inputs"]["dataset_store"]["args"]["root"] = str(tmp_path)
+    raw["inputs"]["dataset_store"]["args"]["root"] = str(_DS_ROOT)
     for r in raw["roles"].values():
         r["system_prompt_file"] = str((ROOT / "configs" / r["system_prompt_file"]).resolve())
     raw["registry"] = {"kind": "file", "path": str(tmp_path / "registry")}

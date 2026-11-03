@@ -156,6 +156,64 @@
               "type": "object"
             }
           }
+        },
+        "release_reader": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "factory"
+              ],
+              "properties": {
+                "factory": {
+                  "type": "string",
+                  "pattern": "^[\\w.]+:\\w+$"
+                },
+                "args": {
+                  "type": "object"
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind"
+              ],
+              "properties": {
+                "kind": {
+                  "const": "http"
+                },
+                "base_url": {
+                  "type": "string"
+                },
+                "base_url_env": {
+                  "type": "string"
+                },
+                "token_env": {
+                  "type": "string"
+                },
+                "timeout": {
+                  "type": "number",
+                  "exclusiveMinimum": 0
+                }
+              },
+              "anyOf": [
+                {
+                  "required": [
+                    "base_url"
+                  ]
+                },
+                {
+                  "required": [
+                    "base_url_env"
+                  ]
+                }
+              ]
+            }
+          ],
+          "description": "선택. release-gate I4 읽기(판정 조회 find_decisions). 있으면 게시한 패키지의 판정을 run 기록(decisions)에 넣는다. 제출은 하지 않는다(model-lab에는 제출 권한이 없다)"
         }
       }
     },

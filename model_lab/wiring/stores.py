@@ -22,3 +22,13 @@ def make_registry(cfg: dict):
     if spec["kind"] == "http":
         return factories.build_http("model_registry", spec)
     return factories.build(spec)
+
+
+def make_release_reader(cfg: dict):
+    """release-gate 판정 조회(I4). 설정에 없으면 None(판정 조회를 하지 않는다)."""
+    spec = cfg["inputs"].get("release_reader")
+    if not spec:
+        return None
+    if spec.get("kind") == "http":
+        return factories.build_http("release_reader", spec)
+    return factories.build(spec)

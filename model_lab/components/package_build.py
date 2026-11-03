@@ -1,6 +1,8 @@
 """모델 패키저: 어댑터 + 서빙 설정 + 계보 -> ModelPackageManifest(역할별 하나)."""
 from __future__ import annotations
 
+from boundary_contracts import BoundaryError
+
 import re
 from pathlib import Path
 
@@ -24,6 +26,8 @@ def training_question_sets(dataset_manifest: dict, role: str) -> list[dict]:
         if f["role"] == role and f["split"] in ("TRAIN", "VALIDATION"):
             for r in f.get("question_sets") or dataset_manifest["question_sets"]:
                 refs[(r["id"], r["version"])] = dict(r)
+    if not refs:      # 계약: lineage.question_sets는 게시할 때 반드시 채운다(1개 이상). 비면 게이트가 대조할 수 없어 FAIL이므로 게시하지 않는다
+        raise BoundaryError("INVALID_RECORD", f"{role}: 학습에 쓴 문항 세트를 데이터셋 매니페스트에서 찾지 못했다(lineage.question_sets를 채울 수 없다)")
     return [refs[k] for k in sorted(refs)]
 
 

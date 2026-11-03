@@ -23,6 +23,7 @@ from ..config import load_config, load_profile
 from . import schemas
 from .errors import ConfigError, PipelineError
 from .settings import ROLES, contract_version as _contract_version, deep_merge, resolved_path
+from .stores import make_dataset_store
 
 
 # 왜: created_at이 content_hash에 들어가므로 파일 시스템 mtime(복사 방식에 따라 달라짐)에서 읽으면 같은 내용이 다른 패키지가 되어
@@ -47,10 +48,11 @@ def resolve_created_at(created_at: str | None, environ=os.environ) -> str:
 def package_adapters(*, config: str | Path, adapters: dict, prompts: dict, out: Path, profile: str | None = None,
                      dataset: dict, training_run_id: str | None = None, version: str | None = None,
                      base_revision: str | None = None, created_at: str | None = None, registry=None, publish: bool = True,
-                     train_records: dict | None = None) -> dict:
+                     train_records: dict | None = None, dataset_store=None) -> dict:
     """adapters, prompts: {"LORA_A": 경로, "LORA_B": 경로}. dataset: {id, version, content_hash} (어댑터를 학습한 데이터셋).
     train_records: {"LORA_A": 경로, ...} `train`이 쓴 학습 기록(선택). 있으면 어댑터·데이터셋·기반 모델과 대조해 계보(`ext."model-lab".lineage`)로
     패키지에 넣는다. 없는 역할은 계보가 비어 있다는 경고를 결과의 `warnings`에 남긴다(ML-5; 계약의 정식 필드 승격은 변경 요청 몫).
+    dataset_store: 데이터셋 매니페스트를 읽을 저장소(없으면 설정의 inputs.dataset_store). 매니페스트의 문항 세트가 lineage.question_sets가 된다(계약: 게시할 때 반드시 채운다).
     out: 패키지(매니페스트·평가 보고서·어댑터)를 쓸 디렉터리. publish=True면 설정의 registry(또는 인자)에 게시한다."""
     cfg = load_config(config)
     if profile:
@@ -81,6 +83,10 @@ def package_adapters(*, config: str | Path, adapters: dict, prompts: dict, out: 
         else:
             lineage[r] = {"train_record_sha256": None}
             warnings[r] = ["학습 기록이 없어 계보(서버 스크립트 해시, 데이터 파일 해시, 하이퍼파라미터)가 패키지에 들어가지 않는다. `train`이 쓴 *.train-wrap.json을 --train-record-*로 준다"]
+    # lineage.question_sets: 어댑터를 학습한 데이터셋의 문항 세트. 저장소의 매니페스트가 정본이고 내용 해시가 주어진 데이터셋과 같아야 한다(다르면 계보가 거짓이 된다)
+    dm = (dataset_store or make_dataset_store(cfg)).get_manifest(dataset["id"], dataset["version"])
+    if dm["content_hash"] != dataset["content_hash"]:
+        raise PipelineError(f"데이터셋 {dataset['id']}@{dataset['version']}의 저장소 content_hash가 --dataset-hash와 다르다. 어댑터를 학습한 데이터셋의 저장소 매니페스트 해시를 준다")
     contract_version = _contract_version(resolved_path(cfg, cfg["inputs"]["schema_dir"]))
     out = Path(out)
     result = {}
@@ -102,7 +108,7 @@ def package_adapters(*, config: str | Path, adapters: dict, prompts: dict, out: 
         pid = cfg["roles"][r]["package_id"]
         m = packager.build_manifest(
             role=r, system_prompt=sp, package_id=pid, version=ver, created_at=created, contract_version=contract_version,
-            base_model=base, adapter_dir=ad, serving_config=cfg["serving"][r], dataset_ref=dataset, dataset_manifest={"files": []},
+            base_model=base, adapter_dir=ad, serving_config=cfg["serving"][r], dataset_ref=dataset, dataset_manifest=dm,
             run_id=run_id,
             ext={"attached": True, "trainer": "external", "adapter_config_r": confs[r].get("r"),
                                 "evaluated": False, "lineage": lineage[r]})

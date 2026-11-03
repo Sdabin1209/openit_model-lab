@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Literal, TypeAlias
 
 from typing_extensions import NotRequired, TypedDict
 
@@ -22,6 +22,9 @@ class Ssh(TypedDict, closed=True):
     host: str
 
 
+PassEnvItem: TypeAlias = str
+
+
 class Server(TypedDict, closed=True):
     code_dir: str
     scripts: Scripts
@@ -35,6 +38,7 @@ class Server(TypedDict, closed=True):
     python_modules: NotRequired[list[str]]
     ssh: NotRequired[Ssh]
     sandbox_root: NotRequired[str]
+    pass_env: NotRequired[list[PassEnvItem]]
 
 
 class BaseModel(TypedDict, closed=True):

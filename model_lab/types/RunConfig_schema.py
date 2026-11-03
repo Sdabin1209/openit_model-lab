@@ -50,12 +50,34 @@ class FailureStore(TypedDict, closed=True):
     args: NotRequired[dict[str, Any]]
 
 
+class ReleaseReader(TypedDict, closed=True):
+    factory: str
+    args: NotRequired[dict[str, Any]]
+
+
+class ReleaseReader1(TypedDict, closed=True):
+    kind: Literal['http']
+    base_url: str
+    base_url_env: NotRequired[str]
+    token_env: NotRequired[str]
+    timeout: NotRequired[float]
+
+
+class ReleaseReader2(TypedDict, closed=True):
+    kind: Literal['http']
+    base_url: NotRequired[str]
+    base_url_env: str
+    token_env: NotRequired[str]
+    timeout: NotRequired[float]
+
+
 class Inputs(TypedDict, closed=True):
     schema_dir: str
     dataset: Dataset
     dataset_store: DatasetStore | DatasetStore1 | DatasetStore2
     question_reader: NotRequired[QuestionReader]
     failure_store: NotRequired[FailureStore]
+    release_reader: NotRequired[ReleaseReader | ReleaseReader1 | ReleaseReader2]
 
 
 class BaseModel(TypedDict, closed=True):

@@ -280,29 +280,50 @@ class FileModelRegistry(_Core):
         return p.read_bytes() if p.is_file() else None
 
     def _s_commit(self, manifest, adapter_dir, ref, report, publisher=None):
+        """전부 저장되거나 아무것도 저장되지 않는다(RUNTIME R10.8). 매니페스트가 마지막 쓰기라 그것이 있어야 게시된 것이고,
+        그 앞의 쓰기가 실패하면 이번 호출이 만든 것만 되돌려 읽히는 흔적(평가 리포트·ID 목록·버전 순서·어댑터 폴더)을 남기지 않는다."""
         pid, ver = manifest["package_id"], manifest["version"]
         final = self.root / "adapters" / pid / ver
         tmp = self.root / "adapters" / pid / f".tmp-{ver}"
-        if tmp.exists():
-            shutil.rmtree(tmp)
-        if final.exists():          # 매니페스트 없는 잔해(이전 게시 중단)
-            shutil.rmtree(final)
-        _copy_tree(adapter_dir, tmp, link=self.link_on_commit)
-        os.replace(tmp, final)
-        self._atomic_write(self.root / "eval_reports" / ref, report)
-        ids = self._read_json(self.root / "ids.json", [])
-        if pid not in ids:
-            ids.append(pid)
-            self._atomic_write(self.root / "ids.json", json.dumps(ids).encode())
-        order = self._read_json(self._order(pid), [])
-        if ver not in order:        # 중단 뒤 재시도(ML-3): 이미 order에 있으면 다시 넣지 않는다
-            order.append(ver)
-            self._atomic_write(self._order(pid), json.dumps(order).encode())
-        if publisher:
-            self._atomic_write(self.root / "manifests" / pid / f"{ver}.published.json",
-                               json.dumps({**publisher, "content_hash": manifest["content_hash"]}, ensure_ascii=False, sort_keys=True).encode())
-        # 매니페스트가 마지막 쓰기다. 이것이 있어야 게시된 것이다.
-        self._atomic_write(self._mpath(pid, ver), canonical.canonicalize(manifest))
+        undo: list = []
+        try:
+            if tmp.exists():
+                shutil.rmtree(tmp)
+            if final.exists():          # 매니페스트 없는 잔해(이전 게시 중단)
+                shutil.rmtree(final)
+            _copy_tree(adapter_dir, tmp, link=self.link_on_commit)
+            os.replace(tmp, final)
+            undo.append(lambda: shutil.rmtree(final, ignore_errors=True))
+            rpath = self.root / "eval_reports" / ref
+            if not rpath.exists():
+                undo.append(lambda: rpath.unlink(missing_ok=True))
+            self._atomic_write(rpath, report)
+            ids = self._read_json(self.root / "ids.json", [])
+            if pid not in ids:
+                before = json.dumps(ids).encode()
+                ids.append(pid)
+                self._atomic_write(self.root / "ids.json", json.dumps(ids).encode())
+                undo.append(lambda: self._atomic_write(self.root / "ids.json", before))
+            order = self._read_json(self._order(pid), [])
+            if ver not in order:        # 중단 뒤 재시도(ML-3): 이미 order에 있으면 다시 넣지 않는다
+                before_o = json.dumps(order).encode()
+                order.append(ver)
+                self._atomic_write(self._order(pid), json.dumps(order).encode())
+                undo.append(lambda: self._atomic_write(self._order(pid), before_o))
+            if publisher:
+                pub = self.root / "manifests" / pid / f"{ver}.published.json"
+                undo.append(lambda: pub.unlink(missing_ok=True))
+                self._atomic_write(pub, json.dumps({**publisher, "content_hash": manifest["content_hash"]}, ensure_ascii=False, sort_keys=True).encode())
+            # 매니페스트가 마지막 쓰기다. 이것이 있어야 게시된 것이다.
+            self._atomic_write(self._mpath(pid, ver), canonical.canonicalize(manifest))
+        except BaseException:
+            for u in reversed(undo):
+                try:
+                    u()
+                except OSError:      # 되돌리기도 실패하면(디스크 문제) 남은 흔적은 서비스 시작 때 recover가 지운다
+                    pass
+            shutil.rmtree(tmp, ignore_errors=True)
+            raise
 
     def _s_ids(self): return self._read_json(self.root / "ids.json", [])
 

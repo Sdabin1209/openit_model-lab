@@ -89,7 +89,7 @@ def main(argv=None) -> int:
             run = Run(cfg)
             print(json.dumps({"run_id": run.run_id, "stages": {k: v.get("status") if isinstance(v, dict) else v
                                                                 for k, v in run.rec["stages"].items()},
-                              "result": run.rec["result"]}, ensure_ascii=False, indent=2))
+                              "result": run.rec["result"], "decisions": run.rec.get("decisions")}, ensure_ascii=False, indent=2))
         return 0
     except BoundaryError as e:
         print(f"경계 오류 {e.code} (retryable={e.retryable}): {e.message}", file=sys.stderr)

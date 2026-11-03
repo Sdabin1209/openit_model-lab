@@ -1,12 +1,14 @@
 {
   "service": "model-registry",
+  "egress": ["dataset-store", "question-authoring", "ops-feedback", "release-gate"],
   "routes": [
     {
       "paths": ["/v1/packages"],
       "methods": ["POST"],
       "auth": {"kind": "machine-token"},
       "upstream_token": "model-registry-write-model-lab",
-      "user_header": "strip"
+      "user_header": "strip",
+      "max_body_bytes": 4294967296
     },
     {
       "paths": ["/v1/packages"],
@@ -14,7 +16,7 @@
       "auth": {"kind": "denied"}
     },
     {
-      "paths": ["/v1/packages/*", "/v1/eval-reports/*", "/healthz", "/readyz"],
+      "paths": ["/v1/packages/*", "/v1/eval-reports/*", "/healthz", "/readyz", "/metrics"],
       "auth": {"kind": "denied"}
     }
   ]

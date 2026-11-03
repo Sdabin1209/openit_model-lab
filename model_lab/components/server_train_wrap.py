@@ -65,6 +65,16 @@ SSH_LONG_OPTS = ["-o", "ServerAliveInterval=60"]
 SANDBOX_PREFIX = "~/dabin/"
 
 
+# RUNTIME R9.1: 상속받은 환경 변수를 통째로 자식 프로세스(ssh, rsync, 학습 스크립트)에 넘기지 않는다. 기본 허용 목록은 실행에 꼭 필요한 이름뿐이다
+# (PATH: 실행 파일 찾기, HOME: ssh 설정·키, SSH_AUTH_SOCK: 키 에이전트, LANG/LC_ALL: 출력 인코딩). 더 필요하면 설정 server.pass_env에 이름을 적는다(값은 환경에서 읽는다).
+DEFAULT_PASS_ENV = ("PATH", "HOME", "LANG", "LC_ALL", "SSH_AUTH_SOCK")
+
+
+def child_env(cfg: dict | None = None) -> dict:
+    names = (*DEFAULT_PASS_ENV, *((cfg or {}).get("server", {}).get("pass_env", [])))
+    return {k: os.environ[k] for k in names if k in os.environ}
+
+
 def remote(cfg: dict) -> str | None:
     """ssh 호스트(~/.ssh/config의 이름). 없으면 이 컴퓨터가 학습 서버다."""
     return (cfg["server"].get("ssh") or {}).get("host")
@@ -83,7 +93,7 @@ def _rjoin(argv: list[str]) -> str:
 
 def ssh_run(cfg: dict, remote_cmd: str, *, binary=False, timeout=60) -> subprocess.CompletedProcess:
     """원격 명령을 한 번 실행한다. 종료 코드 255는 ssh 연결 실패다."""
-    return subprocess.run(["ssh", *SSH_OPTS, remote(cfg), remote_cmd], capture_output=True, text=not binary, timeout=timeout)
+    return subprocess.run(["ssh", *SSH_OPTS, remote(cfg), remote_cmd], capture_output=True, text=not binary, timeout=timeout, env=child_env(cfg))
 
 
 def _srv(cfg: dict, key: str) -> str:
@@ -127,7 +137,7 @@ def gpu_busy_state(cfg: dict) -> tuple[str, str]:
             exe = shutil.which("nvidia-smi")
             if not exe:
                 return "UNKNOWN", "nvidia-smi가 없다"
-            r = subprocess.run([exe, *q.split()[1:]], capture_output=True, text=True, timeout=15)
+            r = subprocess.run([exe, *q.split()[1:]], capture_output=True, text=True, timeout=15, env=child_env(cfg))
     except (OSError, subprocess.SubprocessError):
         return "UNKNOWN", "GPU 사용 프로세스를 조회하지 못했다"
     if r.returncode != 0:
@@ -323,7 +333,7 @@ def gpu_state() -> tuple[bool, str]:
     exe = shutil.which("nvidia-smi")
     if exe:
         try:
-            r = subprocess.run([exe, "-L"], capture_output=True, text=True, timeout=15)
+            r = subprocess.run([exe, "-L"], capture_output=True, text=True, timeout=15, env=child_env())
             if r.returncode == 0 and r.stdout.strip():
                 return True, r.stdout.strip().splitlines()[0][:80]
         except (OSError, subprocess.SubprocessError):
@@ -442,7 +452,7 @@ def run_train(cfg: dict, *, check_adapter, log=print) -> dict:
     check_ready(cfg)
     pl = plan(cfg)
     log("실행: " + pl["command_line"])
-    r = subprocess.run(pl["command"], cwd=None if remote(cfg) else pl["cwd"])
+    r = subprocess.run(pl["command"], cwd=None if remote(cfg) else pl["cwd"], env=child_env(cfg))
     if r.returncode == 255 and remote(cfg):
         raise PipelineError(f"ssh {remote(cfg)} 연결에 실패했거나 끊겼다(종료 코드 255). 서버에서 학습이 이어졌는지 확인한다: 학습은 서버에서 계속될 수 있다")
     if r.returncode != 0:
@@ -468,7 +478,7 @@ def fetch_adapter(cfg: dict, pl: dict) -> None:
     이후 단계(package-adapters)는 이 로컬 폴더를 입력으로 받는다."""
     dst = adapter_dir(cfg)
     dst.mkdir(parents=True, exist_ok=True)
-    r = subprocess.run(["rsync", "-a", "-e", shlex.join(["ssh", *SSH_OPTS]), pl["fetch_from"], str(dst) + "/"])
+    r = subprocess.run(["rsync", "-a", "-e", shlex.join(["ssh", *SSH_OPTS]), pl["fetch_from"], str(dst) + "/"], env=child_env(cfg))
     if r.returncode != 0:
         raise PipelineError(f"서버의 어댑터를 가져오지 못했다(rsync 종료 코드 {r.returncode}): {pl['fetch_from']}. 서버에 어댑터가 있으면 같은 rsync를 손으로 다시 실행한다")
 
@@ -560,7 +570,7 @@ def doctor(cfg: dict, *, profiles_dir: Path, cached_snapshot=None) -> list[tuple
     py = s.get("python", "python3")
     code = "import importlib.util as u,sys;print(' '.join(m for m in sys.argv[1:] if u.find_spec(m) is None))"
     try:
-        r = (ssh_run(cfg, _rjoin([py, "-c", code, *mods])) if remote(cfg) else subprocess.run([py, "-c", code, *mods], capture_output=True, text=True, timeout=60))
+        r = (ssh_run(cfg, _rjoin([py, "-c", code, *mods])) if remote(cfg) else subprocess.run([py, "-c", code, *mods], capture_output=True, text=True, timeout=60, env=child_env(cfg)))
         if r.returncode != 0:
             out.append(("FAIL", "파이썬 의존", f"{py}를 실행하지 못했다. server.python을 고친다"))
         elif r.stdout.strip():

@@ -62,7 +62,8 @@ def srv(tmp_path, monkeypatch):
     monkeypatch.setenv("FAKE_LOG", str(log)); monkeypatch.setenv("FAKE_HOME", str(home))
     raw = yaml.safe_load((ROOT / "configs" / "train.yaml").read_text())
     raw["server"].update(code_dir="~/taehyeon", scripts={"LORA_A": "fake_server_train.py", "LORA_B": "fake_server_train.py"},
-                         script_sha256={"LORA_A": sha}, python="python3", require_gpu=True, python_modules=["json"], sandbox_root="~/dabin/openit-model-lab")
+                         script_sha256={"LORA_A": sha}, python="python3", require_gpu=True, python_modules=["json"], sandbox_root="~/dabin/openit-model-lab",
+                         pass_env=["FAKE_LOG", "FAKE_HOME", "FAKE_NO_GPU", "FAKE_GPU_BUSY", "FAKE_DOWN"])   # R9.1: 가짜 서버가 읽는 이름만 명시
     raw["server"]["arg_map"] = {k: None for k in raw["server"]["arg_map"]}
     raw["server"]["arg_map"].update(base_model="--model", dataset_dir="--data_dir", dataset_prefix="--prefix", output_dir="--out",
                                     learning_rate="--lr", epochs="--epochs")
@@ -240,3 +241,20 @@ def test_low_server_disk_refuses_and_doctor_fails(srv, capsys):
     assert {n: st for st, n, m in tw.doctor(tw.load_train_config(write()))}["서버 디스크"] == "FAIL"     # 예상 크기가 없으면 확인할 수 없어 거부
     raw["output"]["expected_gb"] = {"upload": 0.1, "output": 1, "model_download": 1}
     assert {n: st for st, n, m in tw.doctor(tw.load_train_config(write()))}["서버 디스크"] == "OK"
+
+
+# ---- RUNTIME R9.1: 상속받은 환경을 통째로 넘기지 않는다 ----
+def test_child_processes_get_only_the_allowed_environment(srv, tmp_path, monkeypatch):
+    raw, write, calls, home, sha = srv
+    dump = tmp_path / "env-seen.json"
+    spy = tmp_path / "bin" / "ssh"
+    spy.write_text(f"#!{sys.executable}\nimport json, os\njson.dump(sorted(os.environ), open({str(dump)!r}, 'w'))\n")
+    spy.chmod(0o755)
+    monkeypatch.setenv("SOME_SECRET_VALUE", "s3cr3t")
+    monkeypatch.setenv("FAKE_LOG", str(tmp_path / "calls.jsonl"))
+    monkeypatch.setenv("UNLISTED_VAR", "x")
+    from model_lab.components import server_train_wrap as w
+    w.ssh_run(tw.load_train_config(write()), "true")
+    seen = set(json.loads(dump.read_text()))
+    assert "PATH" in seen and "FAKE_LOG" in seen                      # 허용 목록(기본 + server.pass_env)
+    assert "SOME_SECRET_VALUE" not in seen and "UNLISTED_VAR" not in seen

@@ -77,3 +77,20 @@ def test_declared_methods_cover_the_real_ones(server):
     assert {"GET", "POST"} <= methods                              # 서버가 GET(조회)과 POST(게시)를 받는다
     status, body = call(server + "/v1/packages", "PUT", "wt")
     assert status == 405                                          # PUT 등은 서버도 거절한다(link 규약: 405 + Allow. 이전에는 404였다). 표는 그래도 denied라 노출 없음
+
+
+def test_egress_lists_exactly_the_neighbours_model_lab_calls_per_interfaces():
+    """CONVENTIONS 13절, RUNTIME R1.8: 영역이 부르는 상대 전부. INTERFACES 한눈에 표에서 model-lab이 읽는 I2·I1·I7·I4. I9(추론 서버)는 HTTP로 부르지 않는다(3.4.6)."""
+    ex = load()
+    assert sorted(ex["egress"]) == ["dataset-store", "ops-feedback", "question-authoring", "release-gate"]
+    assert "model-serving" not in ex["egress"] and "model-registry" not in ex["egress"]
+    assert any("/metrics" in r["paths"] and r["auth"]["kind"] == "denied" for r in ex["routes"])     # R10.11: /metrics는 바깥 입구에 열지 않는다
+
+
+def test_publish_route_declares_the_body_limit_the_service_enforces():
+    """RUNTIME R10.13, Exposure.max_body_bytes(3.4.7): 게이트웨이가 413을 낼 상한 = 서비스의 MODEL_REGISTRY_MAX_BODY 기본값(4GiB, ADR 0007·0034), 8GiB 이하."""
+    import boundary_contracts, json as _j, os
+    env = _j.load(open(os.path.join(os.path.dirname(boundary_contracts.__file__), "schemas", "ModelRegistryEnv.schema.json"), encoding="utf-8"))
+    default = int(env["properties"]["MODEL_REGISTRY_MAX_BODY"]["default"])
+    pub = [r for r in load()["routes"] if r["auth"]["kind"] == "machine-token"][0]
+    assert pub["max_body_bytes"] == default == 4 << 30 and pub["max_body_bytes"] <= 8 << 30

@@ -19,6 +19,12 @@ class Result(TypedDict, closed=True):
     packages: dict[str, Any]
 
 
+class Decisions(TypedDict):
+    status: Literal['not_configured', 'none', 'found', 'unavailable']
+    items: NotRequired[list[dict[str, Any]]]
+    code: NotRequired[str]
+
+
 class RunRecord(TypedDict, closed=True):
     run_id: str
     run_key: str
@@ -36,3 +42,4 @@ class RunRecord(TypedDict, closed=True):
     ]
     result: Result | None
     last_error: NotRequired[dict[str, Any]]
+    decisions: NotRequired[Decisions]

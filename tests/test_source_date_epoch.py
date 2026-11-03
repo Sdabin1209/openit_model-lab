@@ -8,7 +8,7 @@ import pytest
 from model_lab.wiring.attach_flow import package_adapters
 from model_lab.cli import main as cli_main
 from model_lab.wiring.errors import ConfigError
-from tests.test_attach import setup  # noqa: F401  (fixture)
+from tests.test_attach import DS, setup  # noqa: F401  (fixture)
 
 
 def created(kw, role="LORA_A"):
@@ -55,7 +55,7 @@ def test_cli_follows_the_same_priority(setup, monkeypatch, capsys):
     argv = ["package-adapters", "--config", str(kw["config"]), "--profile", "gpu-dev-12g",
             "--adapter-a", str(kw["adapters"]["LORA_A"]), "--adapter-b", str(kw["adapters"]["LORA_B"]),
             "--prompt-a", str(kw["prompts"]["LORA_A"]), "--prompt-b", str(kw["prompts"]["LORA_B"]),
-            "--dataset-id", "openit-dataset", "--dataset-version", "v1", "--dataset-hash", "sha256:" + "b" * 64,
+            "--dataset-id", "openit-dataset", "--dataset-version", "v1", "--dataset-hash", DS["content_hash"],
             "--out", str(kw["out"]), "--no-publish"]
     monkeypatch.delenv("SOURCE_DATE_EPOCH", raising=False)
     assert cli_main(argv) == 2

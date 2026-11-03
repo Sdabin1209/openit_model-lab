@@ -9,9 +9,8 @@ import os
 from typing import Mapping
 
 from boundary_contracts import SecretError, read_secret
-from boundary_contracts.clients import egress_proxy_from
 
-from ..components import link_dataset_fetch, link_failure_read, link_registry_publish
+from ..components import link_dataset_fetch, link_failure_read, link_egress, link_registry_publish, link_release_read
 from .errors import ConfigError, PipelineError
 
 HTTP_CLIENTS = {
@@ -19,6 +18,7 @@ HTTP_CLIENTS = {
     "dataset_store": "boundary_contracts.clients:HttpDatasetStore",
     "question_reader": "boundary_contracts.clients:HttpQuestionReader",
     "failure_store": "boundary_contracts.clients:HttpFailureStore",
+    "release_reader": "boundary_contracts.clients:HttpReleaseReader",
 }
 
 
@@ -57,7 +57,7 @@ def load_callable(path: str):
 
 def build(spec: Mapping, *, default_factory: str | None = None, env: Mapping = os.environ):
     factory = spec.get("factory") or default_factory
-    extra = {"egress_proxy": egress_proxy_from(env)} if factory in HTTP_CLIENTS.values() else {}      # 계약 클라이언트는 모두 영역 게이트웨이 출구로(R1.8)
+    extra = {"egress_proxy": link_egress.egress_proxy(env)} if factory in HTTP_CLIENTS.values() else {}      # 계약 클라이언트는 모두 영역 게이트웨이 출구로(R1.8)
     return load_callable(factory)(**resolve_args(spec.get("args", {}), env), **extra)
 
 
@@ -66,6 +66,6 @@ def build_http(kind: str, spec: Mapping, env: Mapping = os.environ):
     args = {k: v for k, v in spec.items() if k not in ("kind", "factory")}
     # 왜 link 컴포넌트의 connect: HTTP 클라이언트는 통신 컴포넌트(link_*)만 만든다(DESIGN 6절 3항)
     connect = {"model_registry": link_registry_publish.connect, "dataset_store": link_dataset_fetch.connect,
-               "failure_store": link_failure_read.connect}[kind]
+               "failure_store": link_failure_read.connect, "release_reader": link_release_read.connect}[kind]
     # RUNTIME R1.8, CONVENTIONS 13절: 영역 밖 호출은 자기 영역 게이트웨이의 출구(OPENIT_EGRESS_PROXY)로만 나간다. 환경을 통째로 넘기지 않고 이 이름 하나만 꺼낸다(R9.1)
-    return connect(**resolve_args(args, env), egress_proxy=egress_proxy_from(env))
+    return connect(**resolve_args(args, env), egress_proxy=link_egress.egress_proxy(env))

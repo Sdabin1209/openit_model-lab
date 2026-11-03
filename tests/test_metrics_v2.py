@@ -213,7 +213,7 @@ def test_config_accepts_http_dataset_store_and_builds_client(cfg, monkeypatch, t
     monkeypatch.setattr(link_dataset_fetch, "connect", Fake)
     monkeypatch.setenv("T_DS_URL", "http://x:1"); monkeypatch.setenv("T_DS_TOKEN", "tok")
     assert isinstance(pipeline.make_dataset_store(c), Fake)
-    assert seen == {"base_url": "http://x:1", "token": "tok", "timeout": 30}
+    assert seen == {"base_url": "http://x:1", "token": "tok", "timeout": 30, "egress_proxy": None}   # R1.8: 출구가 설정되지 않으면 직접(None), 설정되면 그 주소
     bad = copy.deepcopy(raw); bad["inputs"]["dataset_store"] = {"kind": "http"}
     p.write_text(yaml.safe_dump(bad))
     with pytest.raises(ConfigError):

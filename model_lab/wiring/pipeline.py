@@ -17,13 +17,13 @@ import model_runtime
 from boundary_contracts import BoundaryError, canonical
 
 from ..components import (adapter_check, backend_oracle, dataset_samples, eval_report, evaluation_report_build, hf_cache_lookup,
-                         link_dataset_fetch, link_failure_read, lora_train_dryrun, lora_train_hf, regression_set, run_record, server_row_convert, train_data)
+                         link_dataset_fetch, link_failure_read, link_release_read, lora_train_dryrun, lora_train_hf, regression_set, run_record, server_row_convert, train_data)
 from ..config import load_train_config
 from . import evaluation, factories, packaging, schemas
 from .errors import ConfigError, PipelineError
 from .settings import (ROLE_TO_FILE_ROLE, ROLES, config_hash, contract_version, ref_of, resolved_path, role_training,
                        system_prompt_text)
-from .stores import make_dataset_store, make_registry  # noqa: F401  (attach_flow·시험이 쓴다)
+from .stores import make_dataset_store, make_registry, make_release_reader  # noqa: F401  (attach_flow·시험이 쓴다)
 
 STAGES = ("load_dataset", "transform", "train", "evaluate", "package", "publish")
 
@@ -64,7 +64,7 @@ def make_trainer(kind: str, **ctx):
 class Run:
     """한 번의 실행. run.json이 설정, 시드, 데이터셋 버전, 라이브러리 버전, 단계별 결과를 기록한다."""
 
-    def __init__(self, cfg: dict, *, dataset_store=None, registry=None, trainer_factory: Callable | None = None, failure_store=None,
+    def __init__(self, cfg: dict, *, dataset_store=None, registry=None, trainer_factory: Callable | None = None, failure_store=None, release_reader=None,
                  clock: Callable[[], str] = now_utc, log: Callable[[str], None] = lambda s: print(s, flush=True)):
         self.cfg = cfg
         errs = schemas.errors("RunPlan", {k: v for k, v in cfg.items() if k != "_base_dir"})
@@ -76,6 +76,7 @@ class Run:
             kind, run_id=self.run_id, base_dir=self.cfg["_base_dir"], dataset={"id": self.dataset_id, "version": self.dataset_version}, log=self.log))
         self.clock, self.log = clock, log
         self._failure_store = failure_store
+        self._release_reader = release_reader
         self._rset = None
         self.schema_dir = resolved_path(cfg, cfg["inputs"]["schema_dir"])
         self.contract_version = contract_version(self.schema_dir)
@@ -141,12 +142,27 @@ class Run:
                                   "packages": self.rec["stages"].get("publish", {}).get("packages", {})}
             if not publish:
                 self.rec["result"]["status"] = "complete"
+            if publish:
+                self.record_decisions()
             self._save()
         except Exception as e:
             self.rec["last_error"] = {"type": type(e).__name__, "code": getattr(e, "code", None), "message": str(e)[:300]}
             self._save()
             raise
         return self.rec
+
+    def record_decisions(self) -> None:
+        """게시한 패키지에 대한 release-gate 판정(I4)을 조회해 run 기록에 넣는다. 조회일 뿐이라 실패해도 실행을 실패시키지 않는다(제출은 하지 않는다)."""
+        reader = self._release_reader if self._release_reader is not None else make_release_reader(self.cfg)
+        if reader is None:
+            self.rec["decisions"] = {"status": "not_configured"}
+            return
+        try:
+            items = link_release_read.decisions_for(reader, self.rec["stages"]["publish"]["packages"])
+            self.rec["decisions"] = {"status": "found" if items else "none", "items": items}
+        except BoundaryError as e:
+            self.rec["decisions"] = {"status": "unavailable", "code": e.code}
+            self.log(f"[{self.run_id}] 판정 조회 실패({e.code}): 실행 결과에는 영향이 없다")
 
     # 1. 데이터셋
     def stage_load_dataset(self) -> None:
