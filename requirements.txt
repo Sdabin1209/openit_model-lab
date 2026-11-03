@@ -2,7 +2,7 @@
 boundary-contracts @ git+ssh://git@github.com/Sdabin1209/openit_boundary-contracts.git@v3.4.3
 openit-link @ git+ssh://git@github.com/Sdabin1209/openit_link.git@v0.4.9
 model-runtime @ git+ssh://git@github.com/Sdabin1209/openit_model-runtime.git@v0.11.16
-openit-survey-schema @ git+ssh://git@github.com/Sdabin1209/openit_survey-service.git@survey-schema-v4.1.0#subdirectory=schema
+openit-survey-schema @ git+ssh://git@github.com/Sdabin1209/openit_survey-service.git@survey-schema-v4.1.1#subdirectory=schema
 jsonschema>=4
 waitress>=3,<4
 pyyaml>=6
