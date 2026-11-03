@@ -6,6 +6,7 @@
 [0004](0004-학습은-서버-코드-정본-감싸기.md)는 학습 정본을 서버 코드로 정하고 감싸기를 만들었으나 (1) 감싸기는 서버 안에서만 돌았고 이 컴퓨터에서는 `--dry-run`뿐이었다, (2) 코드 해시를 설정에 적지 않으면 경고(WARN)만 나와 확인하지 않은 코드로 학습할 수 있었다, (3) `--out_dir`에 어댑터 폴더를 그대로 넘겼는데 서버 스크립트는 어댑터를 `<out_dir>/adapter/`에 저장한다(2026-11-03에 `ssh openit cat`으로 읽은 `train_lora_a.py` 143행 `model.save_pretrained(OUT / "adapter")`). 자체 학습기(`components/lora_train_hf.py`)는 서버와 다른 어댑터를 만든다.
 
 ## 결정
+(실행 명령의 모양은 [0033](0033-공유-학습-서버에서는-dabin-안에만-쓰고-남의-작업을-막지-않는다.md)이 바꿨다: 정본 사본을 ~/dabin/…/code로 복사해 거기서 실행한다.)
 1. `model-lab train` 한 명령이 `server.ssh.host`(~/.ssh/config 이름)로 서버의 정본 스크립트를 그대로 실행한다. 스크립트는 복사·수정하지 않는다. 인자는 `configs/train*.yaml`의 `arg_map`·`hyperparams`에서만 온다. `server.ssh`를 지우면 이전처럼 서버 안에서 직접 돈다.
 2. 실행 명령은 `cd <code_dir> && echo '<sha> <스크립트>' | sha256sum -c --quiet - && exec <python> <스크립트> <인자>` 한 줄이다. 서버에서 해시가 맞을 때만 실행된다.
 3. 실행 전 점검(`train-doctor`, `train`의 `check_ready`): 서버 접속과 스크립트 읽기, 데이터 파일 3개, GPU(`nvidia-smi -L`), 스크립트 sha256 == 설정 `server.script_sha256`, `arg_map`이 스크립트의 `add_argument`에 선언되어 있는지, 파이썬 의존. **해시가 비어 있으면 FAIL**이고 현재 해시와 채우는 방법(`ssh <호스트> cat/sha256sum`)을 출력하며 `train`은 실행을 거부한다. 해시가 다르면 거부한다. 원격에서 GPU가 없다는 답은 구멍(HOLE)이 아니라 FAIL이다(서버를 직접 물었다).

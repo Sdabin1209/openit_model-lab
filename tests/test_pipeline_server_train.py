@@ -24,8 +24,8 @@ def server_cfgs(srv, cfg, tmp_path):
         r = copy.deepcopy(raw)
         r["role"] = role
         r["server"]["script_sha256"] = {role: sha}
-        r["dataset"].update(prefix=pre, upload_root="~/uploads")
-        r["output"].update(adapter_dir=str(tmp_path / "unused" / role), server_out_dir="runs/pl")
+        r["dataset"].update(prefix=pre, upload_root="~/dabin/openit-model-lab/uploads")
+        r["output"].update(adapter_dir=str(tmp_path / "unused" / role), server_out_dir="~/dabin/openit-model-lab/runs/pl")
         p = tmp_path / f"train-{pre}.yaml"; p.write_text(yaml.safe_dump(r)); paths[role] = str(p)
     c = copy.deepcopy(cfg)
     c["training"] = {"trainer": "server"}
@@ -41,7 +41,7 @@ def test_run_train_stage_uploads_server_format_data_and_runs_pinned_script(srv, 
     r.run(stop_after="train")
     # transform 출력 = 서버 스크립트가 읽는 형식(서버 데이터 한 줄과 같은 키 구조)
     for role, pre in (("LORA_A", "lora_a"), ("LORA_B", "lora_b")):
-        d = home / "uploads" / r.run_id / role
+        d = home / "dabin" / "openit-model-lab" / "uploads" / r.run_id / role
         assert sorted(x.name for x in d.iterdir()) == [f"{pre}_test.jsonl", f"{pre}_train.jsonl", f"{pre}_val.jsonl"]
         rows = [json.loads(x) for x in (d / f"{pre}_train.jsonl").read_text(encoding="utf-8").splitlines()]
         assert rows
@@ -53,11 +53,11 @@ def test_run_train_stage_uploads_server_format_data_and_runs_pinned_script(srv, 
         assert not (r.dir / "data" / role / "train.jsonl").exists()                  # 자체 학습기용 prompt/completion 파일은 만들지 않는다
     # train 단계: 서버 정본 실행 명령(해시 확인 + exec)과 어댑터 회수
     ssh = [c_["argv"][-1] for c_ in calls() if c_["tool"] == "ssh"]
-    execs = [x for x in ssh if "exec python3 fake_server_train.py" in x]
+    execs = [x for x in ssh if "exec env TMPDIR" in x]
     assert len(execs) == 2 and all("sha256sum -c --quiet -" in x for x in execs)
     for role, pre in (("LORA_A", "lora_a"), ("LORA_B", "lora_b")):   # 데이터는 서버 업로드 폴더 아래 <run_id>/<role>, 출력은 run_id로 나뉜 새 폴더
-        assert any(f'--data_dir "$HOME"/uploads/{r.run_id}/{role} --prefix {pre} --out runs/pl/{r.run_id}' in x for x in execs), execs
-    assert any(f"mkdir -p" in x and f"uploads/{r.run_id}/LORA_A" in x for x in ssh)
+        assert any(f'--data_dir "$HOME"/dabin/openit-model-lab/uploads/{r.run_id}/{role} --prefix {pre} --out "$HOME"/dabin/openit-model-lab/runs/pl/{r.run_id}' in x for x in execs), execs
+    assert any("mkdir -p" in x and f"dabin/openit-model-lab/uploads/{r.run_id}/LORA_A" in x for x in ssh)
     assert [c_ for c_ in calls() if c_["tool"] == "rsync"]
     for role in ("LORA_A", "LORA_B"):
         assert (r.dir / "adapters" / role / "adapter_model.safetensors").is_file()

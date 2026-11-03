@@ -1,5 +1,8 @@
 # 변경 이력
 
+## 미배포 - 공유 학습 서버 안전 (ADR 0033)
+- `server.sandbox_root`, `output.expected_gb`. 서버 쓰기는 ~/dabin 아래뿐(스크립트 사본을 code/에 복사해 해시 확인 후 거기서 실행, TMPDIR·MPLCONFIGDIR만 돌림, HF 캐시는 기본 위치). 실행 직전 GPU 점유·서버 디스크 검사(거부=종료 코드 2), doctor 행 3개. `train.yaml`/`train-b.yaml`의 upload_root·server_out_dir 확정.
+
 ## 미배포 - gpu-dev가 서버 정본 스크립트를 로컬로 실행 (ADR 0032)
 - `model-lab fetch-train-script`, `configs/train-gpu-dev-{a,b}.yaml`, `configs/gpu-dev*.yaml` 역할에 `server_train_config`. 로컬 모드의 `output.server_out_dir`(어댑터 복사). `upload_root` 비었을 때 거부 메시지가 정할 것을 말함. 시험 `tests/test_gpu_dev_local_train.py`.
 

@@ -11,6 +11,7 @@ server:
   code_dir: ~/taehyeon             # 정본 코드 위치 [확인: 헤드가 서버에서 읽음]. 서버 사용자 홈 기준
   scripts: {LORA_A: train_lora_a.py, LORA_B: train_lora_b.py}
   python: python3                  # 학습 환경의 파이썬(가상환경이면 그 경로)
+  sandbox_root: ~/dabin/openit-model-lab   # 서버에서 쓰기 허락된 곳(사용자 결정: ~/dabin 아래뿐). 정본 스크립트 사본(code/)을 여기에 두고 거기서 실행한다. code_dir은 읽기만 한다
   ssh: {host: openit}              # ~/.ssh/config의 학습 서버 이름
   script_sha256:                   # 서버 코드 해시: 다르면 train이 실행을 거부하고, 비어 있으면 train-doctor가 실패한다(채우는 방법을 출력)
     LORA_A: 479b316e1b5c0aebce89eef42900c883cf1c9a43116bbbc9e9ee2b712ccea71f   # 2026-11-03에 ssh openit cat으로 읽은 바이트의 sha256(arg_map 대조 완료)
@@ -41,7 +42,7 @@ dataset:
   dir: "/home/openit/taehyeon/data/dataset_10_14"   # 서버 데이터 폴더. 파일: <prefix>_{train,val,test}.jsonl
   prefix: lora_a
   id: dataset_10_14
-  # upload_root: <서버에서 쓰기 허락된 폴더>   # 파이프라인(run)이 변환한 데이터를 올릴 곳. 아래에 <run_id>/<role>/을 만든다. 허락된 폴더를 사용자가 정하기 전에는 비워 둔다(없으면 run의 train 단계가 거부)
+  upload_root: ~/dabin/openit-model-lab/uploads   # 사용자 결정. run 데이터는 <upload_root>/<run_id>/<role>/ 에 올라간다
   version: v2
   # content_hash: sha256:...       # 서버 run 기록에 없다(미확인). 데이터 파일에서 직접 계산해 package-adapters --dataset-hash에 쓴다
 hyperparams:                       # 서버 run_config.json 값. 순서 = 명령줄 인자 순서(바꾸지 않는다)
@@ -57,10 +58,13 @@ hyperparams:                       # 서버 run_config.json 값. 순서 = 명령
   eval_steps: 50
   dry_run: false
 output:
-  # 서버 쪽 출력 폴더: --out_dir로 넘긴다(code_dir 기준 상대 경로). 서버에 이미 있는 학습 기록(runs/a_8b_v2 등)과 겹치지 않는 새 이름을 쓴다.
-  server_out_dir: runs/ml_a_8b_v2
+  # 서버 쪽 출력 폴더(--out_dir). ~/dabin 아래여야 한다. run은 뒤에 /<run_id>를 붙인다(runs/<이름>/<run_id>).
+  server_out_dir: ~/dabin/openit-model-lab/runs/lora_a_8b_v2
   # 서버 어댑터(<server_out_dir>/adapter/)를 읽기 전용으로 복사해 오는 이 컴퓨터의 폴더(설정 파일 기준 상대 경로). package-adapters의 입력이 된다.
   adapter_dir: ../runs/train/lora_a_8b_v2/adapter
   # server_run_record: ...         # 서버 run 기록이 있으면(키 이름 미확인) base_model_revision, dataset.content_hash만 옮긴다
+  # 서버 디스크 검사(여유가 아래 합의 2배 미만이면 거부)의 예상 크기(GB). 근거: upload = 서버 데이터셋 폴더 du 70MB(2026-11-03 읽음)를 올림한 0.1.
+  # output = 서버 이전 학습 runs/a_8b_v2 전체 du 1.2GB(체크포인트 포함, 한 번 본 값)에 여유를 둔 2. model_download = Qwen3-8B bf16 약 8.2B 파라미터 x 2바이트 = 16.4(계산값, 측정 전; 서버 HF 캐시에 이미 있으면 내려받지 않는다).
+  expected_gb: {upload: 0.1, output: 2, model_download: 16.4}
   max_lora_rank: 16
   min_free_gb: 30

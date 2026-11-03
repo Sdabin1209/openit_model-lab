@@ -48,6 +48,7 @@ class ServerTrainer:
         dest = f"{root.rstrip('/')}/{self.run_id}/{req['role']}"
         cfg = load_train_config(path, {"dataset": {"dir": dest, "id": self.dataset["id"], "version": self.dataset["version"]},
                                        "output": {"adapter_dir": str(req["adapter_dir"]), "server_out_dir": f"{out0.rstrip('/')}/{self.run_id}"}})
+        w.check_sandbox(cfg)        # 업로드 전에: 서버에 쓰기 전에 ~/dabin 밖 경로를 거부한다
         self.upload(cfg, local_data, dest)
         rec = run_train(cfg, log=self.log)
         return self._result(rec, cfg)

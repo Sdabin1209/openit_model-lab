@@ -34,6 +34,7 @@ class Server(TypedDict, closed=True):
     extra_args: NotRequired[list[str]]
     python_modules: NotRequired[list[str]]
     ssh: NotRequired[Ssh]
+    sandbox_root: NotRequired[str]
 
 
 class BaseModel(TypedDict, closed=True):
@@ -51,6 +52,12 @@ class Dataset(TypedDict, closed=True):
     upload_root: NotRequired[str]
 
 
+class ExpectedGb(TypedDict, closed=True):
+    upload: float
+    output: float
+    model_download: float
+
+
 class Output(TypedDict, closed=True):
     adapter_dir: str
     record_file: NotRequired[str]
@@ -59,6 +66,7 @@ class Output(TypedDict, closed=True):
     disk_policy: NotRequired[Literal['block', 'warn', 'off']]
     max_lora_rank: NotRequired[int]
     server_out_dir: NotRequired[str]
+    expected_gb: NotRequired[ExpectedGb]
 
 
 class TrainWrapConfig(TypedDict, closed=True):
