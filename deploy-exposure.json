@@ -5,7 +5,8 @@
       "paths": ["/v1/packages"],
       "methods": ["POST"],
       "auth": {"kind": "machine-token"},
-      "upstream_token": "model-registry-write-model-lab"
+      "upstream_token": "model-registry-write-model-lab",
+      "user_header": "strip"
     },
     {
       "paths": ["/v1/packages"],

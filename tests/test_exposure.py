@@ -28,6 +28,8 @@ def test_exposure_file_satisfies_the_contract_and_exposes_only_publish():
     r = open_routes[0]
     assert r["paths"] == ["/v1/packages"] and r["methods"] == ["POST"] and r["auth"]["kind"] == "machine-token"
     assert r["upstream_token"] == "model-registry-write-model-lab"
+    # 기계 입구에는 사람 계정이 없으므로 게이트웨이가 X-Openit-User를 지운다(다른 machine-token 줄과 같다)
+    assert r["user_header"] == "strip"
     # 같은 경로의 다른 메서드는 denied로 명시한다(메서드를 비운 선언이 게시 선언과 겹치지 않게)
     assert any(x["paths"] == ["/v1/packages"] and "GET" in x["methods"] and x["auth"]["kind"] == "denied" for x in ex["routes"])
 
