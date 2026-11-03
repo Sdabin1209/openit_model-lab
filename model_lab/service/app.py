@@ -26,7 +26,7 @@ import threading
 import time
 from pathlib import Path
 
-from boundary_contracts import SecretError, read_secret
+from boundary_contracts import SecretError, read_secret, validator
 
 from ..components import link_registry_serve as _serve
 from ..components.link_registry_serve import make_server  # noqa: F401  (re-export: 시험이 쓴다)
@@ -90,7 +90,28 @@ def check_token_strength(tokens: dict[str, str], *, min_len: int = MIN_TOKEN_LEN
 #  여유 공간 = 본문 2배 + 1GB: 본문 tar와 풀어 둔 사본이 동시에 있는 최대 순간(저장은 하드 링크라 추가 사본 없음) + 여유 1GB(근거 기록 없음).
 #  종료 유예 8초(MODEL_REGISTRY_SHUTDOWN_GRACE): Docker의 기본 정지 유예 10초(SIGKILL까지)보다 짧게 잡아 SIGKILL 전에 정리를 끝낸다. 8은 측정 안 함.
 #  본문 4GiB(MODEL_REGISTRY_MAX_BODY): 어댑터 크기 상한의 여유값. 근거 기록 없음(측정 안 함); 14B bf16이 아닌 LoRA 어댑터는 이보다 훨씬 작다고 가정(추정).
+ENV_PREFIX = "MODEL_REGISTRY_"
+
+
+def check_env_declaration(env) -> list[str]:
+    """접두사 MODEL_REGISTRY_ 변수만 계약 ModelRegistryEnv(영역 사이 env 이름의 정본, 3.2.0)로 검증한다. 위반한 변수의 이름만 돌려준다.
+    왜 이름만: 값에는 토큰이 있을 수 있고 jsonschema 메시지는 값을 싣는다. 이름이 없는 위반(토큰 변수가 하나도 없음)은 '(필수)'로 낸다."""
+    doc = {k: v for k, v in env.items() if k.startswith(ENV_PREFIX)}
+    v = validator("ModelRegistryEnv")
+    bad = {k for k in doc if k not in v.schema.get("properties", {})}      # 선언에 없는 이름(propertyNames 위반은 위치 정보가 없어 직접 센다)
+    for e in v.iter_errors(doc):
+        if e.absolute_path and e.absolute_path[0] in doc:
+            bad.add(str(e.absolute_path[0]))
+    if not bad and not v.is_valid(doc):
+        bad.add("(필수)")
+    return sorted(bad)
+
+
 def main(env=os.environ) -> int:
+    bad_env = check_env_declaration(env)
+    if bad_env:
+        print("시작 실패: 환경 변수 선언(ModelRegistryEnv) 위반: " + ", ".join(bad_env), file=sys.stderr, flush=True)
+        return 2
     try:
         read, write = (parse_tokens(read_secret("MODEL_REGISTRY_READ_TOKENS", environ=env)),
                        parse_tokens(read_secret("MODEL_REGISTRY_WRITE_TOKENS", environ=env)))

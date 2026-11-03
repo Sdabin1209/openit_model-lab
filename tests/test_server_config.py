@@ -195,3 +195,25 @@ def test_main_refuses_out_of_range_or_malformed_settings_with_exit_code_2(tmp_pa
     for key, bad in (("MODEL_REGISTRY_PORT", "70000"), ("MODEL_REGISTRY_PORT", "abc"), ("MODEL_REGISTRY_THREADS", "0"), ("MODEL_REGISTRY_MAX_CONNECTIONS", "0")):
         assert app.main({**base, key: bad}) == 2, (key, bad)
         assert "시작 실패" in capsys.readouterr().err
+
+
+def test_main_refuses_undeclared_registry_variable_by_name_only(tmp_path, monkeypatch, capsys):
+    """계약 ModelRegistryEnv(3.2.0)에 없는 MODEL_REGISTRY_ 변수는 서버를 만들기 전에 거부한다. 오류에는 이름만 있고 값은 없다."""
+    monkeypatch.setattr(app, "make_server", lambda *a, **k: (_ for _ in ()).throw(AssertionError("서버를 만들면 안 된다")))
+    secret = "s3cr3t-value-must-not-leak"
+    env = {"MODEL_REGISTRY_ROOT": str(tmp_path / "r"), "MODEL_REGISTRY_WRITE_TOKENS": "model-lab=" + WT, "MODEL_REGISTRY_X": secret}
+    assert app.main(env) == 2
+    err = capsys.readouterr().err
+    assert "MODEL_REGISTRY_X" in err and secret not in err and WT not in err
+
+
+def test_main_ignores_unprefixed_variables_and_accepts_declared_environment(tmp_path, monkeypatch):
+    monkeypatch.setattr(app, "make_server", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("검증을 통과해 서버 생성까지 갔다")))
+    env = {"PATH": "/usr/bin", "OTHER_X": "1", "MODEL_REGISTRY_ROOT": str(tmp_path / "r"), "MODEL_REGISTRY_WRITE_TOKENS": "model-lab=" + WT}
+    assert app.check_env_declaration(env) == []
+    try:
+        app.main(env)
+    except RuntimeError:
+        pass
+    else:
+        raise AssertionError("서버 생성에 닿지 못했다")
