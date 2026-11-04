@@ -4,10 +4,14 @@
 #   SPEC=$(grep '^boundary-contracts' requirements-service.txt); docker build --ssh default -t model-lab-registry:dev \
 #     --build-arg "BC_SPEC=$SPEC" --build-arg "BC_VERSION=${SPEC##*@}" --build-arg "REVISION=$(git rev-parse --short HEAD)" .
 # 로컬 확인(ssh 없이 태그에서 만든 wheel): scripts/smoke_registry.sh
+# 기반 이미지는 태그가 아니라 digest로 고정한다(공통 규칙 '빌드 때 고정'): python:3.12-slim 태그는 시간이 지나면 다른 이미지가 되어 같은 소스가 다른 이미지가 된다.
+# digest는 2026-11-05에 이 PC에 받아 둔 python:3.12-slim의 RepoDigest다. 올리려면 `docker pull python:3.12-slim` 뒤 `docker images --digests python`의 값으로 이 한 줄만 바꾸고 스모크를 다시 돌린다.
+ARG PYTHON_IMAGE=python:3.12-slim@sha256:aa943ce411423c7582288f18707ff66eddcbaeb510502d747a72aeb34f30d159
+
 FROM scratch AS wheels
 # 기본은 빈 컨텍스트. 로컬 확인에서는 --build-context wheels=vendor/wheels 로 바꾼다.
 
-FROM python:3.12-slim AS build
+FROM ${PYTHON_IMAGE} AS build
 ARG BC_SPEC
 ARG LINK_SPEC
 # 왜: 기본값을 두면 requirements-service.txt와 어긋난 pin이 조용히 설치된다. 비면 실패시킨다.
@@ -21,7 +25,7 @@ RUN --mount=type=ssh --mount=type=bind,from=wheels,target=/wheels \
     /opt/venv/bin/pip install --no-cache-dir "${BC_SPEC}" "jsonschema==4.26.0" "waitress==3.0.2" "prometheus_client==0.26.0" \
  && /opt/venv/bin/pip install --no-cache-dir --no-deps "${LINK_SPEC}"
 
-FROM python:3.12-slim
+FROM ${PYTHON_IMAGE}
 ARG REVISION
 ARG BC_VERSION
 # 왜: 라벨 값이 비거나 기본값으로 새면 추적이 거짓이 된다(D50). 빌드 인자가 없으면 실패시킨다.
