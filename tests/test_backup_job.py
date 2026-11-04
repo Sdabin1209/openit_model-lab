@@ -19,6 +19,10 @@ from model_lab.wiring.backup_verify import verify_data
 from tests.conftest import HANG_GUARD_SECONDS, ROOT
 from tests.test_registry import make
 
+# 시험이 쓰는 컨테이너 이미지는 태그가 아니라 digest로 고정한다(:latest는 시간이 지나면 다른 이미지가 되어 시험이 재현되지 않는다).
+# digest는 2026-11-05에 이 PC에서 받아 확인한 것(restic 0.19.1, rest-server 0.14.0). 올리려면 새 digest로 바꾸고 시험을 다시 돌린다. 표준: OCI 이미지 digest 참조(name@sha256:...).
+RESTIC_IMAGE = "restic/restic@sha256:9940e6c7421ab3a21ee9fdc4e91596d04c792b600d31b102696c75cbf3ac4481"
+REST_SERVER_IMAGE = "restic/rest-server@sha256:d2aff06f47eb38637dff580c3e6bce4af98f386c396a25d32eb6727ec96214a5"
 USER, PW = "backupuser", "pw-restic-canary-model-lab"
 REPO_PW = "repo-password-canary"
 JOBS = json.loads((ROOT / "deploy-jobs.json").read_text(encoding="utf-8"))
@@ -80,7 +84,7 @@ def restic_dir(tmp_path_factory):
         pytest.skip("docker 없음")
     d = tmp_path_factory.mktemp("restic")
     name = f"model-lab-restic-extract-{uuid.uuid4().hex[:8]}"
-    _docker("create", "--name", name, "restic/restic:latest")
+    _docker("create", "--name", name, RESTIC_IMAGE)
     try:
         _docker("cp", f"{name}:/usr/bin/restic", str(d / "restic"))
     finally:
@@ -96,7 +100,7 @@ def rest_url(tmp_path):
     (data / ".htpasswd").write_text(f"{USER}:{{SHA}}{base64.b64encode(hashlib.sha1(PW.encode()).digest()).decode()}\n")      # rest-server htpasswd 인증(append-only 아님: forget --prune이 필요하다)
     (data / ".htpasswd").chmod(0o644)
     name = f"model-lab-restsrv-{uuid.uuid4().hex[:8]}"
-    _docker("run", "-d", "--name", name, "-p", "127.0.0.1::8000", "-v", f"{data}:/data", "--user", f"{os.getuid()}:{os.getgid()}", "--entrypoint", "rest-server", "restic/rest-server:latest", "--path", "/data")
+    _docker("run", "-d", "--name", name, "-p", "127.0.0.1::8000", "-v", f"{data}:/data", "--user", f"{os.getuid()}:{os.getgid()}", "--entrypoint", "rest-server", REST_SERVER_IMAGE, "--path", "/data")
     try:
         assert _wait(lambda: "Authentication enabled" in _docker("logs", name, check=False).stdout + _docker("logs", name, check=False).stderr)
         port = _docker("port", name, "8000/tcp").stdout.split(":")[-1].strip()
