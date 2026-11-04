@@ -59,5 +59,8 @@ curl -fsS "$URL/metrics" | grep -q model_registry_http_requests_total
 # 게시와 조회(클라이언트 대역으로)
 .venv/bin/python scripts/smoke_client.py "$URL" "$WT" "$RT"
 # 비밀 값이 로그에 없다
-! docker logs "$NAME" 2>&1 | grep -q -e "$RT" -e "$WT"
+# 왜 `! 명령 | grep`로 쓰지 않나: set -e는 `!`로 뒤집은 파이프라인의 실패로 끝나지 않는다(POSIX 2.8.1, bash set -e의 예외). 그러면 로그에 토큰이 있어도 통과한다.
+# 그래서 로그를 변수에 받아 if로 판정한다(grep -q가 먼저 끝나 파이프가 SIGPIPE로 깨지는 것도 피한다).
+LOGS=$(docker logs "$NAME" 2>&1)
+if printf '%s' "$LOGS" | grep -q -e "$RT" -e "$WT"; then echo "FAIL: 로그에 비밀 노출" >&2; exit 1; fi
 echo SMOKE_OK
