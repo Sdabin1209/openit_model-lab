@@ -122,6 +122,9 @@ def test_dockerfile_build_args_have_no_placeholder_defaults():
     """라벨 값이 none/unknown/unset 같은 기본값으로 새면 추적이 거짓이 된다(examples_invalid/ImageLabels.revision-unknown.json 등)."""
     text = (ROOT / "Dockerfile").read_text(encoding="utf-8")
     for line in re.findall(r"^ARG .*$", text, re.M):
+        if line.startswith("ARG PYTHON_IMAGE="):      # 기반 이미지 pin은 라벨 값이 아니다: 기본값이 있어야 하고 반드시 digest여야 한다(태그만이면 재현되지 않는다)
+            assert re.fullmatch(r"ARG PYTHON_IMAGE=python:3\.12-slim@sha256:[0-9a-f]{64}", line), line
+            continue
         assert "=" not in line, f"ARG 기본값이 있다: {line}"
     for bad in ("revision-unknown", "model-runtime-unset"):
         assert not validator("ImageLabels").is_valid(ex("examples_invalid", f"ImageLabels.{bad}.json"))
