@@ -42,6 +42,16 @@ print(json.dumps(doc, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 PY
 ) || { echo "deploy-exposure.json이 계약 Exposure를 어긴다" >&2; exit 2; }
 
+# 잡 선언(계약 JobsDeclaration): 정본은 리포 안 deploy-jobs.json. 노출 선언과 같이 계약으로 검증하고 이미지 라벨 io.openit.jobs로 단다.
+JOBS=$("$PY" - "$SOURCE_DIR/deploy-jobs.json" <<'PY'
+import json, sys
+from boundary_contracts import validator
+doc = json.load(open(sys.argv[1], encoding="utf-8"))
+validator("JobsDeclaration").validate(doc)
+print(json.dumps(doc, ensure_ascii=False, sort_keys=True, separators=(",", ":")))
+PY
+) || { echo "deploy-jobs.json이 계약 JobsDeclaration을 어긴다" >&2; exit 2; }
+
 # 2. boundary-contracts wheel: 빌드 중 네트워크(SSH) 대신 dependency_sources 소스 트리에서 만든다(Dockerfile의 wheels 컨텍스트).
 #    SOURCE_DATE_EPOCH 고정: wheel 안 시각이 달라 같은 요청이 다른 이미지가 되지 않게 한다(멱등, 같은 소스의 wheel 두 번이 바이트까지 같은 것을 확인).
 WORK=$(mktemp -d); trap 'rm -rf "$WORK"' EXIT
@@ -62,7 +72,7 @@ PINNED=$(sed -n 's/^boundary-contracts @ .*@\(v[0-9][0-9.]*\)$/\1/p' "$SOURCE_DI
 
 # 3. 빌드
 # 왜 --provenance=false: BuildKit이 붙이는 출처 증명(attestation)에 빌드마다 다른 시각·ID가 들어가 이미지 ID(인덱스 digest)가 매번 달라진다. 같은 요청이 같은 이미지가 되려면 끈다(실측: 끄기 전 3회 모두 다른 ID).
-"$DOCKER" build -q --provenance=false --label "io.openit.exposure=$EXPOSURE" -t "$IMAGE_TAG" --build-context "wheels=$WORK/wheels" --build-arg "BC_SPEC=/wheels/$WHL" --build-arg "LINK_SPEC=/wheels/$LINK_WHL" \
+"$DOCKER" build -q --provenance=false --label "io.openit.exposure=$EXPOSURE" --label "io.openit.jobs=$JOBS" -t "$IMAGE_TAG" --build-context "wheels=$WORK/wheels" --build-arg "BC_SPEC=/wheels/$WHL" --build-arg "LINK_SPEC=/wheels/$LINK_WHL" \
   --build-arg "BC_VERSION=$WHL_VERSION" --build-arg "REVISION=$REVISION" "$SOURCE_DIR" >&2
 
 # 설치된 것 확인: 이미지 안에서 실제로 읽은 boundary-contracts 버전이 라벨과 같아야 한다(다르면 이미지를 지우고 실패).

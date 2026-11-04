@@ -80,9 +80,9 @@ def test_declared_methods_cover_the_real_ones(server):
 
 
 def test_egress_lists_exactly_the_neighbours_model_lab_calls_per_interfaces():
-    """CONVENTIONS 13절, RUNTIME R1.8: 영역이 부르는 상대 전부. INTERFACES 한눈에 표에서 model-lab이 읽는 I2·I1·I7·I4. I9(추론 서버)는 HTTP로 부르지 않는다(3.4.6)."""
+    """CONVENTIONS 13절, RUNTIME R1.8: 영역이 부르는 상대 전부. INTERFACES 한눈에 표에서 model-lab이 읽는 I2·I1·I7·I4와 백업 저장소(external:backup, R10.1). I9(추론 서버)는 HTTP로 부르지 않는다(3.4.6)."""
     ex = load()
-    assert sorted(ex["egress"]) == ["dataset-store", "ops-feedback", "question-authoring", "release-gate"]
+    assert sorted(ex["egress"]) == ["dataset-store", "external:backup", "ops-feedback", "question-authoring", "release-gate"]
     assert "model-serving" not in ex["egress"] and "model-registry" not in ex["egress"]
     assert any("/metrics" in r["paths"] and r["auth"]["kind"] == "denied" for r in ex["routes"])     # R10.11: /metrics는 바깥 입구에 열지 않는다
 

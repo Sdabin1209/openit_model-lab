@@ -212,3 +212,9 @@ D22 (2): 서비스가 없는 run-once 잡이라 Dockerfile 없이 `requirements.
   --version <새 버전, 예: v2-qs> --created-at <UTC> --out runs/republish-<날짜>
 ```
 확인: (a) 게시한 매니페스트의 `lineage.question_sets`가 1개 이상(`HttpModelRegistry.get_manifest`), (b) `adapter_hash`가 옛 버전과 같음, (c) release-gate 판정 조회(`inputs.release_reader`를 둔 `run` 보고의 `decisions`, 또는 `find_decisions(lora_a=…)`)에서 새 조합의 판정이 `QUESTION_MODEL_COMPAT` 때문에 FAIL이 아닌지는 release-gate 쪽에서 본다. 후보 제출은 이 영역이 하지 않는다.
+
+
+## models-data 백업·복구 (ADR 0035)
+- 백업 잡: `python -m model_lab.service backup`(deploy가 주기로 띄운다). 복구 잡: `python -m model_lab.service restore [--snapshot <ID|latest>]`(주기 없이 복구 절차가 한 번 띄운다). 둘 다 마지막 줄이 `BackupJobResult` JSON이고 종료 코드는 0(ok)·75(재시도 가능)·1(그 밖).
+- 복구는 **빈 `/data`**(게시된 패키지가 없는 상태)에만 한다. 비어 있지 않으면 종료 코드 1, `FAILED_PRECONDITION`. 복구 중간에 잡이 죽어 `/data`에 일부가 남았으면 `/data`의 내용을 비우고(서비스를 멈춘 뒤) 다시 실행한다. 복구 뒤 모든 패키지의 해시를 검증하고, 실패하면 이번에 쓴 것을 지운다.
+- 실제 platform 백업 저장소와 영역 게이트웨이 출구로의 복구 시험은 deploy 스택이 떴을 때 한다 [구멍: 이 PC에서는 로컬 rest-server로만 확인].

@@ -83,7 +83,7 @@ scripts/smoke_registry.sh
 
 확인한 것(2026-10-28, 이웃 폴더와 `vendor/`가 없는 새 `git clone`, Linux, Python 3.12.3): `bash scripts/setup-env.sh`를 두 번 실행해 둘 다 종료 코드 0, 그 뒤 `.venv/bin/python -m pytest -q` 통과·실패·건너뜀 수는 문서에 적지 않고 같은 명령의 출력 요약 줄로 센다(숫자를 적으면 시점이 어긋난다). 문진 스키마는 `requirements.lock`의 `openit-survey-schema`(태그 설치)에서 읽는다(`tests/conftest.py`, `configs/dryrun.yaml`의 `installed:survey-schema`). 한 환경(이 PC의 새 clone)에서만 확인했다.
 
-**잡 선언.** 이 이미지는 model-registry 서비스뿐이라 라벨 `io.openit.jobs`는 달지 않는다: 학습 파이프라인(`run-once`)은 deploy가 띄우는 잡이 아니라 학습 서버의 가상환경에서 도는 실행이다(D22, [ADR 0034](docs/adr/0034-RUNTIME-조항-준수-서비스-동작.md)). 기존 패키지 재게시 절차는 `docs/runbook.md` 끝에 있다.
+**잡 선언.** 라벨 `io.openit.jobs`(`deploy-jobs.json`)는 models-data 백업·복구 잡 둘(`backup`, `restore`, [ADR 0035](docs/adr/0035-models-data-백업-복구-잡.md))이다. 학습 파이프라인(`run-once`)은 deploy가 띄우는 잡이 아니라 학습 서버의 가상환경에서 도는 실행이라 선언하지 않는다(D22). 기존 패키지 재게시 절차는 `docs/runbook.md` 끝에 있다.
 
 ## 이 영역의 열린 항목
 
@@ -163,5 +163,6 @@ scripts/smoke_registry.sh
 | [0030](docs/adr/0030-train은-ssh로-서버-정본을-실행한다.md) | `train`은 ssh로 서버 정본을 해시 고정해 실행하고 자체 학습기는 폐기 표시 |
 | [0031](docs/adr/0031-파이프라인-train-단계는-서버-정본을-부른다.md) | 파이프라인 train 단계는 서버 정본 경로를 부르고 transform은 서버 형식을 만든다 |
 | [0032](docs/adr/0032-gpu-dev는-정본-스크립트를-로컬로-실행한다.md) | gpu-dev는 서버 정본 스크립트를 가져와(fetch-train-script) 이 PC에서 로컬 실행 |
+| [0035](docs/adr/0035-models-data-백업-복구-잡.md) | models-data 백업·복구 잡(restic REST, 출구, 보존, 복구 검증) |
 | [0034](docs/adr/0034-RUNTIME-조항-준수-서비스-동작.md) | RUNTIME 조항 준수: 서비스 출력, 출구, 판정 조회, 환경 |
 | [0033](docs/adr/0033-공유-학습-서버에서는-dabin-안에만-쓰고-남의-작업을-막지-않는다.md) | 공유 학습 서버: ~/dabin 안에만 쓰기, 정본 사본 실행, GPU 점유·디스크 검사 |

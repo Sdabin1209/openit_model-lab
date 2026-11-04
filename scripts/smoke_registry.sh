@@ -44,6 +44,10 @@ for i in $(seq 1 30); do curl -fsS "$URL/healthz" >/dev/null 2>&1 && break; slee
 echo "healthz: $(curl -fsS "$URL/healthz")"
 echo "readyz: $(curl -fsS "$URL/readyz")"
 echo "user: $(docker exec "$NAME" id -u)"
+# 잡이 이미지에서 돈다: restic이 있고, 입력이 없으면 마지막 줄이 BackupJobResult(failed)이고 종료 코드 1이다(ADR 0035)
+docker exec "$NAME" restic version >/dev/null
+JOB_OUT=$(docker exec "$NAME" python -m model_lab.service backup 2>/dev/null) && { echo "백업 잡이 입력 없이 성공했다" >&2; exit 1; } || [ $? -eq 1 ]
+printf '%s' "$JOB_OUT" | tail -n 1 | grep -q '"status": "failed"'
 echo "labels: $(docker inspect -f '{{json .Config.Labels}}' "$TAG")"
 # RUNTIME R10.11: /metrics는 인증 없이 200 Prometheus 텍스트
 [ "$(curl -s -o /dev/null -w '%{http_code}' "$URL/metrics")" = 200 ]

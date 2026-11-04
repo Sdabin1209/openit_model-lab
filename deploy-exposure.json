@@ -1,6 +1,6 @@
 {
   "service": "model-registry",
-  "egress": ["dataset-store", "question-authoring", "ops-feedback", "release-gate"],
+  "egress": ["dataset-store", "question-authoring", "ops-feedback", "release-gate", "external:backup"],
   "routes": [
     {
       "paths": ["/v1/packages"],
