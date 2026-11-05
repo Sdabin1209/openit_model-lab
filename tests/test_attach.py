@@ -112,8 +112,11 @@ def test_cli_no_publish_and_publish(setup, capsys):
 def test_qwen3_8b_profile_matches_runtime_profile_and_packages(setup):
     """프로파일 qwen3-8b: 기반 모델·rank 상한이 model-runtime rtx4090-24g와 같고, 8B 가짜 어댑터로 패키지가 만들어진다."""
     kw, tmp = setup
-    rt = json.loads((ROOT.parent / "model-runtime" / "profiles" / "rtx4090-24g.json").read_text(encoding="utf-8")) \
-        if (ROOT.parent / "model-runtime" / "profiles" / "rtx4090-24g.json").is_file() else None
+    import re
+    import sys as _sys; _sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from pinned_tree import pinned_tree   # model-runtime 프로파일은 requirements.lock 의 고정 태그에서 읽는다(옆 폴더 작업 트리가 아니다)
+    mr_tag = re.search(r"model-runtime\.git@(v[0-9.]+)", (ROOT / "requirements.lock").read_text(encoding="utf-8")).group(1)
+    rt = json.loads((pinned_tree("model-runtime", mr_tag) / "profiles" / "rtx4090-24g.json").read_text(encoding="utf-8"))
     prof = yaml.safe_load((ROOT / "profiles" / "qwen3-8b.yaml").read_text(encoding="utf-8"))
     assert prof["base_model"]["id"] == "Qwen/Qwen3-8B" and prof["checks"]["max_lora_rank"] == 16
     if rt is not None:                                    # 이웃 리포가 없는 환경(이미지)에서는 건너뛴다
