@@ -12,6 +12,11 @@ from boundary_contracts import validator
 
 from model_lab.config import validate_config
 from model_lab.wiring.errors import ConfigError
+import importlib.util as _ilu
+
+_spec = _ilu.spec_from_file_location("docker_env", __import__("pathlib").Path(__file__).resolve().parent.parent / "scripts" / "docker_env.py")
+_de = _ilu.module_from_spec(_spec); _spec.loader.exec_module(_de)
+DOCKER_ENV = _de.docker_env()      # docker를 부르는 시험도 사용자 ~/.docker에 기대지 않는다(scripts/docker_env.py)
 from tests.conftest import EXTERNAL_TOOL_GUARD_SECONDS, ROOT
 
 import re
@@ -78,7 +83,7 @@ def test_bad_requests_fail_before_docker(tmp_path, mutate, why):
 # ---- U50 라벨 정직성: 라벨은 요청 값이 아니라 실제로 설치·사용한 버전이다 -------------------------------------------------------
 
 def image_exists(tag):
-    return subprocess.run(["docker", "image", "inspect", tag], capture_output=True).returncode == 0
+    return subprocess.run(["docker", "image", "inspect", tag], capture_output=True, env=DOCKER_ENV).returncode == 0
 
 
 @pytest.mark.skipif(shutil.which("docker") is None or not BC_REPO.is_dir(), reason="docker 또는 boundary-contracts 리포 없음")
@@ -91,7 +96,7 @@ def test_request_version_different_from_the_pinned_one_fails_without_building(tm
         assert not image_exists(req["image_tag"])
         assert not r.stdout.strip()                           # 결과 JSON(라벨)을 내지 않았다
     finally:
-        subprocess.run(["docker", "rmi", "-f", req["image_tag"]], capture_output=True)
+        subprocess.run(["docker", "rmi", "-f", req["image_tag"]], capture_output=True, env=DOCKER_ENV)
 
 
 @pytest.mark.skipif(shutil.which("docker") is None or not BC_REPO.is_dir(), reason="docker 또는 boundary-contracts 리포 없음")
@@ -103,7 +108,7 @@ def test_dependency_source_that_is_not_the_requested_version_fails_without_build
         assert r.returncode != 0 and "dependency_sources" in r.stderr and PIN in r.stderr, r.stderr[-800:]
         assert not image_exists(req["image_tag"]) and not r.stdout.strip()
     finally:
-        subprocess.run(["docker", "rmi", "-f", req["image_tag"]], capture_output=True)
+        subprocess.run(["docker", "rmi", "-f", req["image_tag"]], capture_output=True, env=DOCKER_ENV)
 
 
 @pytest.mark.skipif(shutil.which("docker") is None or not BC_REPO.is_dir(), reason="docker 또는 boundary-contracts 리포 없음")
@@ -122,7 +127,7 @@ def test_build_image_end_to_end(tmp_path):
         # U47: 노출 선언 라벨. 값은 deploy-exposure.json과 같고 계약 Exposure를 통과한다
         # U50: 라벨 값은 이미지 안에 실제 설치된 boundary-contracts의 버전과 같다(요청 문자열을 옮긴 것이 아니다)
         installed = subprocess.run(["docker", "run", "--rm", "--entrypoint", "python", req["image_tag"], "-c",
-                                    "import importlib.metadata as m; print(m.version('boundary-contracts'))"], capture_output=True, text=True, check=True).stdout.strip()
+                                    "import importlib.metadata as m; print(m.version('boundary-contracts'))"], capture_output=True, text=True, check=True, env=DOCKER_ENV).stdout.strip()
         assert lab["io.openit.contracts.boundary"] == "v" + installed
         exposure = json.loads(lab["io.openit.exposure"])
         validator("Exposure").validate(exposure)
@@ -132,4 +137,4 @@ def test_build_image_end_to_end(tmp_path):
         LOG_DIR.mkdir(exist_ok=True)
         (LOG_DIR / "model-lab-build-image-last.json").write_text(r.stdout.strip().splitlines()[-1] + "\n")
     finally:
-        subprocess.run(["docker", "rmi", "-f", req["image_tag"]], capture_output=True)
+        subprocess.run(["docker", "rmi", "-f", req["image_tag"]], capture_output=True, env=DOCKER_ENV)

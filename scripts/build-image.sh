@@ -9,6 +9,8 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 DOCKER=${DOCKER:-docker}
 PY=${PYTHON:-}
 [ -n "$PY" ] || { [ -x .venv/bin/python ] && PY=.venv/bin/python || PY=python3; }
+# docker 환경 한 곳(사용자 ~/.docker 불변): 호출자가 준 DOCKER_CONFIG는 그대로, 없으면 리포 안 빈 설정(scripts/docker_env.py)
+eval "$(python3 scripts/docker_env.py --sh)"
 
 # 1. 요청 검증(영역 경계 입력): 계약 validator. 이 영역이 쓰는 키(versions.boundary, dependency_sources.boundary)가 없으면 실패한다.
 #    왜 기본값이 없나: 기준표(deploy lib.sh)와 어긋난 버전이 조용히 빌드되지 않게 한다. 이 이미지는 model-runtime·문진 스키마를 쓰지 않아 해당 키는 무시한다.

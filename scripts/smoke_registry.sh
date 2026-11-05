@@ -3,6 +3,8 @@
 # 의존 wheel은 태그에서 만든 것을 vendor/wheels에서 쓴다(ssh 없이). 태그 설치 경로는 Dockerfile 머리말.
 set -eu
 cd "$(dirname "$0")/.."
+# docker 환경 한 곳(사용자 ~/.docker 불변): 호출자가 준 DOCKER_CONFIG는 그대로, 없으면 리포 안 빈 설정(scripts/docker_env.py)
+eval "$(python3 scripts/docker_env.py --sh)"
 TAG="model-lab-registry:smoke-$$"
 NAME="model-lab-registry-smoke-$$"
 trap 'docker rm -f "$NAME" >/dev/null 2>&1 || true; docker volume rm "$NAME-data" >/dev/null 2>&1 || true; docker rmi "$TAG" >/dev/null 2>&1 || true' EXIT

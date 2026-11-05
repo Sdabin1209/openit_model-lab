@@ -16,6 +16,11 @@ from boundary_contracts import validator
 from model_lab.components import link_backup as bk
 from model_lab.components.model_registry import FileModelRegistry
 from model_lab.wiring.backup_verify import verify_data
+import importlib.util as _ilu
+
+_spec = _ilu.spec_from_file_location("docker_env", __import__("pathlib").Path(__file__).resolve().parent.parent / "scripts" / "docker_env.py")
+_de = _ilu.module_from_spec(_spec); _spec.loader.exec_module(_de)
+DOCKER_ENV = _de.docker_env()      # docker를 부르는 시험도 사용자 ~/.docker에 기대지 않는다(scripts/docker_env.py)
 from tests.conftest import HANG_GUARD_SECONDS, ROOT
 from tests.test_registry import make
 
@@ -75,7 +80,7 @@ def _wait(cond, limit=60):
 
 
 def _docker(*a, check=True):
-    return subprocess.run(["docker", *a], capture_output=True, text=True, check=check, timeout=HANG_GUARD_SECONDS)
+    return subprocess.run(["docker", *a], capture_output=True, text=True, check=check, timeout=HANG_GUARD_SECONDS, env=DOCKER_ENV)
 
 
 @pytest.fixture(scope="module")
