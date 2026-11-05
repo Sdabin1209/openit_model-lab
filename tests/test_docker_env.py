@@ -38,3 +38,34 @@ def test_shell_form_exports_what_the_scripts_eval(tmp_path):
     r = subprocess.run([sys.executable, str(ROOT / "scripts" / "docker_env.py"), "--sh"], capture_output=True, text=True,
                        env={"PATH": os.environ["PATH"], "DOCKER_CONFIG": str(tmp_path)}, timeout=60)
     assert r.returncode == 0 and f"export DOCKER_CONFIG={tmp_path}" in r.stdout
+
+
+# ---- 실제 docker: 망가진 사용자 전역 설정(가짜 HOME의 credsStore)을 거치지 않는다 ----
+def _build(tmp_path, env):
+    ctx = tmp_path / "ctx"; ctx.mkdir(exist_ok=True)
+    (ctx / "Dockerfile").write_text("# syntax=docker/dockerfile:1\nFROM scratch\nLABEL io.openit.test=docker-env\n")      # syntax 줄: 프런트엔드 이미지를 레지스트리에서 풀어 자격 도우미를 부르게 한다
+    tag = f"model-lab-docker-env-test-{os.getpid()}"
+    try:
+        return subprocess.run(["docker", "build", "-q", "--no-cache", "-t", tag, str(ctx)], capture_output=True, text=True, env=env, timeout=300)
+    finally:
+        subprocess.run(["docker", "rmi", "-f", tag], capture_output=True, env=de.docker_env())
+
+
+def _fake_home(tmp_path):
+    home = tmp_path / "home"; (home / ".docker").mkdir(parents=True)
+    (home / ".docker" / "config.json").write_text(json.dumps({"credsStore": "nonexistent-helper-xyz"}))      # 없는 자격 도우미: 부르는 순간 오류
+    return home
+
+
+import shutil as _sh
+import pytest as _pt
+
+
+@_pt.mark.skipif(_sh.which("docker") is None or subprocess.run(["docker", "info"], capture_output=True).returncode != 0, reason="docker 없음")
+def test_docker_build_ignores_a_broken_user_wide_config(tmp_path):
+    home = _fake_home(tmp_path)
+    base = {k: v for k, v in os.environ.items() if k != "DOCKER_CONFIG"}
+    ok = _build(tmp_path, de.docker_env({**base, "HOME": str(home)}))
+    assert ok.returncode == 0, ok.stderr
+    bad = _build(tmp_path, {**base, "HOME": str(home)})      # 변이: 이 환경을 빼면 같은 망가진 설정으로 자격 오류가 난다(시험이 실제로 막는다는 증거)
+    assert bad.returncode != 0 and "credentials" in bad.stderr
