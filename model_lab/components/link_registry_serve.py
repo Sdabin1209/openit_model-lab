@@ -196,7 +196,7 @@ def make_routes(svc: Service) -> list[Route]:
 def make_app(svc: Service):
     """WSGI 앱 = openit_link.App + 겉옷. 겉옷이 하는 일(서버별 방어, link 밖): 틀린 토큰이 쏟아질 때의 인증 실패 제한(503), 내부 오류를 503으로,
     요청 한 줄 로그. 연결 상한·timeout·본문 상한·스레드는 서버(waitress) 설정이 맡는다(ADR 0023)."""
-    app = App(make_routes(svc), svc.tokens(), ready=lambda: (lambda ok: (ok, {"status": "ready" if ok else "not_ready"}))(svc.ready()))
+    app = App(make_routes(svc), svc.tokens(), ready=lambda: (lambda ok: (ok, {"status": "ready" if ok else "not_ready"}))(svc.ready()), contract_service="model-registry", contract_bindings={"read_roles": sorted(set(svc.read.values()) | set(svc.write.values())), "publish_max_body": svc.max_body})
 
     # R10.11: /metrics는 Prometheus 표준 형식이고 인증이 없다(토큰이 와도 무시). 저장소가 멈춘 동안에도 200이어야 하므로 프로세스 안의 값만 낸다(저장소를 읽지 않는다)
     mreg = CollectorRegistry()

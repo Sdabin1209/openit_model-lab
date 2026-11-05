@@ -25,6 +25,8 @@ def server(tmp_path):
 
 def raw(url, method="GET", token=None, body=None):
     r = urllib.request.Request(url, data=body, method=method)
+    if body is not None:
+        r.add_header("Content-Type", "application/x-tar")
     if token:
         r.add_header("Authorization", f"Bearer {token}")
     try:
