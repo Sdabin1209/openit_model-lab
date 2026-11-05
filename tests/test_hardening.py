@@ -81,6 +81,7 @@ def post_pkg(url, tmp_path, token="wt", payload=b"w"):
         (td / "m").write_text(json.dumps(m)); (td / "r").write_bytes(rep)
         tarutil.pack({"manifest.json": td / "m", "eval_report": td / "r", **tarutil.tree_files(ad, "adapter/")}, td / "b.tar")
         r = urllib.request.Request(url + "/v1/packages", data=(td / "b.tar").read_bytes(), method="POST")
+        r.add_header("Content-Type", "application/x-tar")   # 계약은 패키지 묶음의 매체를 application/x-tar 로 정한다(link 가 강제, 3.4.19)
         r.add_header("Authorization", f"Bearer {token}")
         try:
             with urllib.request.urlopen(r) as resp:

@@ -1,4 +1,5 @@
 #!/bin/sh
+# deploy 와 같은 실행 조건으로 띄운다(읽기 전용 루트, /tmp tmpfs, cap_drop ALL, no-new-privileges, 쓸 수 있는 경로는 deploy compose 와 같게): 2026-11-06 E2E 기동에서야 드러난 쓰기 경로 결함을 스모크에서 잡는다
 # 이미지를 빌드해 띄우고 /healthz, /readyz, 게시(POST)와 조회를 확인한다. 고정 포트를 쓰지 않는다(Docker가 배정).
 # 의존 wheel은 태그에서 만든 것을 vendor/wheels에서 쓴다(ssh 없이). 태그 설치 경로는 Dockerfile 머리말.
 set -eu
@@ -37,7 +38,7 @@ SECRETS=$(mktemp -d); trap 'rm -rf "$SECRETS"; docker rm -f "$NAME" >/dev/null 2
 # 서비스는 짧은 토큰이면 시작을 거부한다(32자 이상). 스모크용 무작위 토큰을 만든다(이 값은 시험 전용이고 끝나면 버려진다)
 RT=$(od -An -N24 -tx1 /dev/urandom | tr -d ' \n'); WT=$(od -An -N24 -tx1 /dev/urandom | tr -d ' \n')
 printf 'release-gate=%s\n' "$RT" > "$SECRETS/read"; printf 'model-lab=%s\n' "$WT" > "$SECRETS/write"; chmod 755 "$SECRETS"; chmod 644 "$SECRETS"/*
-docker run -d --name "$NAME" -p 127.0.0.1::8080 -v "$NAME-data":/data \
+docker run -d --name "$NAME" --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges:true -p 127.0.0.1::8080 -v "$NAME-data":/data \
   -v "$SECRETS":/run/secrets:ro \
   -e MODEL_REGISTRY_READ_TOKENS_FILE=/run/secrets/read -e MODEL_REGISTRY_WRITE_TOKENS_FILE=/run/secrets/write "$TAG" >/dev/null
 PORT=$(docker port "$NAME" 8080/tcp | head -1 | sed 's/.*://')
