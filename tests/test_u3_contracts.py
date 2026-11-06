@@ -115,7 +115,9 @@ def _dockerfile_labels(args: dict) -> dict:
 def test_dockerfile_labels_satisfy_image_labels_contract():
     labels = _dockerfile_labels({"REVISION": "3bfd0d7", "BC_VERSION": "v3.2.0"})
     assert len(labels) == 5                                   # turn-engine 라벨은 계약 3.0.0에서 없어졌다
-    validator("ImageLabels").validate(labels)
+    import json, pathlib
+    # 진입점(build-image)이 --label 로 다는 주입 선언(계약 ContainerInputs 3.5.0 필수): Dockerfile 만으로는 계약 이미지가 아니다
+    validator("ImageLabels").validate({**labels, "io.openit.inputs": json.dumps(json.loads((pathlib.Path(__file__).resolve().parents[1] / "deploy-inputs.json").read_text(encoding="utf-8")))})
 
 
 def test_dockerfile_build_args_have_no_placeholder_defaults():

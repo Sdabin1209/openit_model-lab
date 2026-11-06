@@ -10,6 +10,7 @@ from pathlib import Path
 
 import jsonschema
 from boundary_contracts import schema_dir as _contract_dir
+from boundary_contracts import format_checker as _bc_format_checker  # 형식(format) 검증기가 없으면 조용히 넘기지 않고 실패한다(계약 3.5.0)
 
 SCHEMAS_DIR = Path(__file__).resolve().parents[2] / "schemas"
 _BASE = "https://openit.example/model-lab/schemas/"
@@ -32,7 +33,7 @@ def validator(name: str) -> jsonschema.Draft202012Validator:
     schema = _store()[_BASE + f"{name}.schema.json"]
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", DeprecationWarning)   # 계약 패키지의 validator()와 같은 RefResolver 방식
-        return jsonschema.Draft202012Validator(schema, resolver=jsonschema.RefResolver(_BASE + f"{name}.schema.json", schema, store=_store()))
+        return jsonschema.Draft202012Validator(schema, resolver=jsonschema.RefResolver(_BASE + f"{name}.schema.json", schema, store=_store()), format_checker=_bc_format_checker(schema))
 
 
 def check(name: str, doc) -> None:
