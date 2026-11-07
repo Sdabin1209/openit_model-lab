@@ -2,8 +2,9 @@
   "service": "model-registry",
   "egress": [
     "dataset-store",
-    "question-authoring",
+    "model-registry",
     "ops-feedback",
+    "question-authoring",
     "release-gate",
     "external:backup"
   ],

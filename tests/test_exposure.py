@@ -77,8 +77,10 @@ def test_declared_methods_cover_the_real_ones(server):
 def test_egress_lists_exactly_the_neighbours_model_lab_calls_per_interfaces():
     """CONVENTIONS 13절, RUNTIME R1.8: 영역이 부르는 상대 전부. INTERFACES 한눈에 표에서 model-lab이 읽는 I2·I1·I7·I4와 백업 저장소(external:backup, R10.1). I9(추론 서버)는 HTTP로 부르지 않는다(3.4.6)."""
     ex = load()
-    assert sorted(ex["egress"]) == ["dataset-store", "external:backup", "ops-feedback", "question-authoring", "release-gate"]
-    assert "model-serving" not in ex["egress"] and "model-registry" not in ex["egress"]
+    # model-registry: 학습 서버(compose 밖 model-lab 파이프라인)가 같은 영역의 registry 에 패키지를 게시할 때 자기 영역 게이트웨이 출구(R1.8)로
+    # R1.5 hosts 표의 model-registry 에 간다(계약 RUNTIME R1.5·R3.23 — 공개 입구 기계 경로 없음). I3 의 쓰는 쪽이 model-lab 이므로 허용 범위 안이다(deploy CR-450).
+    assert sorted(ex["egress"]) == ["dataset-store", "external:backup", "model-registry", "ops-feedback", "question-authoring", "release-gate"]
+    assert "model-serving" not in ex["egress"]
     assert any("/metrics" in r["paths"] and r["auth"]["kind"] == "denied" for r in ex["routes"])     # R10.11: /metrics는 바깥 입구에 열지 않는다
 
 
