@@ -1,23 +1,51 @@
 {
   "service": "model-registry",
-  "egress": ["dataset-store", "question-authoring", "ops-feedback", "release-gate", "external:backup"],
+  "egress": [
+    "dataset-store",
+    "question-authoring",
+    "ops-feedback",
+    "release-gate",
+    "external:backup"
+  ],
   "routes": [
     {
-      "paths": ["/v1/packages"],
-      "methods": ["POST"],
-      "auth": {"kind": "machine-token"},
-      "upstream_token": "model-registry-write-model-lab",
+      "paths": [
+        "/v1/packages"
+      ],
+      "methods": [
+        "POST"
+      ],
+      "auth": {
+        "kind": "denied"
+      },
       "user_header": "strip",
       "max_body_bytes": 4294967296
     },
     {
-      "paths": ["/v1/packages"],
-      "methods": ["GET", "PUT", "PATCH", "DELETE"],
-      "auth": {"kind": "denied"}
+      "paths": [
+        "/v1/packages"
+      ],
+      "methods": [
+        "GET",
+        "PUT",
+        "PATCH",
+        "DELETE"
+      ],
+      "auth": {
+        "kind": "denied"
+      }
     },
     {
-      "paths": ["/v1/packages/*", "/v1/eval-reports/*", "/healthz", "/readyz", "/metrics"],
-      "auth": {"kind": "denied"}
+      "paths": [
+        "/v1/packages/*",
+        "/v1/eval-reports/*",
+        "/healthz",
+        "/readyz",
+        "/metrics"
+      ],
+      "auth": {
+        "kind": "denied"
+      }
     }
   ]
 }
