@@ -33,14 +33,30 @@ def test_no_fixed_service_address_in_code():
     assert not bad, bad
 
 
-def test_service_urls_in_shipped_configs_come_from_env_names():
+def test_http_targets_in_shipped_configs_satisfy_the_contract_http_client_settings():
+    """계약 4.0.0 _common.HttpClientSettings: 주소는 설정의 base_url(ServiceUrl: https 또는 loopback http만), 토큰은 비밀 이름(token_secret). 값은 설정에 없다."""
     import yaml
+    found = []
+
+    def walk(x):
+        if isinstance(x, dict):
+            if x.get("kind") == "http":
+                found.append(x)
+            for v in x.values():
+                walk(v)
+        elif isinstance(x, list):
+            for v in x:
+                walk(v)
     for f in (ROOT / "configs").glob("*.yaml"):
-        text = f.read_text(encoding="utf-8")
-        for spec in re.findall(r"\{kind: http[^}]*\}", text):
-            assert "base_url_env:" in spec and "base_url:" not in spec.replace("base_url_env:", ""), (f.name, spec)
-        assert not re.search(r"^[^#\n]*https?://", text, re.M), f.name        # 주석 밖에 고정 주소 없음
-        yaml.safe_load(text)
+        walk(yaml.safe_load(f.read_text(encoding="utf-8")))
+    assert found
+    import jsonschema
+    from model_lab.wiring import schemas
+    ref = {"$ref": "_common.schema.json#/$defs/HttpClientSettings"}
+    v = jsonschema.Draft202012Validator(ref, resolver=jsonschema.RefResolver(schemas._BASE + "settings.json", ref, store=schemas._store()))
+    for spec in found:
+        errs = list(v.iter_errors(spec))
+        assert not errs, (spec, errs[0].message)
 
 
 def test_no_code_disables_certificate_verification():
@@ -92,8 +108,8 @@ def test_https_call_trusts_private_root_via_ssl_cert_file_only(tmp_path, monkeyp
     t = threading.Thread(target=srv.serve_forever, daemon=True); t.start()
     try:
         url = f"https://localhost:{srv.server_address[1]}"
-        env = {"MODEL_REGISTRY_URL": url, "MODEL_REGISTRY_WRITE_TOKEN": "t" * 40}      # 주소는 설정(환경 변수)으로만 들어온다
-        spec = {"kind": "http", "base_url_env": "MODEL_REGISTRY_URL", "token_env": "MODEL_REGISTRY_WRITE_TOKEN", "timeout": 5}
+        env = {"MODEL_REGISTRY_WRITE_TOKEN": "t" * 40}      # 토큰은 비밀 이름(token_secret)으로만 들어온다
+        spec = {"kind": "http", "base_url": url, "token_secret": "MODEL_REGISTRY_WRITE_TOKEN", "timeout_seconds": 5}
         monkeypatch.delenv("SSL_CERT_DIR", raising=False)
         # 사설 루트를 신뢰하지 않으면 검증이 실패한다(검증이 켜져 있다는 증거)
         monkeypatch.setenv("SSL_CERT_FILE", str(tmp_path / "root-other.pem"))
@@ -110,12 +126,12 @@ def test_https_call_trusts_private_root_via_ssl_cert_file_only(tmp_path, monkeyp
 
 def test_client_rejects_plain_http_outside_loopback():
     """계약 v3.4.1: 같은 기계(loopback) 밖의 http://는 생성 시 거부한다. 이 영역은 계약 클라이언트로만 다른 서비스를 부른다(직접 urllib 호출 없음)."""
-    spec = {"kind": "http", "base_url_env": "U", "token_env": "T", "timeout": 5}
+    spec = {"kind": "http", "token_secret": "T", "timeout_seconds": 5}
     env = {"T": "t" * 40}
     with pytest.raises(ValueError):
-        factories.build_http("model_registry", spec, {**env, "U": "http://model-registry:8080"})
-    factories.build_http("model_registry", spec, {**env, "U": "http://127.0.0.1:8080"})
-    factories.build_http("model_registry", spec, {**env, "U": "https://model-registry:8443"})
+        factories.build_http("model_registry", {**spec, "base_url": "http://model-registry:8080"}, env)
+    factories.build_http("model_registry", {**spec, "base_url": "http://127.0.0.1:8080"}, env)
+    factories.build_http("model_registry", {**spec, "base_url": "https://model-registry:8443"}, env)
 
 
 def test_http_calls_use_the_contract_default_time_limits():
@@ -125,4 +141,4 @@ def test_http_calls_use_the_contract_default_time_limits():
         c = yaml.safe_load(f.read_text(encoding="utf-8"))
         for spec in (c["inputs"].get("dataset_store"), c.get("registry")):
             if spec and spec.get("kind") == "http":
-                assert spec["timeout"] == 300, (f.name, spec)       # 둘 다 tar 호출(I2 내려받기, I3 게시)
+                assert spec["timeout_seconds"] == 300, (f.name, spec)       # 둘 다 tar 호출(I2 내려받기, I3 게시)

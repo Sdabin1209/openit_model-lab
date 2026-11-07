@@ -20,7 +20,7 @@
 config_version: 1
 profile: ../profiles/gpu-dev-12g.yaml   # 선택. 설정 파일의 값이 프로파일을 덮어쓴다(객체는 재귀 병합)
 run:      {name, seed, runs_dir}
-inputs:   {schema_dir, dataset: {id, version?}, dataset_store: {factory: "pkg.mod:fn", args}}
+inputs:   {schema_dir, dataset: {id, version?}, dataset_store: {kind: file, root} | HttpClientSettings}
 base_model: {id, revision}
 training:  {trainer: hf|dry-run, quantization, lora, max_seq_len, per_device_batch_size, grad_accum_steps,
             learning_rate, warmup_ratio, epochs, max_steps, max_train_samples, gpu_count, gpu_memory_fraction,
@@ -28,7 +28,7 @@ training:  {trainer: hf|dry-run, quantization, lora, max_seq_len, per_device_bat
 roles:    {LORA_A: {package_id, training?}, LORA_B: {package_id, training?}}   # 역할별 training은 공통을 덮어쓴다
 serving:  {LORA_A: <ServingConfig>, LORA_B: <ServingConfig>}                   # 형식은 model-runtime이 정한다
 evaluation: {backend: {kind: hf|fake-oracle}, split: EVAL|VALIDATION, limit_samples, max_listed_failures}
-registry: {kind: file|http|factory, path | base_url, token_env, timeout | factory, args}
+registry: {kind: file, path} | HttpClientSettings {kind: http, base_url, token_secret, timeout_seconds?}
 checks:   {max_lora_rank}                                                   # 대상 엔진 프로파일의 상한. 게시 전 어댑터 r과 대조
 publish:  {enabled}
 ```

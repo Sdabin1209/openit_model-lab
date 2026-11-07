@@ -37,7 +37,7 @@ def setup(tmp_path):
     for k in ("base_model", "training"):
         raw.pop(k)
     raw["inputs"]["schema_dir"] = str(SCHEMA_DIR)
-    raw["inputs"]["dataset_store"]["args"]["root"] = str(_DS_ROOT)
+    raw["inputs"]["dataset_store"]["root"] = str(_DS_ROOT)
     for r in raw["roles"].values():
         r["system_prompt_file"] = str((ROOT / "configs" / r["system_prompt_file"]).resolve())
     raw["registry"] = {"kind": "file", "path": str(tmp_path / "registry")}

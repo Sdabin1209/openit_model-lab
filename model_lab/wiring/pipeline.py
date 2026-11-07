@@ -272,7 +272,7 @@ class Run:
             if store is None:
                 if "failure_store" not in self.cfg["inputs"]:
                     raise ConfigError("evaluation.regression.enabled에는 inputs.failure_store가 필요하다")
-                store = factories.build(self.cfg["inputs"]["failure_store"])
+                store = factories.build_http("failure_store", self.cfg["inputs"]["failure_store"])
             cases = link_failure_read.list_confirmed(store, limit=self.cfg["evaluation"]["regression"].get("limit_cases"))
             self._rset = regression_set.build_set(cases, store.get_trace, max_listed=self.cfg["evaluation"].get("max_listed_failures", 20))
             self.log(f"[{self.run_id}] 회귀 집합 {self.cfg['evaluation']['regression'].get('label', '')} "

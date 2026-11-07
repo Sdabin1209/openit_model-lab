@@ -11,7 +11,7 @@ from openit_link.clients import HttpDatasetStore
 
 
 def connect(**kw):
-    """원격 dataset-store 클라이언트(D100). 인자는 wiring/factories.resolve_args가 비밀을 풀어 넘긴다."""
+    """원격 dataset-store 클라이언트(D100). 인자는 wiring/factories.build_http가 비밀을 풀어 넘긴다."""
     return HttpDatasetStore(**kw)
 
 

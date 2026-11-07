@@ -23,10 +23,9 @@
 ### 입력 저장소 선택 (설정의 `inputs.*`)
 | 입력 | 팩토리 | 인자 |
 | --- | --- | --- |
-| 데이터셋(I2, 실제, D100) | `{kind: http, base_url_env: DATASET_STORE_URL, token_env: DATASET_STORE_TOKEN}`(계약 2.1.0의 `HttpDatasetStore`) |
-| 데이터셋(I2, 로컬 개발) | `model_lab.file_dataset_store:file_dataset_store` | `root` 또는 `root_env: <환경 변수>`: synthetic-data가 낸 `<root>/<dataset_id>/<version>/{manifest.json, meta.json, files/…}`의 루트. 이 리포지토리의 독립 읽기 구현(`DatasetStore` Protocol, 읽기 전용, 매니페스트·파일 해시 재확인) |
-| 데이터셋(I2, 시험용) | `tests.doubles.dataset_store:from_dir` | 합성 v2 샘플로 만든 가짜 데이터. `configs/gpu-dev-fixture-*.yaml`이 쓴다 |
-| 실패 사례(I7) | `boundary_contracts.clients:HttpFailureStore` | `base_url`/`base_url_env`, `token`/`token_env` |
+| 데이터셋(I2, 실제, D100) | `{kind: http, base_url: "https://dataset-store", token_secret: DATASET_STORE_TOKEN}`(계약 4.0.0 `HttpClientSettings`, 클라이언트는 `HttpDatasetStore`) |
+| 데이터셋(I2, 로컬 개발, 시험용 합성 데이터 포함) | `{kind: file, root}` | `<root>/<dataset_id>/<version>/{manifest.json, meta.json, files/…}`의 루트(설정 파일 위치 기준 상대 경로). 이 리포지토리의 독립 읽기 구현(`FileDatasetReader`, `DatasetStore` Protocol). `python scripts/make_fixture_dataset.py fixtures/store`가 같은 배치로 합성 데이터를 만든다 |
+| 실패 사례(I7) | `{kind: http, base_url, token_secret, timeout_seconds?}`(`HttpFailureStore`) |
 | 문항(I1, 자리만) | `boundary_contracts.clients:HttpQuestionReader` | 같은 방식 |
 실제 실행 설정 예: `configs/gpu-dev.yaml`(환경 변수 `DATASET_STORE_URL`, `DATASET_STORE_TOKEN`, `MODEL_REGISTRY_URL`, `MODEL_REGISTRY_WRITE_TOKEN`, `FAILURE_STORE_URL`, `FAILURE_STORE_TOKEN`). 설정(`configs/*.yaml`, 프로파일 포함)에는 비밀 값을 직접 적을 수 없다: 키 이름에 `token`, `secret`, `password`, `credential`, `api_key`, `authorization`, `private_key`가 들어 있고 값이 문자열이면 시작을 거부한다(중첩 dict·list 포함, 오류에는 키 경로만). `*_env`는 환경 변수 이름을 받으므로 `[A-Z][A-Z0-9_]+` 형식이면 허용한다. 설정의 `token_env: NAME`은 `NAME_FILE`(파일 경로)이 있으면 그 파일을, 없으면 `NAME` 환경 변수를 읽는다(D84). `configs/gpu-dev-fixture-*.yaml`과 `configs/dryrun.yaml`은 시험용이다.
 
@@ -43,9 +42,9 @@
 - 작업 폴더: `runs_dir`(설정). 비밀 값은 설정 파일에 없고 환경 변수로만 받는다.
 - 설정 형식(요약, 정본은 `schemas/RunConfig.schema.json`과 `docs/design.md` 3절). 예: `configs/gpu-dev-fixture-smoke.yaml`.
   - `profile`: 학습 프로파일(`profiles/gpu-dev-12g.yaml`: 기반 모델, 양자화, 최대 길이, 배치, 학습률, 에폭, GPU 수·메모리 비율, `checks.max_lora_rank`)
-  - `inputs.dataset`: `{id, version?}` (version 생략 = 최신), `inputs.dataset_store`: 읽기 SDK 팩토리
-  - `registry`: 게시 대상. 로컬 `{kind: file, path}` 또는 원격 `{kind: http, base_url, token_env, timeout}`(`boundary_contracts.clients.HttpModelRegistry`). `token_env`가 가리키는 이름의 `_FILE` 경로 파일 또는 환경 변수(쓰기 토큰)를 잡 실행 환경에 준다
-  - 이웃 읽기 SDK는 모두 `{factory: "pkg.mod:fn", args: {..., token_env: 변수}}`로 고른다. `*_env` 인자는 환경 변수 값으로 바뀐다. `inputs.question_reader`, `inputs.failure_store` 자리는 열려 있으나 아직 쓰지 않는다
+  - `inputs.dataset`: `{id, version?}` (version 생략 = 최신), `inputs.dataset_store`: `{kind: file, root}` 또는 `HttpClientSettings`
+  - `registry`: 게시 대상. 로컬 `{kind: file, path}` 또는 원격 `{kind: http, base_url, token_secret, timeout_seconds?}`(`HttpModelRegistry`). `token_secret`이 가리키는 이름의 `_FILE` 경로 파일 또는 환경 변수(쓰기 토큰)를 잡 실행 환경에 준다
+  - 이웃 영역은 역할(설정 키)이 클라이언트를 정하고 `kind: http`가 전송만 고른다(계약 4.0.0 D135: 설정에 구현 모듈 경로를 두지 않는다). `base_url`은 ServiceUrl(https 또는 loopback http), 토큰은 `token_secret` 이름으로 `read_secret`이 읽는다. 시험 대역은 `Run(dataset_store=…, failure_store=…)` 인자로 주입한다
 - 필요 환경: GPU 호스트에 `requirements.lock` + `requirements-train.txt`(torch 등), 모델 캐시(`~/.cache/huggingface`), `flock ~/openit-gpu/.gpu.lock`으로 GPU 직렬화(D47).
 - 다른 호스트의 서버에 게시할 때: GPU 호스트에서 서버 주소로 HTTP가 닿아야 하고, 쓰기 토큰은 잡 실행 환경에만 둔다. 어댑터(수십~수백 MB)는 게시 때 tar로 올라간다.
 

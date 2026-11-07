@@ -20,64 +20,17 @@ class Dataset(TypedDict, closed=True):
 
 
 class DatasetStore(TypedDict, closed=True):
-    factory: str
-    args: NotRequired[dict[str, Any]]
-
-
-class DatasetStore1(TypedDict, closed=True):
-    kind: Literal['http']
-    base_url: str
-    base_url_env: NotRequired[str]
-    token_env: NotRequired[str]
-    timeout: NotRequired[float]
-
-
-class DatasetStore2(TypedDict, closed=True):
-    kind: Literal['http']
-    base_url: NotRequired[str]
-    base_url_env: str
-    token_env: NotRequired[str]
-    timeout: NotRequired[float]
-
-
-class QuestionReader(TypedDict, closed=True):
-    factory: str
-    args: NotRequired[dict[str, Any]]
-
-
-class FailureStore(TypedDict, closed=True):
-    factory: str
-    args: NotRequired[dict[str, Any]]
-
-
-class ReleaseReader(TypedDict, closed=True):
-    factory: str
-    args: NotRequired[dict[str, Any]]
-
-
-class ReleaseReader1(TypedDict, closed=True):
-    kind: Literal['http']
-    base_url: str
-    base_url_env: NotRequired[str]
-    token_env: NotRequired[str]
-    timeout: NotRequired[float]
-
-
-class ReleaseReader2(TypedDict, closed=True):
-    kind: Literal['http']
-    base_url: NotRequired[str]
-    base_url_env: str
-    token_env: NotRequired[str]
-    timeout: NotRequired[float]
+    kind: Literal['file']
+    root: str
 
 
 class Inputs(TypedDict, closed=True):
     schema_dir: str
     dataset: Dataset
-    dataset_store: DatasetStore | DatasetStore1 | DatasetStore2
-    question_reader: NotRequired[QuestionReader]
-    failure_store: NotRequired[FailureStore]
-    release_reader: NotRequired[ReleaseReader | ReleaseReader1 | ReleaseReader2]
+    dataset_store: DatasetStore | dict[str, Any]
+    question_reader: NotRequired[dict[str, Any]]
+    failure_store: NotRequired[dict[str, Any]]
+    release_reader: NotRequired[dict[str, Any]]
 
 
 class BaseModel(TypedDict, closed=True):
@@ -208,14 +161,8 @@ class Evaluation(TypedDict, closed=True):
 
 
 class Registry(TypedDict, closed=True):
-    kind: Literal['file', 'http', 'factory']
+    kind: Literal['file']
     path: NotRequired[str]
-    base_url: NotRequired[str]
-    base_url_env: NotRequired[str]
-    token_env: NotRequired[str]
-    timeout: NotRequired[float]
-    factory: NotRequired[str]
-    args: NotRequired[dict[str, Any]]
 
 
 class Checks(TypedDict, closed=True):
@@ -236,6 +183,6 @@ class RunConfig(TypedDict, closed=True):
     roles: Roles
     serving: Serving
     evaluation: Evaluation
-    registry: Registry
+    registry: Registry | dict[str, Any]
     checks: NotRequired[Checks]
     publish: NotRequired[Publish]

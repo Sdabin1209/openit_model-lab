@@ -89,5 +89,5 @@ class FileDatasetReader:
 
 
 def file_dataset_store(root: str) -> FileDatasetReader:
-    """설정용 팩토리: `{factory: "model_lab.file_dataset_store:file_dataset_store", args: {root_env: DATASET_ROOT}}`"""
+    """설정 `inputs.dataset_store: {kind: file, root}`가 부르는 읽기 구현(wiring/stores)"""
     return FileDatasetReader(root)

@@ -67,7 +67,7 @@ class MemoryDatasetStore:
 
 
 class DirDatasetStore:
-    """root/<dataset_id>/<version>/{manifest.json, <files>} 를 읽는다. 읽기 전용(publish는 시험용 헬퍼가 따로 쓴다)."""
+    """root/<dataset_id>/<version>/{manifest.json, meta.json, files/<files>} 를 읽는다. 읽기 전용(publish는 시험용 헬퍼가 따로 쓴다)."""
 
     def __init__(self, root: str) -> None:
         self.root = Path(root)
@@ -86,7 +86,7 @@ class DirDatasetStore:
         return json.loads(order.read_text()) if order.is_file() else []
 
     def open_file(self, dataset_id: str, version: str, path: str) -> BinaryIO:
-        p = self.root / dataset_id / version / path
+        p = self.root / dataset_id / version / "files" / path
         if not p.is_file():
             raise BoundaryError("NOT_FOUND", "파일이 없다")
         return open(p, "rb")

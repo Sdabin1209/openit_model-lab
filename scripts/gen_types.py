@@ -26,8 +26,9 @@ def prepare(dst: pathlib.Path) -> None:
     def walk(v):
         if isinstance(v, dict):
             ref = v.get("$ref")
-            if isinstance(ref, str) and ref.endswith(".schema.json") and "#" not in ref and ref not in own:
-                return {"type": "object", "description": "계약 " + ref.removesuffix(".schema.json")}
+            # 왜 '#' 앞의 파일 이름으로 가르나: 계약 4.0.0의 공통 정의는 `_common.schema.json#/$defs/HttpClientSettings`처럼 조각으로 참조한다
+            if isinstance(ref, str) and ref.split("#")[0].endswith(".schema.json") and ref.split("#")[0] not in own:
+                return {"type": "object", "description": "계약 " + ref.replace(".schema.json", "")}
             return {k: walk(x) for k, x in v.items()}
         if isinstance(v, list):
             return [walk(x) for x in v]

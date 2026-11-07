@@ -1,5 +1,5 @@
 """U69: 학습 서버의 파이프라인이 게이트웨이(https, 기계 토큰 Bearer) 뒤의 model-registry에 게시할 수 있다.
-우리 코드의 몫은 둘뿐이다: (1) 주소를 base_url_env(MODEL_REGISTRY_URL)로, 토큰을 token_env의 NAME_FILE 파일로 받는다(D84) (2) TLS 신뢰는 SSL_CERT_FILE
+우리 코드의 몫은 둘뿐이다: (1) 주소를 설정의 base_url로, 토큰을 token_secret의 NAME_FILE 파일로 받는다(D84) (2) TLS 신뢰는 SSL_CERT_FILE
 (표준 OpenSSL/Python 환경 변수)로 정한다. TLS 종단은 게이트웨이의 몫이라 여기서는 시험용 종단 중계기를 앞에 둔다."""
 import copy
 import socket
@@ -68,10 +68,9 @@ def test_publish_through_https_gateway_with_token_file_and_ca_file(cfg, tmp_path
         tok.write_text(token + "\n")
         monkeypatch.delenv("GW_REGISTRY_TOKEN", raising=False)
         monkeypatch.setenv("GW_REGISTRY_TOKEN_FILE", str(tok))             # 비밀은 파일 경로로만 받는다
-        monkeypatch.setenv("GW_REGISTRY_URL", f"https://localhost:{tls_port}")
         monkeypatch.setenv("SSL_CERT_FILE", str(crt))                      # 게이트웨이 CA(여기서는 자체 서명)
         c = copy.deepcopy(cfg)
-        c["registry"] = {"kind": "http", "base_url_env": "GW_REGISTRY_URL", "token_env": "GW_REGISTRY_TOKEN"}
+        c["registry"] = {"kind": "http", "base_url": f"https://localhost:{tls_port}", "token_secret": "GW_REGISTRY_TOKEN"}
         rec = mk(c).run()
         v = rec["result"]["packages"]["LORA_A"]["version"]
         assert svc.registry.get_manifest("lora-a-parser", v)["version"] == v
@@ -91,10 +90,9 @@ def test_untrusted_gateway_certificate_is_refused(cfg, tmp_path, monkeypatch):
     lst, tls_port = _tls_front(crt, key, port)
     try:
         monkeypatch.setenv("GW_REGISTRY_TOKEN", token)
-        monkeypatch.setenv("GW_REGISTRY_URL", f"https://localhost:{tls_port}")
         monkeypatch.delenv("SSL_CERT_FILE", raising=False)
         c = copy.deepcopy(cfg)
-        c["registry"] = {"kind": "http", "base_url_env": "GW_REGISTRY_URL", "token_env": "GW_REGISTRY_TOKEN"}
+        c["registry"] = {"kind": "http", "base_url": f"https://localhost:{tls_port}", "token_secret": "GW_REGISTRY_TOKEN"}
         with pytest.raises(BoundaryError):
             mk(c).run()
         assert svc.registry.list_ids() == ([], None)

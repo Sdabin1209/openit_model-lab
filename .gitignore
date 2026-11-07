@@ -9,3 +9,5 @@ vendor/
 .venv
 train-scripts/
 build/
+.logs/
+.docker-config/

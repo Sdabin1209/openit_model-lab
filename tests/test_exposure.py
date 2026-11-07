@@ -17,21 +17,16 @@ def load():
     return json.loads(EXPOSURE.read_text(encoding="utf-8"))
 
 
-def test_exposure_file_satisfies_the_contract_and_exposes_only_publish():
+def test_exposure_file_satisfies_the_contract_and_exposes_nothing():
     ex = load()
     validator("Exposure").validate(ex)
     assert ex["service"] == "model-registry"
-    # 왜 게시만 machine-token: 학습 서버(다른 호스트)의 파이프라인이 게이트웨이(https)를 거쳐 POST /v1/packages로 게시한다(U69). 게이트웨이가 Bearer를 비밀
-    # model-registry-write-model-lab과 대조하고 상류에는 레지스트리 쓰기 토큰을 붙인다. 읽기 경로는 release-gate가 내부망에서 직접 읽으므로(GATE_I3_URL) 전부 denied.
-    open_routes = [r for r in ex["routes"] if r["auth"]["kind"] != "denied"]
-    assert len(open_routes) == 1
-    r = open_routes[0]
-    assert r["paths"] == ["/v1/packages"] and r["methods"] == ["POST"] and r["auth"]["kind"] == "machine-token"
-    assert r["upstream_token"] == "model-registry-write-model-lab"
-    # 기계 입구에는 사람 계정이 없으므로 게이트웨이가 X-Openit-User를 지운다(다른 machine-token 줄과 같다)
-    assert r["user_header"] == "strip"
-    # 같은 경로의 다른 메서드는 denied로 명시한다(메서드를 비운 선언이 게시 선언과 겹치지 않게)
-    assert any(x["paths"] == ["/v1/packages"] and "GET" in x["methods"] and x["auth"]["kind"] == "denied" for x in ex["routes"])
+    # 왜 전부 denied: 계약 4.0.0(CHANGELOG)이 Exposure auth machine-token을 없앴고 기기 인증은 mTLS 하나(D136)다. 이 서비스에는 공개할 경로가 없다.
+    # 읽기 경로는 release-gate가 내부망에서 직접 읽는다(GATE_I3_URL).
+    assert all(r["auth"]["kind"] == "denied" for r in ex["routes"])
+    # 게시 경로는 메서드별로 denied 선언이 있고, 같은 경로의 다른 메서드도 denied로 명시한다(메서드를 비운 선언이 겹치지 않게)
+    assert any(x["paths"] == ["/v1/packages"] and x["methods"] == ["POST"] for x in ex["routes"])
+    assert any(x["paths"] == ["/v1/packages"] and "GET" in x["methods"] for x in ex["routes"])
 
 
 @pytest.fixture
@@ -92,5 +87,5 @@ def test_publish_route_declares_the_body_limit_the_service_enforces():
     import boundary_contracts, json as _j, os
     env = _j.load(open(os.path.join(os.path.dirname(boundary_contracts.__file__), "schemas", "ModelRegistryEnv.schema.json"), encoding="utf-8"))
     default = int(env["properties"]["MODEL_REGISTRY_MAX_BODY"]["default"])
-    pub = [r for r in load()["routes"] if r["auth"]["kind"] == "machine-token"][0]
+    pub = [r for r in load()["routes"] if r["paths"] == ["/v1/packages"] and r["methods"] == ["POST"]][0]
     assert pub["max_body_bytes"] == default == 4 << 30 and pub["max_body_bytes"] <= 8 << 30

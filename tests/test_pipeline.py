@@ -93,7 +93,7 @@ def test_run_once_is_idempotent_and_follows_new_dataset_version(cfg, tmp_path, f
     c = copy.deepcopy(cfg)
     root = tmp_path / "ds"
     shutil.copytree(fixture_store, root)
-    c["inputs"]["dataset_store"]["args"]["root"] = str(root)
+    c["inputs"]["dataset_store"]["root"] = str(root)
     log = lambda s: None
     first = run_once(c, clock=FIXED, log=log)
     again = run_once(c, clock=FIXED, log=log)
@@ -129,17 +129,17 @@ def test_leak_between_eval_and_train_stops_pipeline(cfg, tmp_path):
     m = json.loads((p / "manifest.json").read_text())
     trf = next(f["path"] for f in m["files"] if f["role"] == "LORA_A" and f["split"] == "TRAIN")
     evf = next(f["path"] for f in m["files"] if f["role"] == "LORA_A" and f["split"] == "EVAL")
-    tr = [json.loads(x) for x in (p / trf).read_text().splitlines()]
-    ev_lines = (p / evf).read_text().splitlines()
+    tr = [json.loads(x) for x in (p / "files" / trf).read_text().splitlines()]
+    ev_lines = (p / "files" / evf).read_text().splitlines()
     e0 = json.loads(ev_lines[0]); e0["scenario_id"] = tr[0]["scenario_id"]       # 시나리오를 공유하게 만든다
     ev_lines[0] = json.dumps(e0, ensure_ascii=False, sort_keys=True)
-    (p / evf).write_text("\n".join(ev_lines) + "\n")
+    (p / "files" / evf).write_text("\n".join(ev_lines) + "\n")
     for f in m["files"]:
         if f["path"] == evf:
-            f["content_hash"] = canonical.file_hash(p / evf)
+            f["content_hash"] = canonical.file_hash(p / "files" / evf)
     m["content_hash"] = canonical.content_hash(m)
     (p / "manifest.json").write_text(json.dumps(m))
-    c = copy.deepcopy(cfg); c["inputs"]["dataset_store"]["args"]["root"] = str(root)
+    c = copy.deepcopy(cfg); c["inputs"]["dataset_store"]["root"] = str(root)
     with pytest.raises(PipelineError, match="공유"):
         mk(c).run()
 
@@ -147,9 +147,9 @@ def test_leak_between_eval_and_train_stops_pipeline(cfg, tmp_path):
 def test_corrupt_dataset_file_is_integrity_error(cfg, tmp_path, fixture_store):
     root = tmp_path / "bad"; shutil.copytree(fixture_store, root)
     trf = next(f["path"] for f in json.loads((root / "fx-golden/v1/manifest.json").read_text())["files"] if f["role"] == "LORA_A" and f["split"] == "TRAIN")
-    with open(root / "fx-golden/v1" / trf, "ab") as f:
+    with open(root / "fx-golden/v1/files" / trf, "ab") as f:
         f.write(b"\n")
-    c = copy.deepcopy(cfg); c["inputs"]["dataset_store"]["args"]["root"] = str(root)
+    c = copy.deepcopy(cfg); c["inputs"]["dataset_store"]["root"] = str(root)
     with pytest.raises(BoundaryError) as e:
         mk(c).run()
     assert e.value.code == "INTEGRITY_ERROR"
@@ -243,7 +243,7 @@ def test_publish_to_remote_registry_over_http(cfg, tmp_path, monkeypatch):
     try:
         monkeypatch.setenv("TEST_REGISTRY_TOKEN", "w")
         c = copy.deepcopy(cfg)
-        c["registry"] = {"kind": "http", "base_url": f"http://127.0.0.1:{port}", "token_env": "TEST_REGISTRY_TOKEN"}
+        c["registry"] = {"kind": "http", "base_url": f"http://127.0.0.1:{port}", "token_secret": "TEST_REGISTRY_TOKEN"}
         r = mk(c); rec = r.run()
         v = rec["result"]["packages"]["LORA_A"]["version"]
         assert svc.registry.get_manifest("lora-a-parser", v)["content_hash"] == rec["result"]["packages"]["LORA_A"]["content_hash"]
@@ -287,7 +287,7 @@ def test_run_once_exit_code_3_when_remote_unreachable(cfg, tmp_path, monkeypatch
     from model_lab.cli import main
     monkeypatch.setenv("TEST_REGISTRY_TOKEN", "w")
     raw = {k: v for k, v in cfg.items() if k != "_base_dir"}
-    raw["registry"] = {"kind": "http", "base_url": "http://127.0.0.1:9", "token_env": "TEST_REGISTRY_TOKEN"}
+    raw["registry"] = {"kind": "http", "base_url": "http://127.0.0.1:9", "token_secret": "TEST_REGISTRY_TOKEN"}
     p = tmp_path / "remote.yaml"; p.write_text(yaml.safe_dump(raw))
     assert main(["run-once", "--config", str(p)]) == 3                  # 재시도 가능
     assert main(["run-once", "--config", str(p)]) == 3                  # 학습은 다시 하지 않고 게시만 재시도(아래 확인)
@@ -308,24 +308,20 @@ def test_package_records_resume_and_evaluation_backend(cfg):
     assert rep["evaluation_backend"]["name"] == "fake" and rep["evaluation_backend"]["constrained_decoding"] is False
 
 
-def test_http_kind_requires_token_env_var(cfg):
-    c = copy.deepcopy(cfg); c["registry"] = {"kind": "http", "base_url": "http://x", "token_env": "NOPE_TOKEN_VAR"}
+def test_http_kind_requires_token_secret(cfg):
+    c = copy.deepcopy(cfg); c["registry"] = {"kind": "http", "base_url": "http://127.0.0.1:1", "token_secret": "NOPE_TOKEN_VAR"}
     with pytest.raises(ConfigError):
         mk(c)
 
 
-def test_env_args_resolution():
-    from model_lab.wiring.factories import resolve_args
-    assert resolve_args({"base_url": "u", "token_env": "T"}, {"T": "s"}) == {"base_url": "u", "token": "s"}
-    with pytest.raises(ConfigError):
-        resolve_args({"token_env": "MISSING"}, {})
-
-
-def test_neighbor_reader_factories_are_accepted_by_config(cfg):
+def test_neighbor_reader_settings_are_accepted_and_factories_are_rejected_by_config(cfg):
     c = copy.deepcopy({k: v for k, v in cfg.items() if k != "_base_dir"})
-    c["inputs"]["question_reader"] = {"factory": "boundary_contracts.clients:HttpQuestionReader", "args": {"base_url": "http://q", "token_env": "QT"}}
-    c["inputs"]["failure_store"] = {"factory": "boundary_contracts.clients:HttpFailureStore", "args": {"base_url": "http://f", "token_env": "FT"}}
+    c["inputs"]["question_reader"] = {"kind": "http", "base_url": "http://127.0.0.1:1", "token_secret": "QT"}
+    c["inputs"]["failure_store"] = {"kind": "http", "base_url": "https://ops-feedback", "token_secret": "FT"}
     validate_config(c)
+    c["inputs"]["failure_store"] = {"factory": "boundary_contracts.clients:HttpFailureStore", "args": {}}      # 계약 4.0.0(D135): 설정에 구현 모듈 경로를 두지 않는다
+    with pytest.raises(ConfigError):
+        validate_config(c)
 
 
 def test_all_shipped_configs_are_valid():

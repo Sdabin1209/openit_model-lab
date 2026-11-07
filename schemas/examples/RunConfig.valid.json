@@ -16,10 +16,8 @@
       "id": "fx-golden"
     },
     "dataset_store": {
-      "args": {
-        "root": "/work/store"
-      },
-      "factory": "tests.doubles.dataset_store:from_dir"
+      "kind": "file",
+      "root": "/work/store"
     },
     "schema_dir": "installed:survey-schema"
   },

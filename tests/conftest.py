@@ -40,7 +40,7 @@ def cfg(tmp_path, fixture_store):
     raw["run"]["runs_dir"] = str(tmp_path / "runs")
     raw["registry"]["path"] = str(tmp_path / "registry")
     raw["inputs"]["schema_dir"] = str(SCHEMA_DIR)
-    raw["inputs"]["dataset_store"]["args"]["root"] = str(fixture_store)
+    raw["inputs"]["dataset_store"]["root"] = str(fixture_store)
     for r in raw["roles"].values():      # 설정 파일을 tmp로 옮기므로 상대 경로를 절대 경로로
         r["system_prompt_file"] = str((ROOT / "configs" / r["system_prompt_file"]).resolve())
     p = tmp_path / "cfg.yaml"

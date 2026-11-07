@@ -152,12 +152,13 @@ def load_samples(role: str, limit_scenarios: int | None = None) -> list[dict]:
 
 
 def build_dataset(dest: Path, dataset_id: str, version: str, *, max_cases: int | None = None, unseen_eval: bool = True) -> dict:
-    """dest/<dataset_id>/<version>/ 에 파일과 manifest.json을 쓰고 매니페스트를 낸다.
+    """dest/<dataset_id>/<version>/ 에 synthetic-data 배치(manifest.json, meta.json, files/<path>)로 쓰고 매니페스트를 낸다.
 
     파일 단위로 문항 세트를 적는다(files[].question_sets). 보지 못한 문항 세트 시험을 위해 평가 파일을 둘로 나눈다:
     시나리오 해시가 홀수면 qs-unseen 파일, 아니면 qs-train 파일. 샘플에는 question_set을 적지 않는다(서버 데이터처럼)."""
     root = dest / dataset_id / version
-    root.mkdir(parents=True, exist_ok=True)
+    files_dir = root / "files"
+    files_dir.mkdir(parents=True, exist_ok=True)
     qs_train, qs_un = qs_ref("qs-train"), qs_ref("qs-unseen")
     files = []
     for role in ROLES:
@@ -167,11 +168,11 @@ def build_dataset(dest: Path, dataset_id: str, version: str, *, max_cases: int |
             groups.setdefault((s["split"], qs["id"]), (qs, []))[1].append(s)
         for (split, _), (qs, ss) in sorted(groups.items()):
             name = f"{ROLE_FILE[role]}-{split.lower()}-{qs['id']}.jsonl"
-            with open(root / name, "w", encoding="utf-8") as fh:
+            with open(files_dir / name, "w", encoding="utf-8") as fh:
                 for s in ss:
                     fh.write(json.dumps(s, ensure_ascii=False) + "\n")
             files.append({"path": name, "role": role, "split": split, "sample_count": len(ss),
-                          "content_hash": canonical.file_hash(root / name), "question_sets": [qs]})
+                          "content_hash": canonical.file_hash(files_dir / name), "question_sets": [qs]})
     m = {"pipeline_schema_version": PIPELINE_SCHEMA_VERSION, "dataset_id": dataset_id, "version": version,
          "created_at": "2026-10-27T00:00:00Z", "runtime_contract_version": 1, "question_sets": [qs_train, qs_un],
          "generator_version": "fixture-v2-1", "seed_case_ids": [], "action_rules_version": action_rules_version(),
@@ -183,4 +184,5 @@ def build_dataset(dest: Path, dataset_id: str, version: str, *, max_cases: int |
     if version not in vs:
         vs.append(version)
     vp.write_text(json.dumps(vs))
+    (root / "meta.json").write_text(json.dumps({"seq": vs.index(version) + 1}))     # 파일 저장소 읽기 구현이 게시 순서를 meta.json의 seq로 읽는다
     return m

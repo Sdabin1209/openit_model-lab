@@ -74,146 +74,33 @@
               "type": "object",
               "additionalProperties": false,
               "required": [
-                "factory"
+                "kind",
+                "root"
               ],
+              "description": "로컬 파일 저장소 읽기(synthetic-data 배치: <root>/<dataset_id>/<version>/{manifest.json,meta.json,files/}). 개발·CPU 시험용 읽기 구현이며 시험 대역이 아니다",
               "properties": {
-                "factory": {
-                  "type": "string",
-                  "pattern": "^[\\w.]+:\\w+$"
+                "kind": {
+                  "const": "file"
                 },
-                "args": {
-                  "type": "object"
+                "root": {
+                  "type": "string",
+                  "minLength": 1
                 }
               }
             },
             {
-              "type": "object",
-              "additionalProperties": false,
-              "required": [
-                "kind"
-              ],
-              "properties": {
-                "kind": {
-                  "const": "http"
-                },
-                "base_url": {
-                  "type": "string"
-                },
-                "base_url_env": {
-                  "type": "string"
-                },
-                "token_env": {
-                  "type": "string"
-                },
-                "timeout": {
-                  "type": "number",
-                  "exclusiveMinimum": 0
-                }
-              },
-              "anyOf": [
-                {
-                  "required": [
-                    "base_url"
-                  ]
-                },
-                {
-                  "required": [
-                    "base_url_env"
-                  ]
-                }
-              ]
+              "$ref": "_common.schema.json#/$defs/HttpClientSettings"
             }
           ]
         },
         "question_reader": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "factory"
-          ],
-          "properties": {
-            "factory": {
-              "type": "string",
-              "pattern": "^[\\w.]+:\\w+$"
-            },
-            "args": {
-              "type": "object"
-            }
-          }
+          "$ref": "_common.schema.json#/$defs/HttpClientSettings"
         },
         "failure_store": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "factory"
-          ],
-          "properties": {
-            "factory": {
-              "type": "string",
-              "pattern": "^[\\w.]+:\\w+$"
-            },
-            "args": {
-              "type": "object"
-            }
-          }
+          "$ref": "_common.schema.json#/$defs/HttpClientSettings"
         },
         "release_reader": {
-          "oneOf": [
-            {
-              "type": "object",
-              "additionalProperties": false,
-              "required": [
-                "factory"
-              ],
-              "properties": {
-                "factory": {
-                  "type": "string",
-                  "pattern": "^[\\w.]+:\\w+$"
-                },
-                "args": {
-                  "type": "object"
-                }
-              }
-            },
-            {
-              "type": "object",
-              "additionalProperties": false,
-              "required": [
-                "kind"
-              ],
-              "properties": {
-                "kind": {
-                  "const": "http"
-                },
-                "base_url": {
-                  "type": "string"
-                },
-                "base_url_env": {
-                  "type": "string"
-                },
-                "token_env": {
-                  "type": "string"
-                },
-                "timeout": {
-                  "type": "number",
-                  "exclusiveMinimum": 0
-                }
-              },
-              "anyOf": [
-                {
-                  "required": [
-                    "base_url"
-                  ]
-                },
-                {
-                  "required": [
-                    "base_url_env"
-                  ]
-                }
-              ]
-            }
-          ],
-          "description": "선택. release-gate I4 읽기(판정 조회 find_decisions). 있으면 게시한 패키지의 판정을 run 기록(decisions)에 넣는다. 제출은 하지 않는다(model-lab에는 제출 권한이 없다)"
+          "$ref": "_common.schema.json#/$defs/HttpClientSettings"
         }
       }
     },
@@ -773,80 +660,24 @@
       }
     },
     "registry": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "kind"
-      ],
-      "properties": {
-        "kind": {
-          "enum": [
-            "file",
-            "http",
-            "factory"
-          ]
-        },
-        "path": {
-          "type": "string"
-        },
-        "base_url": {
-          "type": "string"
-        },
-        "base_url_env": {
-          "type": "string"
-        },
-        "token_env": {
-          "type": "string"
-        },
-        "timeout": {
-          "type": "number",
-          "exclusiveMinimum": 0
-        },
-        "factory": {
-          "type": "string",
-          "pattern": "^[\\w.]+:\\w+$"
-        },
-        "args": {
-          "type": "object"
-        }
-      },
-      "allOf": [
+      "oneOf": [
         {
-          "if": {
-            "properties": {
-              "kind": {
-                "const": "http"
-              }
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind"
+          ],
+          "properties": {
+            "kind": {
+              "const": "file"
+            },
+            "path": {
+              "type": "string"
             }
-          },
-          "then": {
-            "anyOf": [
-              {
-                "required": [
-                  "base_url"
-                ]
-              },
-              {
-                "required": [
-                  "base_url_env"
-                ]
-              }
-            ]
           }
         },
         {
-          "if": {
-            "properties": {
-              "kind": {
-                "const": "factory"
-              }
-            }
-          },
-          "then": {
-            "required": [
-              "factory"
-            ]
-          }
+          "$ref": "_common.schema.json#/$defs/HttpClientSettings"
         }
       ]
     },

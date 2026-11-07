@@ -7,7 +7,7 @@ run: {name: gpu-dev-smoke-repeat, seed: 1234, runs_dir: ../runs-repeat}
 inputs:
   schema_dir: ../vendor/survey-schema/schemas
   dataset: {id: fx-golden}
-  dataset_store: {factory: "tests.doubles.dataset_store:from_dir", args: {root: fixtures/store}}
+  dataset_store: {kind: file, root: ../fixtures/store}
 training: {max_train_samples: 24, max_steps: 4, checkpoint_every_steps: 2, log_every_steps: 1}
 roles:
   LORA_A: {package_id: lora-a-parser, system_prompt_file: ../prompts/lora_a.system.txt, training: {server_train_config: train-gpu-dev-a.yaml}}

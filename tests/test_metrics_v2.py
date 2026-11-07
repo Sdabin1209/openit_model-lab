@@ -184,8 +184,9 @@ def test_regression_reads_d98_trace_keys():
 
     from tests.test_regression import trace_with
     A, B = load_samples("LORA_A")[0], load_samples("LORA_B")[0]
-    b_masked = {**B["input"], "topic": "[MASKED]"}                  # 비식별 trace의 topic은 [MASKED]다
-    for kind, s, key, val in (("LORA_A", A, "extract_input", trace_with()["extract_input"]), ("LORA_B", B, "response_input", b_masked)):
+    # 계약 4.0.0: 비식별 trace의 response_input은 {action, topic: [MASKED], next: {}}뿐이라(생성된 비식별 뷰) LORA_B 평가 입력(ResponseRequest)이 못 된다.
+    # LORA_B 회귀 입력은 검토자가 고친 reviewed_input(D55)만 쓴다. trace 경로는 LORA_A(extract_input)만 입력이 된다.
+    for kind, s, key, val in (("LORA_A", A, "extract_input", trace_with()["extract_input"]),):
         case = {"case_id": "c1", "version": 1, "expected_kind": kind, "expected": s["expected"], "failure_type": "OTHER",
                 "source_release_id": "r1", "deidentified_trace_ref": "t1", "review_status": "CONFIRMED"}
         st = St(trace_with(**{key: val})); st.case = case
@@ -196,6 +197,12 @@ def test_regression_reads_d98_trace_keys():
         assert regression.build_set(st, None)["skipped"]["trace_input_missing"]["count"] == 1
         st = St({**trace_with(), "parser_input": s["input"]}); st.case = case       # 옛 키·추정 키는 trace 계약 위반이다
         assert regression.build_set(st, None)["skipped"]["trace_invalid"]["count"] == 1
+    case = {"case_id": "c2", "version": 1, "expected_kind": "LORA_B", "expected": B["expected"], "failure_type": "OTHER",
+            "source_release_id": "r1", "deidentified_trace_ref": "t1", "review_status": "CONFIRMED"}
+    st = St(trace_with()); st.case = case
+    got = regression.build_set(st, None)
+    assert got["samples"]["LORA_B"] == [] and got["skipped"]["input_invalid"]["count"] == 1
+
 
 
 # ---- (3) I2 HTTP(D100) ----------------------------------------------------------------------------------------------------------
@@ -203,7 +210,7 @@ def test_regression_reads_d98_trace_keys():
 def test_config_accepts_http_dataset_store_and_builds_client(cfg, monkeypatch, tmp_path):
     import yaml
     raw = {k: v for k, v in cfg.items() if k != "_base_dir"}
-    raw["inputs"] = {**raw["inputs"], "dataset_store": {"kind": "http", "base_url_env": "T_DS_URL", "token_env": "T_DS_TOKEN", "timeout": 30}}
+    raw["inputs"] = {**raw["inputs"], "dataset_store": {"kind": "http", "base_url": "http://127.0.0.1:1", "token_secret": "T_DS_TOKEN", "timeout_seconds": 30}}
     p = tmp_path / "c.yaml"; p.write_text(yaml.safe_dump(raw))
     c = load_config(p)
     seen = {}
@@ -211,9 +218,9 @@ def test_config_accepts_http_dataset_store_and_builds_client(cfg, monkeypatch, t
     class Fake:
         def __init__(self, **kw): seen.update(kw)
     monkeypatch.setattr(link_dataset_fetch, "connect", Fake)
-    monkeypatch.setenv("T_DS_URL", "http://x:1"); monkeypatch.setenv("T_DS_TOKEN", "tok")
+    monkeypatch.setenv("T_DS_TOKEN", "tok")
     assert isinstance(pipeline.make_dataset_store(c), Fake)
-    assert seen == {"base_url": "http://x:1", "token": "tok", "timeout": 30, "egress_proxy": None}   # R1.8: 출구가 설정되지 않으면 직접(None), 설정되면 그 주소
+    assert seen == {"base_url": "http://127.0.0.1:1", "token": "tok", "timeout": 30, "egress_proxy": None}   # R1.8: 출구가 설정되지 않으면 직접(None), 설정되면 그 주소
     bad = copy.deepcopy(raw); bad["inputs"]["dataset_store"] = {"kind": "http"}
     p.write_text(yaml.safe_dump(bad))
     with pytest.raises(ConfigError):

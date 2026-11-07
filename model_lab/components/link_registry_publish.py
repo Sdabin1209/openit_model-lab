@@ -10,7 +10,7 @@ from openit_link.clients import HttpModelRegistry
 
 
 def connect(**kw):
-    """원격 model-registry 클라이언트. 인자(base_url, token, timeout)는 wiring/factories.resolve_args가 비밀을 풀어 넘긴다."""
+    """원격 model-registry 클라이언트. 인자(base_url, token, timeout)는 wiring/factories.build_http가 비밀을 풀어 넘긴다."""
     return HttpModelRegistry(**kw)
 
 

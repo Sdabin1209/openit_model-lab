@@ -33,10 +33,10 @@ def proxy():
 
 
 def env_for(p, **kw):
-    return {"U": "https://dataset-store:8443", "T": "t" * 40, "OPENIT_EGRESS_PROXY": f"http://127.0.0.1:{p.server_address[1]}", **kw}
+    return {"T": "t" * 40, "OPENIT_EGRESS_PROXY": f"http://127.0.0.1:{p.server_address[1]}", **kw}
 
 
-SPEC = {"kind": "http", "base_url_env": "U", "token_env": "T", "timeout": 5}
+SPEC = {"kind": "http", "base_url": "https://dataset-store:8443", "token_secret": "T", "timeout_seconds": 5}
 
 
 def call(c):
@@ -47,15 +47,7 @@ def call(c):
 
 @pytest.mark.parametrize("kind,target", [("model_registry", "model-registry"), ("dataset_store", "dataset-store"), ("failure_store", "ops-feedback")])
 def test_build_http_clients_tunnel_through_the_egress_proxy(proxy, kind, target):
-    env = env_for(proxy, U=f"https://{target}:8443")
     with pytest.raises(BoundaryError) as e:
-        call(factories.build_http(kind, SPEC, env))
+        call(factories.build_http(kind, {**SPEC, "base_url": f"https://{target}:8443"}, env_for(proxy)))
     assert e.value.code == "PERMISSION_DENIED" and (e.value.details or {}).get("reason") == "EGRESS_DENIED"
     assert proxy.seen == [f"CONNECT {target}:8443 HTTP/1.1"]          # 한 번만(재시도 없음), 상대 이름 그대로
-
-
-def test_factory_built_clients_tunnel_too(proxy):
-    c = factories.build({"factory": "boundary_contracts.clients:HttpDatasetStore", "args": {"base_url_env": "U", "token_env": "T", "timeout": 5}}, env=env_for(proxy))
-    with pytest.raises(BoundaryError) as e:
-        c.list_versions("d")
-    assert e.value.code == "PERMISSION_DENIED" and proxy.seen == ["CONNECT dataset-store:8443 HTTP/1.1"]

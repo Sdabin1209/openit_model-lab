@@ -9,7 +9,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 from model_lab.wiring.errors import ConfigError
-from model_lab.wiring.factories import resolve_args
+from model_lab.wiring import factories
 from model_lab.service.app import Service, main, make_server
 
 RT, WT = "READ-SECRET-VALUE-123-q8Zk2mXv9LpW", "WRITE-SECRET-VALUE-456-r7Yj3nTb5HcD"
@@ -68,15 +68,20 @@ def test_secrets_never_appear_in_logs_readyz_or_error_bodies(tmp_path):
     assert RT not in text and WT not in text and "wrong-token" not in text
 
 
-def test_factory_args_read_secret_from_file_and_errors_have_no_value(tmp_path):
+def test_http_settings_read_secret_from_file_and_errors_have_no_value(tmp_path, monkeypatch):
+    seen = {}
+    monkeypatch.setattr(factories.link_dataset_fetch, "connect", lambda **kw: seen.update(kw))
     (tmp_path / "tok").write_text("FILE-TOKEN\n")
-    assert resolve_args({"base_url": "u", "token_env": "T"}, {"T_FILE": str(tmp_path / "tok"), "T": "env"}) == {"base_url": "u", "token": "FILE-TOKEN"}
-    assert resolve_args({"token_env": "T"}, {"T": "e"}) == {"token": "e"}
+    spec = {"kind": "http", "base_url": "https://dataset-store", "token_secret": "T"}
+    factories.build_http("dataset_store", spec, {"T_FILE": str(tmp_path / "tok"), "T": "env"})
+    assert seen["token"] == "FILE-TOKEN" and seen["base_url"] == "https://dataset-store" and "timeout" not in seen
+    factories.build_http("dataset_store", {**spec, "timeout_seconds": 7}, {"T": "e"})
+    assert seen["token"] == "e" and seen["timeout"] == 7
     with pytest.raises(ConfigError) as ei:
-        resolve_args({"token_env": "T"}, {"T_FILE": str(tmp_path / "missing"), "T": "SHOULD-NOT-LEAK"})
+        factories.build_http("dataset_store", spec, {"T_FILE": str(tmp_path / "missing"), "T": "SHOULD-NOT-LEAK"})
     assert "SHOULD-NOT-LEAK" not in str(ei.value) and "T_FILE" in str(ei.value)
     with pytest.raises(ConfigError):
-        resolve_args({"token_env": "NOPE"}, {})
+        factories.build_http("dataset_store", {**spec, "token_secret": "NOPE"}, {})
 
 
 # --- 설정 파일의 인라인 비밀 거부(D84) ---
@@ -101,11 +106,14 @@ def test_nested_dict_and_list_are_checked():
 
 
 def test_env_name_args_are_allowed_but_must_look_like_names():
-    check_inline_secrets({"a": {"token_env": "MODEL_REGISTRY_WRITE_TOKEN", "base_url_env": "x"}})
+    check_inline_secrets({"a": {"token_env": "MODEL_REGISTRY_WRITE_TOKEN", "base_url_env": "x", "token_secret": "MODEL_REGISTRY_WRITE_TOKEN"}})
     for bad in (INLINE.lower(), "has space", "1ABC", "A", ""):
         with pytest.raises(ConfigError) as ei:
             check_inline_secrets({"a": {"token_env": bad}})
         assert INLINE not in str(ei.value) and "a.token_env" in str(ei.value)
+        with pytest.raises(ConfigError) as ei:
+            check_inline_secrets({"a": {"token_secret": bad}})
+        assert INLINE not in str(ei.value) and "a.token_secret" in str(ei.value)
 
 
 def test_non_string_values_and_numeric_token_limits_are_not_flagged():

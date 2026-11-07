@@ -38,12 +38,11 @@ def failure_world():
     P = load_samples("LORA_A")
     G = load_samples("LORA_B")
     cases = [case("c-parser", P[0]["expected"], expected_kind="LORA_A", failure_type="ft-a"),
-             case("c-gen-noKind", G[0]["expected"], failure_type="ft-b"),                      # expected_kind 없음: 형태(문자열)로 판별
-             case("c-pending", P[1]["expected"], review_status="PENDING"),
+             case("c-gen-noKind", G[0]["expected"], expected_kind="LORA_B", failure_type="ft-b"),   # 계약 4.0.0 FailureCase: expected가 있으면 expected_kind가 필수다(형태 추정 없음)
+             case("c-pending", P[1]["expected"], expected_kind="LORA_A", review_status="PENDING"),
              case("c-noinput", P[2]["expected"], expected_kind="LORA_A"),
              case("c-notrace", P[3]["expected"], expected_kind="LORA_A"),
-             case("c-noexpected", None),
-             case("c-weird", {"foo": 1}, expected_kind="LORA_A")]      # 정답이 ActionExtraction을 지키지 않음
+             case("c-noexpected", None)]      # 정답이 ActionExtraction을 지키지 않는 사례는 계약 FailureCase(4.0.0 expected_kind 조건부 규칙)가 클라이언트 경계에서 거부한다
     # 비식별 trace의 입력은 [MASKED]라 오라클 모델이 정답을 맞힐 수 없다. 평가에 쓰는 입력은 검토자가 고친 reviewed_input(D55)으로 준다.
     # trace 경로 자체는 tests/test_u3_contracts.py와 test_metrics_v2.py의 D98 시험이 본다.
     for c in cases:
@@ -52,7 +51,7 @@ def failure_world():
         elif c["case_id"] == "c-gen-noKind":
             c["reviewed_input"] = G[0]["input"]
     traces = {"tr-c-parser": trace_with(), "tr-c-gen-noKind": trace_with(),
-              "tr-c-pending": trace_with(), "tr-c-noinput": trace_with(extract_input=None), "tr-c-weird": trace_with()}
+              "tr-c-pending": trace_with(), "tr-c-noinput": trace_with(extract_input=None)}
     fs = FailureServer(cases, traces)
     yield fs
     fs.stop()
@@ -62,8 +61,7 @@ def reg_cfg(cfg, fs, monkeypatch, **reg):
     monkeypatch.setenv("TEST_FAILURE_TOKEN", fs.token)
     c = copy.deepcopy(cfg)
     c["evaluation"]["regression"] = {"enabled": True, "label": "t1", **reg}
-    c["inputs"]["failure_store"] = {"factory": "boundary_contracts.clients:HttpFailureStore",
-                                    "args": {"base_url": fs.url, "token_env": "TEST_FAILURE_TOKEN"}}
+    c["inputs"]["failure_store"] = {"kind": "http", "base_url": fs.url, "token_secret": "TEST_FAILURE_TOKEN"}
     return c
 
 
@@ -72,9 +70,8 @@ def test_regression_section_in_report(cfg, failure_world, monkeypatch):
     r = Run(c, clock=FIXED, log=lambda s: None); r.run()
     ra = json.loads((r.dir / "eval/report-LORA_A.json").read_text())["regression"]
     rb = json.loads((r.dir / "eval/report-LORA_B.json").read_text())["regression"]
-    assert ra["enabled"] and ra["cases_total"] == 5 and ra["used_for_role"] == 1 and rb["used_for_role"] == 1     # CONFIRMED + expected 있는 것만
+    assert ra["enabled"] and ra["cases_total"] == 4 and ra["used_for_role"] == 1 and rb["used_for_role"] == 1     # CONFIRMED + expected 있는 것만
     assert ra["skipped"]["trace_input_missing"]["count"] == 1 and ra["skipped"]["trace_not_found"]["count"] == 1
-    assert ra["skipped"]["expected_invalid"]["count"] == 1
     assert ra["aggregate"]["prot_exact"] == 1 and ra["aggregate"]["raw_valid"] == 1                       # 오라클 모델이라 일치
     assert set(ra["by_failure_type"]) == {"ft-a"} and set(rb["by_failure_type"]) == {"ft-b"}
     assert "threshold" not in json.dumps(ra).lower().replace("임계치", "")
@@ -109,21 +106,10 @@ def test_regression_label_makes_new_run(cfg, failure_world, monkeypatch):
 
 
 # ---- 파일 데이터셋 저장소 읽기 ----
-def to_layout(src: Path, dest: Path) -> None:
-    """tests의 DirDatasetStore 배치를 synthetic-data의 파일 배치(manifest.json, meta.json, files/)로 옮긴다."""
-    for ds in src.iterdir():
-        versions = json.loads((ds / "versions.json").read_text())
-        for seq, v in enumerate(versions, 1):
-            d = dest / ds.name / v
-            shutil.copytree(ds / v, d / "files")
-            (d / "files" / "manifest.json").rename(d / "manifest.json")
-            (d / "meta.json").write_text(json.dumps({"seq": seq}))
-
-
 @pytest.fixture
 def layout(tmp_path, fixture_store):
-    root = tmp_path / "layout"
-    to_layout(fixture_store, root)
+    root = tmp_path / "layout"      # 시험이 파일을 변조하므로 세션 공용 저장소가 아니라 사본을 쓴다. 저장소 배치는 이미 synthetic-data 배치(manifest.json, meta.json, files/)다
+    shutil.copytree(fixture_store, root)
     return root
 
 
@@ -166,8 +152,7 @@ def test_file_reader_orders_by_seq_and_skips_partial(tmp_path):
     assert FileDatasetReader(root).list_versions("ds") == ["a-old", "b-new", "c-newest"]
 
 
-def test_pipeline_reads_from_file_layout(cfg, layout, monkeypatch):
-    monkeypatch.setenv("TEST_DATASET_ROOT", str(layout))
+def test_pipeline_reads_from_file_layout(cfg, layout):
     c = copy.deepcopy(cfg)
-    c["inputs"]["dataset_store"] = {"factory": "model_lab.components.link_dataset_read_file:file_dataset_store", "args": {"root_env": "TEST_DATASET_ROOT"}}
+    c["inputs"]["dataset_store"] = {"kind": "file", "root": str(layout)}
     assert run_once(c, clock=FIXED, log=lambda s: None)["action"] == "ran"
