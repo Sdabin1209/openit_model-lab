@@ -25,7 +25,8 @@
 | model-runtime | `render_prompt`(system_prompt 인자), `load`(system_prompts 인자), `extract_raw/respond_raw/respond`, `validate_serving_config`, `serving_config_hash`, `RUNTIME_VERSION`. 서빙 설정 버전은 model-runtime이 내보내는 상수 | `requirements.txt` |
 | I2 데이터셋 읽기 | HTTP 클라이언트 `boundary_contracts.clients.HttpDatasetStore`(D100, HTTP.md `## I2`, 계약 2.1.0). 쓰는 호출은 `list_versions`, `get_manifest`, `open_file`. 로컬 개발용 `file_dataset_store`는 남아 있다(ADR 0012) | 경계 계약 1.1 |
 | I7 실패 사례 읽기 | 회귀 평가(`evaluation.regression`, 기본 꺼짐)를 켜면 `inputs.failure_store`(`openit_link.clients`의 `HttpFailureStore`)로 읽는다(`model_lab/components/regression_set.py`, `link_failure_read.py`, `configs/gpu-dev.yaml`, `docs/runbook.md` 회귀 평가 절) | `requirements.txt` |
-| I1, I4 | 이 단계에서 쓰지 않음(I1은 설정에 클라이언트를 고르는 자리만 있다) | |
+| I1 | 평가 단계에서 문항 정의(QuestionBank)를 읽어 문항 유형·단위·범위별로 지표를 쪼갠다(D13). `link_question_read`, 설정 `inputs.question_reader`가 없으면 쪼개지 않는다. 읽지 못하면 평가는 계속하고 보고서 notes에 적는다 | |
+| I4 | 판정 조회(`link_release_read`) | |
 
 의존은 Git 태그로 고정한다(`requirements.txt`). 환경은 `scripts/setup-env.sh`가 만든다.
 

@@ -29,3 +29,11 @@ def make_release_reader(cfg: dict):
     if not spec:
         return None
     return factories.build_http("release_reader", spec)
+
+
+def make_question_reader(cfg: dict):
+    """question-authoring 문항 정의 읽기(I1, D13). 설정에 없으면 None(문항 유형·단위·범위별 쪼개기를 하지 않는다)."""
+    spec = cfg["inputs"].get("question_reader")
+    if not spec:
+        return None
+    return factories.build_http("question_reader", spec)

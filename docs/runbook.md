@@ -26,7 +26,7 @@
 | 데이터셋(I2, 실제, D100) | `{kind: http, base_url: "https://dataset-store", token_secret: DATASET_STORE_TOKEN}`(계약 4.0.0 `HttpClientSettings`, 클라이언트는 `HttpDatasetStore`) |
 | 데이터셋(I2, 로컬 개발, 시험용 합성 데이터 포함) | `{kind: file, root}` | `<root>/<dataset_id>/<version>/{manifest.json, meta.json, files/…}`의 루트(설정 파일 위치 기준 상대 경로). 이 리포지토리의 독립 읽기 구현(`FileDatasetReader`, `DatasetStore` Protocol). `python scripts/make_fixture_dataset.py fixtures/store`가 같은 배치로 합성 데이터를 만든다 |
 | 실패 사례(I7) | `{kind: http, base_url, token_secret, timeout_seconds?}`(`HttpFailureStore`) |
-| 문항(I1, 자리만) | `boundary_contracts.clients:HttpQuestionReader` | 같은 방식 |
+| 문항(I1, `inputs.question_reader`) | `openit_link.clients:HttpQuestionReader`(`link_question_read`) | 같은 방식 |
 실제 실행 설정 예: `configs/gpu-dev.yaml`(환경 변수 `DATASET_STORE_URL`, `DATASET_STORE_TOKEN`, `MODEL_REGISTRY_URL`, `MODEL_REGISTRY_WRITE_TOKEN`, `FAILURE_STORE_URL`, `FAILURE_STORE_TOKEN`). 설정(`configs/*.yaml`, 프로파일 포함)에는 비밀 값을 직접 적을 수 없다: 키 이름에 `token`, `secret`, `password`, `credential`, `api_key`, `authorization`, `private_key`가 들어 있고 값이 문자열이면 시작을 거부한다(중첩 dict·list 포함, 오류에는 키 경로만). `*_env`는 환경 변수 이름을 받으므로 `[A-Z][A-Z0-9_]+` 형식이면 허용한다. 설정의 `token_env: NAME`은 `NAME_FILE`(파일 경로)이 있으면 그 파일을, 없으면 `NAME` 환경 변수를 읽는다(D84). `configs/gpu-dev-fixture-*.yaml`과 `configs/dryrun.yaml`은 시험용이다.
 
 ### 회귀 평가 (I7)

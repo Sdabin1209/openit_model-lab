@@ -17,13 +17,13 @@ import model_runtime
 from boundary_contracts import BoundaryError, canonical
 
 from ..components import (adapter_check, backend_oracle, dataset_samples, eval_report, evaluation_report_build, hf_cache_lookup,
-                         link_dataset_fetch, link_failure_read, link_release_read, lora_train_dryrun, lora_train_hf, regression_set, run_record, server_row_convert, train_data)
+                         link_dataset_fetch, link_failure_read, link_question_read, link_release_read, lora_train_dryrun, lora_train_hf, regression_set, run_record, server_row_convert, train_data)
 from ..config import load_train_config
 from . import evaluation, factories, packaging, schemas
 from .errors import ConfigError, PipelineError
 from .settings import (ROLE_TO_FILE_ROLE, ROLES, config_hash, contract_version, ref_of, resolved_path, role_training,
                        system_prompt_text)
-from .stores import make_dataset_store, make_registry, make_release_reader  # noqa: F401  (attach_flow·시험이 쓴다)
+from .stores import make_dataset_store, make_question_reader, make_registry, make_release_reader  # noqa: F401  (attach_flow·시험이 쓴다)
 
 STAGES = ("load_dataset", "transform", "train", "evaluate", "package", "publish")
 
@@ -64,7 +64,7 @@ def make_trainer(kind: str, **ctx):
 class Run:
     """한 번의 실행. run.json이 설정, 시드, 데이터셋 버전, 라이브러리 버전, 단계별 결과를 기록한다."""
 
-    def __init__(self, cfg: dict, *, dataset_store=None, registry=None, trainer_factory: Callable | None = None, failure_store=None, release_reader=None,
+    def __init__(self, cfg: dict, *, dataset_store=None, registry=None, trainer_factory: Callable | None = None, failure_store=None, release_reader=None, question_reader=None,
                  clock: Callable[[], str] = now_utc, log: Callable[[str], None] = lambda s: print(s, flush=True)):
         self.cfg = cfg
         errs = schemas.errors("RunPlan", {k: v for k, v in cfg.items() if k != "_base_dir"})
@@ -77,6 +77,7 @@ class Run:
         self.clock, self.log = clock, log
         self._failure_store = failure_store
         self._release_reader = release_reader
+        self._question_reader = question_reader or make_question_reader(cfg)      # I1 문항 정의(D13). 설정에 없으면 None
         self._rset = None
         self.schema_dir = resolved_path(cfg, cfg["inputs"]["schema_dir"])
         self.contract_version = contract_version(self.schema_dir)
@@ -331,8 +332,9 @@ class Run:
                    "serving_config_hash": hashes[role], "libraries": self.libs,
                    "evaluation_backend": {"kind": self.cfg["evaluation"]["backend"]["kind"], "name": backend.name,
                                           "version": backend.version, "constrained_decoding": False}}
+            catalog, catalog_note = self._question_catalog(files)
             self.log(f"[{self.run_id}] {role} 평가 {len(samples)}건")
-            rep, pairs = evaluation.build_report(role, session, samples, seen_sets=seen, eval_files=files, return_records=True,
+            rep, pairs = evaluation.build_report(role, session, samples, seen_sets=seen, eval_files=files, return_records=True, catalog=catalog,
                                                max_listed_failures=self.cfg["evaluation"].get("max_listed_failures", 20), context=ctx)
             rrecs = None
             if self._regression_enabled():
@@ -344,7 +346,9 @@ class Run:
             else:
                 rep["regression"] = {"enabled": False}
             all_metrics, rep["evaluation_report_notes"] = eval_report.build_metrics(role, pairs, seen, regression_recs=rrecs,
-                                                                                constrained_decoding=ctx["evaluation_backend"]["constrained_decoding"])
+                                                                                constrained_decoding=ctx["evaluation_backend"]["constrained_decoding"], catalog=catalog)
+            if catalog_note:
+                rep["evaluation_report_notes"].append(catalog_note)
             rep["evaluation_report_metrics"], rep["unregistered_metrics"] = eval_report.split_by_registry(all_metrics)
             out = self.dir / "eval" / f"report-{role}.json"
             out.parent.mkdir(parents=True, exist_ok=True)
@@ -352,6 +356,18 @@ class Run:
             self._mark("evaluate", role, status="done", report_hash=canonical.file_hash(out), samples=len(samples))
         self.rec["stages"]["evaluate"]["status"] = "done"
         self._save()
+
+    def _question_catalog(self, files: list[dict]):
+        """평가 파일이 쓰는 문항 세트의 문항 정의로 만든 카탈로그와 알림(D13). 읽지 못하면 쪼개기만 빼고 평가는 계속한다(조회 실패가 실행을 실패시키지 않는다, I4 조회와 같다)."""
+        if self._question_reader is None:
+            return None, None
+        refs = {(x.split("@")[0], x.split("@")[1]) for f in files for x in f["question_sets"]}
+        try:
+            return link_question_read.catalog_for(self._question_reader, [{"id": i, "version": v} for i, v in sorted(refs)]), None
+        except (BoundaryError, KeyError) as e:
+            code = e.code if isinstance(e, BoundaryError) else "NOT_FOUND"
+            self.log(f"[{self.run_id}] 문항 정의(I1)를 읽지 못해 문항 유형·단위·범위별 쪼개기를 뺀다: {code}")
+            return None, f"문항 정의(I1)를 읽지 못했다({code}): 문항 유형·단위·범위별 지표가 없다"
 
     # 5. 패키징
     def stage_package(self) -> None:

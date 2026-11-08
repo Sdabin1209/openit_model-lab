@@ -48,7 +48,8 @@ def _qs_key(ref: Mapping) -> tuple:
 
 
 SLICE_KIND = {"seen": "SEEN_UNSEEN", "question_set": "QUESTION_SET", "action": "ACTION", "reason": "REASON", "question_id": "QUESTION",
-              "next_type": "NEXT_TYPE"}
+              "next_type": "NEXT_TYPE", "question_type": "QUESTION_TYPE", "unit": "UNIT", "range": "RANGE"}
+CATALOG_DIMS = ("question_type", "unit", "range")      # 문항 정의(I1, D13)를 읽었을 때만 생기는 쪼개기
 SLICE_DIMS = {"LORA_A": ("seen", "question_set", "action", "reason"),
               "LORA_B": ("seen", "question_set", "action", "reason", "next_type")}
 # LoRA-A 지표 이름은 학습 서버 score_a_v2.py와 같다. (이름, 그룹, 높을수록 좋은가)
@@ -157,14 +158,14 @@ def split_by_registry(metrics: list[dict]) -> tuple[list[dict], list[dict]]:
 
 
 def build_metrics(role: str, pairs: list[tuple[dict, dict]], seen_sets: set, *, regression_recs: list[dict] | None = None,
-                  constrained_decoding: bool | None = None):
-    """pairs = [(sample, rec)]. 지표 목록과 notes를 낸다."""
+                  constrained_decoding: bool | None = None, catalog: Mapping | None = None):
+    """pairs = [(sample, rec)]. 지표 목록과 notes를 낸다. catalog = link_question_read.catalog_for 의 결과(없으면 문항 유형·단위·범위 쪼개기를 하지 않는다)."""
     recs = [r for _, r in pairs]
     metrics = metrics_for(role, recs)
     buckets: dict = {}
     for s, r in pairs:
-        for dim, vals in sample_dims(role, s, seen_sets).items():
-            if dim in SLICE_DIMS[role]:
+        for dim, vals in sample_dims(role, s, seen_sets, catalog).items():
+            if dim in SLICE_DIMS[role] or dim in CATALOG_DIMS:
                 for v in vals:
                     buckets.setdefault((SLICE_KIND[dim], v), []).append(r)
     for key in sorted(buckets):
@@ -225,7 +226,7 @@ def _qs_label(sample: Mapping) -> str:
     return f"{q['id']}@{q['version']}" if q else "(미상)"
 
 
-def sample_dims(role: str, sample: Mapping, seen_sets: set) -> dict[str, set]:
+def sample_dims(role: str, sample: Mapping, seen_sets: set, catalog: Mapping | None = None) -> dict[str, set]:
     """샘플이 속하는 쪼개기 값들(차원 -> 값 집합)."""
     d: dict[str, set] = collections.defaultdict(set)
     q = sample_qs(sample)
@@ -240,6 +241,12 @@ def sample_dims(role: str, sample: Mapping, seen_sets: set) -> dict[str, set]:
         d["action"].add(inp.get("action", "?"))
         d["reason"].add(inp.get("reason", "(없음)"))
         d["next_type"].add((inp.get("next") or {}).get("type", "?"))
+    if catalog is not None and q:
+        # 왜: 문항 유형·단위·범위는 샘플이 아니라 문항 정의(QuestionBank)에 있다(D13). 정의를 못 찾은 문항은 쪼개기에서 뺀다
+        qid = inp.get("question_id") if role == "LORA_A" else (inp.get("next") or {}).get("question_id")
+        info = (catalog.get(_qs_key(q)) or {}).get(qid)
+        if info:
+            d["question_type"].update(info["question_type"]); d["unit"].update(info["unit"]); d["range"].add(info["range"])
     return d
 
 
@@ -301,12 +308,12 @@ def aggregate(recs: list[dict], role: str) -> dict:
 
 
 def build_report(role: str, recs: list[tuple[dict, dict]], *, seen_sets: set, eval_files: list[dict],
-                 max_listed_failures: int = 20, context: Mapping | None = None):
+                 max_listed_failures: int = 20, context: Mapping | None = None, catalog: Mapping | None = None):
     """recs = [(sample, SampleRecord)]. 상세 보고서(구 evaluate.build_report)."""
     all_recs = [r for _, r in recs]
     dims: dict[str, dict[str, list]] = collections.defaultdict(lambda: collections.defaultdict(list))
     for s, r in recs:
-        for dim, vals in sample_dims(role, s, seen_sets).items():
+        for dim, vals in sample_dims(role, s, seen_sets, catalog).items():
             for v in vals:
                 dims[dim][v].append(r)
     seen_r = [r for s, r in recs if sample_qs(s) and _qs_key(sample_qs(s)) in seen_sets]

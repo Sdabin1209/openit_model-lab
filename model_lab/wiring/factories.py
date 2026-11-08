@@ -10,12 +10,12 @@ from typing import Mapping
 
 from boundary_contracts import SecretError, read_secret
 
-from ..components import link_dataset_fetch, link_failure_read, link_egress, link_registry_publish, link_release_read
+from ..components import link_dataset_fetch, link_failure_read, link_egress, link_registry_publish, link_release_read, link_question_read
 from .errors import ConfigError
 
 # 왜 역할 이름으로 고르나: 설정 키(역할)가 클라이언트를 정한다(HttpClientSettings 설명, 구조 규칙 1). link_* 컴포넌트만 HTTP 클라이언트를 만든다(DESIGN 6절 3항)
 _LINK = {"model_registry": link_registry_publish, "dataset_store": link_dataset_fetch,
-         "failure_store": link_failure_read, "release_reader": link_release_read}
+         "failure_store": link_failure_read, "release_reader": link_release_read, "question_reader": link_question_read}
 
 
 def build_http(role: str, settings: Mapping, env: Mapping = os.environ):

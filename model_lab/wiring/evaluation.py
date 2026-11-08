@@ -16,9 +16,9 @@ def evaluate_set(role: str, session, rset: dict) -> list:
 
 
 def build_report(role: str, session, samples: list[dict], *, seen_sets: set, eval_files: list[dict], max_listed_failures: int = 20,
-                 context: Mapping | None = None, return_records: bool = False, flow: Mapping | None = None):
+                 context: Mapping | None = None, return_records: bool = False, flow: Mapping | None = None, catalog: Mapping | None = None):
     recs = [(s, evaluate_sample(role, session, s, flow=flow)) for s in samples]
-    rep = eval_report.build_report(role, recs, seen_sets=seen_sets, eval_files=eval_files, max_listed_failures=max_listed_failures, context=context)
+    rep = eval_report.build_report(role, recs, seen_sets=seen_sets, eval_files=eval_files, max_listed_failures=max_listed_failures, context=context, catalog=catalog)
     return (rep, recs) if return_records else rep
 
 

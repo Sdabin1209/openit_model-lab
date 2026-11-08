@@ -165,6 +165,7 @@ scripts/smoke_registry.sh
 | [0030](docs/adr/0030-train은-ssh로-서버-정본을-실행한다.md) | `train`은 ssh로 서버 정본을 해시 고정해 실행하고 자체 학습기는 폐기 표시 |
 | [0031](docs/adr/0031-파이프라인-train-단계는-서버-정본을-부른다.md) | 파이프라인 train 단계는 서버 정본 경로를 부르고 transform은 서버 형식을 만든다 |
 | [0032](docs/adr/0032-gpu-dev는-정본-스크립트를-로컬로-실행한다.md) | gpu-dev는 서버 정본 스크립트를 가져와(fetch-train-script) 이 PC에서 로컬 실행 |
+| [0036](docs/adr/0036-학습-서버-데이터셋-줄-형식과-정본-근거.md) | 외부 학습 서버 JSONL(ServerDatasetRow)의 필드와 정본 근거(읽지 못한 것 포함) |
 | [0035](docs/adr/0035-models-data-백업-복구-잡.md) | models-data 백업·복구 잡(restic REST, 출구, 보존, 복구 검증) |
 | [0034](docs/adr/0034-RUNTIME-조항-준수-서비스-동작.md) | RUNTIME 조항 준수: 서비스 출력, 출구, 판정 조회, 환경 |
 | [0033](docs/adr/0033-공유-학습-서버에서는-dabin-안에만-쓰고-남의-작업을-막지-않는다.md) | 공유 학습 서버: ~/dabin 안에만 쓰기, 정본 사본 실행, GPU 점유·디스크 검사 |
