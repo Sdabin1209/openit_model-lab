@@ -41,7 +41,7 @@
 - 미확인: 스크립트 `--help` 출력, 인자 타입 검사 방식, 어댑터가 out_dir 아래 어디에 나오는지(첫 실행에서 `verify_output`이 알려 준다), 스크립트가 데이터 해시·기반 모델 revision을 남기는지, 스크립트 코드 해시. 실제 학습은 GPU 구멍. 파이프라인 train 단계 연결은 아직 안 했다.
 
 ## 14차 갱신: 24GB급 프로파일 qwen3-8b, 브랜치 main
-- 한 것: `profiles/qwen3-8b.yaml`, 런북 프로파일 표, 시험 2건 추가(pytest 152건 통과). 이제 `package-adapters --profile qwen3-8b`를 쓸 수 있다.
+- 한 것: `profiles/qwen3-8b.yaml`, 런북 프로파일 표, 시험 추가(pytest 통과). 이제 `package-adapters --profile qwen3-8b`를 쓸 수 있다.
 - 14B 프로파일은 만들지 않았다(A만 학습됨, 24GB bf16 불가).
 - 미확인: 실제 8B 어댑터의 `base_model_name_or_path` 값(가짜 어댑터로만 시험), 8B 서빙 적재(GPU 구멍), model-runtime 프로파일의 `status`는 `unverified` 그대로.
 
@@ -62,14 +62,14 @@
 ## 10차 갱신: 파이프라인을 model-runtime v0.6.0 / turn-engine v0.3.0으로 이전 (D74, D75)
 브랜치 `migrate-contracts-2.0.0`(push·태그 안 함).
 
-**한 것 [확인: `pytest` 113건 통과]**
+**한 것 [확인: `pytest` 통과]**
 - `.venv`와 `requirements.txt/lock`: model-runtime `v0.6.0`, turn-engine `v0.3.0`(boundary-contracts `v2.0.0`). 설정의 서빙 값은 prompt-3 / protect-2.
 - 변환: `transform.to_example`이 `render_prompt(system_prompt=…)`로 prompt를, 서버 assistant 글자와 같은 completion을 만든다. 학습 직후 시스템 프롬프트를 어댑터 디렉터리에 넣는다.
 - 평가: A는 `extract_raw`(보호 없음), B는 `respond_raw`·`respond`. A 지표 이름·규칙은 `score_a_v2.py`, B는 끝맺음·다음 질문·새 숫자·금지 표현·문장 수(`text_rules.py`). EvaluationReport 스키마는 계약 그대로. 상세 보고서 `report_version: 2`.
 - 회귀: v2 `FailureCase`(LORA_A/LORA_B, 객체/문자열 expected)와 입력 검증.
-- 시험: 합성 v2 fixture, 30건 실패(+ v0.6.0 설치 뒤 추가로 깨진 golden·transform·비교 스크립트 5건) 모두 해소. 이전 커밋에서 `pipeline.py`에 중복으로 들어간 코드 조각(두 번째 `stage_train` 등)을 제거했다.
+- 시험: 합성 v2 fixture, 실패하던 것(+ v0.6.0 설치 뒤 추가로 깨진 golden·transform·비교 스크립트) 모두 해소. 이전 커밋에서 `pipeline.py`에 중복으로 들어간 코드 조각(두 번째 `stage_train` 등)을 제거했다.
 - 간헐 실패하던 `test_clean_model_cache_dry_run_then_delete_via_hub_api`를 고쳤다(시험 재료가 두 모델에 같은 커밋 해시를 써서 어느 모델이 지워질지 정해지지 않았다).
-- 두 번째 환경: 새 venv에 `requirements.txt`로 설치해 `pytest` 112 통과·1 건너뜀(huggingface_hub 없음). 같은 PC이고 이웃 `../survey-service/schema`를 읽으므로 독립된 머신 확인은 아니다 [미확인: GPU 호스트, Docker 이미지 스모크는 이번에 돌리지 않음(서비스 이미지는 바뀌지 않음)].
+- 두 번째 환경: 새 venv에 `requirements.txt`로 설치해 `pytest` 통과(건너뜀 있음: huggingface_hub 없음). 같은 PC이고 이웃 `../survey-service/schema`를 읽으므로 독립된 머신 확인은 아니다 [미확인: GPU 호스트, Docker 이미지 스모크는 이번에 돌리지 않음(서비스 이미지는 바뀌지 않음)].
 
 **하지 않은 것·미정 [CR-L008]**
 - 학습기(`trainers/hf.py`) 손대지 않음(정본 결정 대기). 서빙(JCS)과 서버 학습 데이터의 user 글자 불일치, 위험 신호의 v2 표현, 회귀 trace 입력 키(추정), METRICS.md 갱신, `validate_extraction` 지표화(제안).
@@ -118,22 +118,22 @@
 - 호스트 복구 뒤 qwen2.5-7b 제로샷만 측정(스키마 유효율 0/50, 메모리 5.9GB). 다음 후보 내려받는 중 호스트 불가(재시도 2회 실패). few-shot 판 설정과 도구를 추가했으나 실행하지 못했다. 자세한 내용과 이어서 하는 방법은 docs/base-model-comparison.md.
 - 아래는 이전 기록(첫 불가 때).
 - gpu-dev SSH가 3회(처음 + 재시도 2회) 모두 시간 초과(`Connection timed out`)라 측정하지 못했다. 규칙대로 멈췄다. 후보 4개의 라이선스·구조는 모델 카드에서 읽어 `docs/base-model-comparison.md`에 적었다(EXAONE은 NC 라이선스와 원격 코드 실행 필요로, gemma-2-9b-it·Llama-3.1-8B는 접근 제한으로 제외·미확인).
-- 비교 스크립트와 기반 모델 백엔드를 준비했고 가짜 백엔드로 경로를 시험했다(시험 82건 통과). `hf_base` 백엔드는 CPU 환경에 torch가 없어 시험하지 못했다.
+- 비교 스크립트와 기반 모델 백엔드를 준비했고 가짜 백엔드로 경로를 시험했다(시험 통과). `hf_base` 백엔드는 CPU 환경에 torch가 없어 시험하지 못했다.
 - 남은 일: 호스트가 켜지면 문서 맨 아래 "실행 방법"으로 측정하고 표와 추천을 채운다.
 
 ## 4차 갱신 (D53, GPU 실행 안 함)
-- boundary-contracts v1.3.0으로 올림. 평가 결과를 역할별 `EvaluationReport`로 방출해 기존 `publish`의 eval_report로 올린다(METRICS.md 이름, 슬라이스 SEEN_UNSEEN·QUESTION_TYPE·UNIT 등, SAFETY 지표 포함, 임계치 없음). 못 구하는 지표는 생략하고 notes에 적었다(금지 표현률, 지연). 회귀 평가는 `reviewed_input` 우선. 시험 80건 통과, 이미지 스모크 통과(라벨 v1.3.0).
+- boundary-contracts v1.3.0으로 올림. 평가 결과를 역할별 `EvaluationReport`로 방출해 기존 `publish`의 eval_report로 올린다(METRICS.md 이름, 슬라이스 SEEN_UNSEEN·QUESTION_TYPE·UNIT 등, SAFETY 지표 포함, 임계치 없음). 못 구하는 지표는 생략하고 notes에 적었다(금지 표현률, 지연). 회귀 평가는 `reviewed_input` 우선. 시험 통과, 이미지 스모크 통과(라벨 v1.3.0).
 - 확인하지 못한 것: 실제 release-gate가 이 보고서를 읽는지(게이트 쪽 통합), GPU 호스트에서 v1.3.0 환경 재시험(이번엔 GPU 실행 안 함), 실제 모델 출력에서의 지표 값(시험은 오라클 모델).
 - 해석 제안(CR-L006): `regression_fixed/broken`의 정의, `ungrounded_number_rate`·`slot_coverage`의 계산 방법.
 
 ## 3차 갱신 (D52, GPU 실행 안 함)
 - 데이터셋 파일 저장소 독립 읽기 구현 `model_lab.file_dataset_store`(I2 레이아웃, Protocol, 해시 재확인). 시험용 gpu-dev 설정은 `gpu-dev-fixture-*.yaml`로 이름을 바꿨고 실제 설정은 `configs/gpu-dev.yaml`.
 - 회귀 평가(I7, 실제 `HttpFailureStore` + 작은 서버 대역으로 시험). 개발의 데이터 이동·SSH 역터널 절차는 runbook(운영 네트워크 경계는 가정).
-- 시험 75건 통과. 확인하지 못한 것: 실제 synthetic-data 출력의 `meta.json` 형식(정수 `seq`를 가정하고 없으면 created_at으로 대체), 실제 ops-feedback의 trace에 `parser_input`/`generator_input`이 들어 있는지, 실제 스테이션 네트워크.
+- 시험 통과. 확인하지 못한 것: 실제 synthetic-data 출력의 `meta.json` 형식(정수 `seq`를 가정하고 없으면 created_at으로 대체), 실제 ops-feedback의 trace에 `parser_input`/`generator_input`이 들어 있는지, 실제 스테이션 네트워크.
 
 ## 2차 갱신 (헤드 결정 반영)
 - boundary-contracts v1.2.0, model-runtime v0.4.0으로 올림(requirements, 라벨). base_model.id는 원래 이름(`Qwen/Qwen2.5-1.5B-Instruct`)과 해석된 커밋 해시.
-- 서버 적합성 시험: 실제 `HttpModelRegistry`로 게시(tar) -> 조회 -> 어댑터 내려받기 -> 해시 검증, 200/201/409/403 (`tests/test_service.py`). 시험 65건 통과(CPU와 GPU 호스트 모두).
+- 서버 적합성 시험: 실제 `HttpModelRegistry`로 게시(tar) -> 조회 -> 어댑터 내려받기 -> 해시 검증, 200/201/409/403 (`tests/test_service.py`). 시험 통과(CPU와 GPU 호스트 모두).
 - 게시 장애(`UNAVAILABLE`)는 학습·평가·패키징 결과를 남기고 게시만 재시도함을 시험으로 확인(종료 코드 3).
 - GPU 한 바퀴(gpu-dev): 호스트에서 model-registry 서버를 임시 포트로 띄우고 `registry.kind: http`로 게시, 클라이언트로 두 패키지를 조회·어댑터 해시 검증까지 통과, 같은 명령 재실행은 `skip`. 서버는 내렸다.
 - 정답 예시 `is_fallback`은 비교하지 않음. 패키지 `ext."model-lab"`에 `resumed`·`resumed_from_step`, 보고서 `context.evaluation_backend`.
@@ -146,7 +146,7 @@
 - 파이프라인 전체(설정 -> I2 -> 변환 -> 학습 -> 평가 -> 패키징 -> I3 게시), `run`/`run-once`/`status`, 체크포인트 재개, run 기록.
 - I3 파일·메모리 구현과 HTTP 서비스(model-registry), 같은 적합성 시험(memory/file/http), Dockerfile, 스모크.
 - 평가기(보호 전·후, 쪼개 보기, 보지 못한 문항 세트 따로, 임계치 없음), golden 평가 시험.
-- 시험 61건 통과(`.venv/bin/python -m pytest -q`). GPU 호스트에서도 같은 시험 통과(40건 시점, 태그 wheel 설치 환경).
+- 시험 통과(`.venv/bin/python -m pytest -q`). GPU 호스트에서도 같은 시험 통과(초기 시점, 태그 wheel 설치 환경).
 - **GPU 실행(gpu-dev, RTX 4070 SUPER 12GB)**: 호스트에 pip가 생긴 뒤 `configs/gpu-dev-fixture-smoke.yaml`로 학습(Qwen2.5-1.5B-Instruct, 4비트, LoRA r=16, 3스텝) -> 평가(4건) -> 패키징 -> 게시(호스트의 시험용 레지스트리)가 끝까지 돌았다. 최대 GPU 메모리 약 4.2GB. 같은 설정을 두 번 돌려 어댑터·평가 보고서 해시가 일치(eager 어텐션). 체크포인트 재개: 학습 중 프로세스를 죽이고 같은 명령을 다시 실행해 step 2에서 이어 끝까지 완료·게시. 학습 품질은 보지 않았다(3스텝, 파서 출력은 대부분 형식 위반으로 보호 적용).
 
 ## 확인하지 못한 것 / 한계
@@ -169,6 +169,6 @@
 없음.
 
 ## 14차 (2026-10-28) 지표 v2 · TurnTrace 키 · I2 HTTP
-- 한 일: 평가 지표 METRICS.md v2(ADR 0011), 회귀 trace 키 D98 확정, I2 `kind: http` 설정과 시험 대역 서버(ADR 0012), CR-L009(unit chars). 시험 195건 통과, 1건 건너뜀.
+- 한 일: 평가 지표 METRICS.md v2(ADR 0011), 회귀 trace 키 D98 확정, I2 `kind: http` 설정과 시험 대역 서버(ADR 0012), CR-L009(unit chars). 시험 통과(건너뜀 있음).
 - 남은 일: 계약 v2.1.0 태그가 push되면 `requirements.txt`의 boundary-contracts를 올리고 재시험(건너뛴 `test_fetch_dataset_over_http_client`가 실제 클라이언트로 도는지 확인). 실제 학습 데이터 A 전수 기준 시험은 `MODEL_LAB_A_SAMPLES`로 돌려야 한다(실데이터로는 돌리지 않았다). 이 PC의 `.venv`에 설치된 turn-engine은 0.3.0이고 `requirements.txt`는 v0.4.0이다(ssh 설치를 하지 않았다).
 - 막힌 것: `unit=chars`(CR-L009). `material_coverage`의 필수 재료 표는 잠정.

@@ -79,9 +79,9 @@ scripts/smoke_registry.sh
 
 시험 개수의 정본은 이 절이다. 다른 문서는 개수를 복사하지 않고 여기를 가리킨다.
 
-확인한 것(2026-11-04, 계약·link 고정 버전은 `requirements.lock`이 정본(이 줄의 기록 당시 값은 계약 v3.4.7·link v0.4.13이고 지금은 다르다), 이 PC의 `.venv`, 로컬 미러 `GIT_CONFIG_GLOBAL`): `.venv/bin/python -m pytest -q` 종료 코드 0, 393건 통과·실패 0·건너뜀 0. 이미지 스모크(`scripts/smoke_registry.sh`) 종료 코드 0. 조항별 시험은 [ADR 0034](docs/adr/0034-RUNTIME-조항-준수-서비스-동작.md)의 표. 실제 학습·서버 업로드는 안 해 봤다(GPU).
+확인한 것(2026-11-04, 계약·link 고정 버전은 `requirements.lock`이 정본(이 줄의 기록 당시 값은 계약 v3.4.7·link v0.4.13이고 지금은 다르다), 이 PC의 `.venv`, 로컬 미러 `GIT_CONFIG_GLOBAL`): `.venv/bin/python -m pytest -q` 종료 코드 0(통과·실패·건너뜀 수는 출력 요약 줄이 정본). 이미지 스모크(`scripts/smoke_registry.sh`) 종료 코드 0. 조항별 시험은 [ADR 0034](docs/adr/0034-RUNTIME-조항-준수-서비스-동작.md)의 표. 실제 학습·서버 업로드는 안 해 봤다(GPU).
 
-확인한 것(2026-11-08, 전수 점검 브랜치 sweep-1222, 이 PC의 `.venv`): `.venv/bin/python -m pytest -q` 종료 코드 0, 399건 통과·실패 0·건너뜀 0(도커 시험 포함). 한 환경에서만 확인했다.
+확인한 것(2026-11-08, 전수 점검 브랜치 sweep-1222, 이 PC의 `.venv`): `.venv/bin/python -m pytest -q` 종료 코드 0(도커 시험 포함, 개수는 출력 요약 줄이 정본). 한 환경에서만 확인했다.
 
 확인한 것(2026-10-28, 이웃 폴더와 `vendor/`가 없는 새 `git clone`, Linux, Python 3.12.3): `bash scripts/setup-env.sh`를 두 번 실행해 둘 다 종료 코드 0, 그 뒤 `.venv/bin/python -m pytest -q` 통과·실패·건너뜀 수는 문서에 적지 않고 같은 명령의 출력 요약 줄로 센다(숫자를 적으면 시점이 어긋난다). 문진 스키마는 `requirements.lock`의 `openit-survey-schema`(태그 설치)에서 읽는다(`tests/conftest.py`, `configs/dryrun.yaml`의 `installed:survey-schema`). 한 환경(이 PC의 새 clone)에서만 확인했다.
 

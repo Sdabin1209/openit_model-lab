@@ -6,7 +6,7 @@
 ## 0. 확인 범위
 
 읽은 것: `CLAUDE.md`, `docs/brief.md`, `README.md`, `docs/boundary.md`, `docs/design.md`, `docs/adr/0004`·`0011`, `model_lab/` 전부(pipeline, evaluate, metrics, metric_names, packager, regression, transform, datasets, schemas, config, factories, attach, train_wrap, registry 일부, service/app.py 전부, backends/fake·hf_base, trainers/base), `configs/train.yaml`·`gpu-dev.yaml`·`profiles/qwen3-8b.yaml`·`gpu-dev-12g.yaml`, `Dockerfile`(라벨·USER·HEALTHCHECK 줄), `../boundary-contracts`의 `INTERFACES.md`(I2·I3·I4·I5·I9), `HTTP.md`(공통·I2·I3·I5), `CONVENTIONS.md`(401/403, 429, readyz), `METRICS.md`, `CHANGELOG.md`, `boundary_contracts/metrics_registry.py`·`metrics.json`.
-돌린 것: `.venv/bin/python -m pytest -q -p no:cacheprovider` -> **196 passed**(이 PC의 기존 `.venv` 한 환경). `boundary_contracts.metrics()`로 모델랩이 내는 지표 이름 대조(아래 ML-01).
+돌린 것: `.venv/bin/python -m pytest -q -p no:cacheprovider` -> 통과(개수는 출력 요약 줄이 정본, 이 PC의 기존 `.venv` 한 환경). `boundary_contracts.metrics()`로 모델랩이 내는 지표 이름 대조(아래 ML-01).
 검색한 패턴: `turn_engine|model_runtime|boundary_contracts|survey_schema` import, `\.\./|/home/|openit|gpu-dev|survey-service|synthetic|ops-feedback|release-gate|question-authoring`, `role ==|LORA_A|LORA_B` 분기, `metric_name_problems`, `submit_candidate|/v1/submissions|GateService|I5`.
 
 ## 1. A. 컴포넌트 목록
@@ -176,7 +176,7 @@
 
 ## 7. F. 계약 준수 한 줄씩 (I3 서버 / I2 클라이언트 / I5)
 
-대조 근거: `HTTP.md` I2·I3, `CONVENTIONS.md` 9절, `INTERFACES.md` I3. 시험: `tests/test_service.py::test_i3_server_conformance_with_real_client` 통과(196 passed 안). 계약 패키지의 `conformance` 모듈에는 I3 참조 서버/적합성 시험이 없고(`ReferenceServer`, `RuntimeReferenceServer`, `StaffCall*`, `PublicApi*`만 있음) I3는 모델랩 자체 시험(실제 `HttpModelRegistry` 클라이언트)이 유일한 적합성 근거다.
+대조 근거: `HTTP.md` I2·I3, `CONVENTIONS.md` 9절, `INTERFACES.md` I3. 시험: `tests/test_service.py::test_i3_server_conformance_with_real_client` 통과(전체 실행 안). 계약 패키지의 `conformance` 모듈에는 I3 참조 서버/적합성 시험이 없고(`ReferenceServer`, `RuntimeReferenceServer`, `StaffCall*`, `PublicApi*`만 있음) I3는 모델랩 자체 시험(실제 `HttpModelRegistry` 클라이언트)이 유일한 적합성 근거다.
 
 | 항목 | 계약 | 구현 | 판정 |
 | --- | --- | --- | --- |
@@ -221,7 +221,7 @@
 - `deploy/scripts/lib.sh`(버전 기준표), `deploy/compose.yaml`, 이웃 영역 문서(읽기 허용 범위 밖).
 - `model_lab/trainers/hf.py`, `backends/hf.py`, `registry.py` 전체(저장 구현 세부), `service/tarutil.py` 세부, `text_rules.py` 전체, `config.py` 1-100줄 일부, `train_wrap.py` 80-349줄 세부(명령 조립·doctor).
 - 모든 `tests/`의 본문(import와 일부 줄만 확인), `scripts/*`의 본문(grep만).
-- 이미지 빌드·스모크(`scripts/smoke_registry.sh`)는 Docker 실행을 하지 않았다. 새 환경·두 번째 환경 검증도 하지 않았다(README 5절의 한 PC 결과만 재현: 196 통과).
+- 이미지 빌드·스모크(`scripts/smoke_registry.sh`)는 Docker 실행을 하지 않았다. 새 환경·두 번째 환경 검증도 하지 않았다(README 5절의 한 PC 결과만 재현).
 - 실제 I2·I7 서버와의 통신(서버가 없음), GPU 호스트 접속(금지 범위), 학습 서버 스크립트 내용.
 - `fixtures/`, `vendor/`, `runs/`(gitignore)의 내용.
 - 줄별 STATUS 표 대조(`app.py` STATUS vs CONVENTIONS 78)는 일부만 확인.
