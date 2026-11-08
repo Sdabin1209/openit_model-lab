@@ -44,7 +44,8 @@ eval "$(python3 scripts/docker_env.py --sh)"
 
 # 1. 요청 검증(영역 경계 입력): 계약 validator. 이 영역이 쓰는 키(versions.boundary, dependency_sources.boundary)가 없으면 실패한다.
 #    왜 기본값이 없나: 기준표(deploy lib.sh)와 어긋난 버전이 조용히 빌드되지 않게 한다. 이 이미지는 model-runtime·문진 스키마를 쓰지 않아 해당 키는 무시한다.
-eval "$("$PY" - "$1" <<'PY'
+# 왜 변수에 먼저 받나: `eval "$(명령)"`은 명령이 실패해도 eval 자체가 빈 입력으로 0을 돌려 `|| exit 2`가 먹지 않는다(요청 위반이 조용히 지나가 unbound variable로 끝난다)
+REQ_VARS=$("$PY" - "$1" <<'PY'
 import json, shlex, sys
 from boundary_contracts import validator
 req = json.load(open(sys.argv[1], encoding="utf-8"))
@@ -60,7 +61,8 @@ for k, v in (("SOURCE_DIR", req["source_dir"]), ("REVISION", req["revision"]), (
              ("BC_SRC", src), ("IMAGE_TAG", req["image_tag"])):
     print(f"{k}={shlex.quote(v)}")
 PY
-)" || exit 2
+) || exit 2
+eval "$REQ_VARS"
 [ -f "$SOURCE_DIR/Dockerfile" ] || { echo "source_dir에 Dockerfile이 없다" >&2; exit 2; }
 
 # 노출 선언(U47): 리포의 deploy-exposure.json을 계약 Exposure로 검증해 이미지 라벨 io.openit.exposure(JSON 문자열)로 단다.

@@ -8,3 +8,6 @@ configs
 profiles
 scripts
 model_lab/types
+build
+vendor
+.logs

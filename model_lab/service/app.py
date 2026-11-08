@@ -6,6 +6,7 @@
   MODEL_REGISTRY_WRITE_TOKENS_FILE / MODEL_REGISTRY_WRITE_TOKENS  model-lab=토큰         (쓰기 경로. 역할은 model-lab만 허용)
   (NAME_FILE이 있으면 그 파일 내용, 없으면 NAME 환경 변수. 운영은 파일, 환경 변수는 개발용)
   MODEL_REGISTRY_ROOT          저장 볼륨(기본 /data)
+  MODEL_REGISTRY_HOST          바인드 주소(기본 0.0.0.0)
   MODEL_REGISTRY_PORT          기본 8080 (0이면 빈 포트)
   MODEL_REGISTRY_MAX_BODY      게시 본문 최대 바이트(기본 4GiB)
   MODEL_REGISTRY_SOCKET_TIMEOUT  waitress channel_timeout: 요청이 진행 중이지 않은 연결(유휴, 요청을 다 보내지 않은 연결)을 닫는 초(기본 30, ML-1)
@@ -15,6 +16,7 @@
   MODEL_REGISTRY_AUTH_FAIL_LIMIT 같은 주소의 인증 실패 상한(기본 10회 / 60초; 넘으면 그 주소는 잠시 503, 상수 시간 비교와 별개의 시도 제한)
   MODEL_REGISTRY_SHUTDOWN_GRACE  SIGTERM 뒤 진행 중 요청을 기다리는 초(기본 8; 유휴 연결은 즉시 닫는다, Docker 기본 정지 유예 10초보다 짧게)
   MODEL_REGISTRY_MIN_FREE_GB     게시 전 요구 여유 공간 GB(기본 1; 본문 크기의 2배 + 이 값이 모자라면 503, ML-2)
+  MODEL_REGISTRY_MIN_TOKEN_LEN   토큰 최소 길이(기본 32; 개발·시험에서만 낮춘다)
 로그는 표준 출력으로, 토큰과 본문은 남기지 않는다."""
 from __future__ import annotations
 

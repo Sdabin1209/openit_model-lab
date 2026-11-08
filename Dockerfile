@@ -1,8 +1,8 @@
 # model-registry 서비스(I3 서버). 학습 잡(run-once)은 이미지가 아니라 requirements.lock 환경이다(D22).
 # 계약 pin의 정본은 requirements-service.txt 한 곳이다. 빌드 명령이 거기서 뽑아 ARG로 넘기고, 이 파일에는 버전을 적지 않는다.
 # 빌드(태그 의존, ssh 에이전트 필요):
-#   SPEC=$(grep '^boundary-contracts' requirements-service.txt); docker build --ssh default -t model-lab-registry:dev \
-#     --build-arg "BC_SPEC=$SPEC" --build-arg "BC_VERSION=${SPEC##*@}" --build-arg "REVISION=$(git rev-parse --short HEAD)" .
+#   SPEC=$(grep '^boundary-contracts' requirements-service.txt); LINK=$(sed -n 's/^openit-link @ \(.*\)$/\1/p' requirements-service.txt); docker build --ssh default -t model-lab-registry:dev \
+#     --build-arg "BC_SPEC=$SPEC" --build-arg "LINK_SPEC=$LINK" --build-arg "BC_VERSION=${SPEC##*@}" --build-arg "REVISION=$(git rev-parse --short HEAD)" .
 # 로컬 확인(ssh 없이 태그에서 만든 wheel): scripts/smoke_registry.sh
 # 기반 이미지는 태그가 아니라 digest로 고정한다(공통 규칙 '빌드 때 고정'): python:3.12-slim 태그는 시간이 지나면 다른 이미지가 되어 같은 소스가 다른 이미지가 된다.
 # digest는 2026-11-05에 이 PC에 받아 둔 python:3.12-slim의 RepoDigest다. 올리려면 `docker pull python:3.12-slim` 뒤 `docker images --digests python`의 값으로 이 한 줄만 바꾸고 스모크를 다시 돌린다.
