@@ -90,6 +90,8 @@ class Service:
     def ready(self) -> bool:
         try:
             self.registry.list_ids(limit=1)
+            if self.registry.stale_records():     # 4.x 저장 데이터가 남았으면 준비 실패(계약 5.0.0 새 환경 전제)
+                return False
             probe = self.tmp / ".ready"
             probe.write_text("1")
             probe.unlink()

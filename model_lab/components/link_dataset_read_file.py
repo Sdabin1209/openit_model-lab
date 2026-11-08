@@ -9,17 +9,14 @@
 from __future__ import annotations
 
 import json
-import re
 from pathlib import Path
 from typing import BinaryIO, Mapping
 
-from boundary_contracts import BoundaryError, canonical
-
-_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]*$")
+from boundary_contracts import BoundaryError, canonical, is_id
 
 
 def _check(value: str, what: str) -> None:
-    if not isinstance(value, str) or len(value) > 128 or not _ID.match(value):
+    if not is_id(value):    # 왜: Id 형식의 정본은 계약(5.0.0, D117)
         raise BoundaryError("INVALID_RECORD", f"{what}가 Id 규칙을 어겼다")
 
 

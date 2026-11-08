@@ -69,7 +69,7 @@ class Run:
         self.cfg = cfg
         errs = schemas.errors("RunPlan", {k: v for k, v in cfg.items() if k != "_base_dir"})
         if errs:
-            raise ConfigError("실행 설정 위반(RunPlan): " + "; ".join(f"/{'/'.join(map(str, e.absolute_path))}: {e.message[:120]}" for e in errs[:4]))
+            raise ConfigError("실행 설정 위반(RunPlan): " + "; ".join(schemas.describe(e) for e in errs[:4]))
         self.store = dataset_store or make_dataset_store(cfg)
         self.registry = registry or make_registry(cfg)
         self.trainer_factory = trainer_factory or (lambda kind: make_trainer(

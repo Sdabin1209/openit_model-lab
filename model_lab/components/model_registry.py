@@ -13,20 +13,29 @@ import copy
 import fcntl
 import json
 import os
-import re
 import shutil
 import tempfile
 import threading
 from pathlib import Path
 from typing import Optional
 
-from boundary_contracts import BoundaryError, canonical, validator
+from boundary_contracts import PIPELINE_SCHEMA_VERSION, BoundaryError, canonical, is_id, validator
 
-_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]*$")
+# 왜: Id 형식(패턴·길이)의 정본은 계약 _common.$defs.Id 이고 is_id 가 그것을 읽는다(5.0.0, D117 — 영역 사본 금지)
+
+
+def _same_major(manifest: dict) -> bool:
+    return str(manifest.get("pipeline_schema_version", "")).split(".")[0] == PIPELINE_SCHEMA_VERSION.split(".")[0]
+
+
+def _require_current_major(manifest: dict) -> None:
+    # 왜: 이웃에게 돌려주는 응답의 MAJOR 가 다르면 받는 쪽이 UNSUPPORTED_VERSION 으로 거부해야 한다(HTTP.md). 4.x 레코드를 조용히 섞어 내보내지 않는다
+    if not _same_major(manifest):
+        raise BoundaryError("UNSUPPORTED_VERSION", "저장된 매니페스트의 계약 MAJOR 가 현재와 다르다")
 
 
 def _check_id(value: str, what: str) -> None:
-    if not isinstance(value, str) or len(value) > 128 or not _ID_RE.match(value):
+    if not is_id(value):
         raise BoundaryError("INVALID_RECORD", f"{what}가 Id 규칙을 어겼다")
 
 
@@ -135,7 +144,18 @@ class _Core:
             raise BoundaryError("NOT_FOUND", "모델 패키지가 없다")
         if canonical.content_hash(m) != m["content_hash"]:
             raise BoundaryError("INTEGRITY_ERROR", "저장된 매니페스트가 변조되었다")
+        _require_current_major(m)
         return copy.deepcopy(m)
+
+    def stale_records(self) -> list[str]:
+        """저장된 매니페스트 중 계약 MAJOR 가 현재와 다른 것의 '패키지/버전' 목록(5.0.0 새 환경 전제: 4.x 저장 데이터는 이전하지 않고, 섞이면 /readyz 가 실패한다)."""
+        out = []
+        for pid in self._s_ids():
+            for ver in self._s_versions(pid):
+                m = self._s_get_manifest(pid, ver)
+                if m is not None and not _same_major(m):
+                    out.append(f"{pid}/{ver}")
+        return out
 
     def list_ids(self, *, cursor: Optional[str] = None, limit: int = 100) -> tuple:
         return self._page(self._s_ids(), cursor, limit)

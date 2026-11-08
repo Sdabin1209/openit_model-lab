@@ -10,6 +10,7 @@ from pathlib import Path
 
 import jsonschema
 from boundary_contracts import schema_dir as _contract_dir
+from boundary_contracts.schemas_api import ContractValidator  # 직접 만든 검증기도 계약의 비유한 수 검사를 받게 감싼다(5.0.0; 5.0.1 의 schema_validator 로 바꿀 예정)
 from boundary_contracts import format_checker as _bc_format_checker  # 형식(format) 검증기가 없으면 조용히 넘기지 않고 실패한다(계약 3.5.0)
 
 SCHEMAS_DIR = Path(__file__).resolve().parents[2] / "schemas"
@@ -29,11 +30,11 @@ def _store() -> dict:
 
 
 @lru_cache(maxsize=None)
-def validator(name: str) -> jsonschema.Draft202012Validator:
+def validator(name: str) -> ContractValidator:
     schema = _store()[_BASE + f"{name}.schema.json"]
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", DeprecationWarning)   # 계약 패키지의 validator()와 같은 RefResolver 방식
-        return jsonschema.Draft202012Validator(schema, resolver=jsonschema.RefResolver(_BASE + f"{name}.schema.json", schema, store=_store()), format_checker=_bc_format_checker(schema))
+        return ContractValidator(jsonschema.Draft202012Validator(schema, resolver=jsonschema.RefResolver(_BASE + f"{name}.schema.json", schema, store=_store()), format_checker=_bc_format_checker(schema)))
 
 
 def check(name: str, doc) -> None:
@@ -45,3 +46,13 @@ def check(name: str, doc) -> None:
 
 def errors(name: str, doc) -> list[jsonschema.ValidationError]:
     return sorted(validator(name).iter_errors(doc), key=lambda e: list(map(str, e.absolute_path)))
+
+
+def describe(e: jsonschema.ValidationError) -> str:
+    """위반 한 건의 설명: 위치와 위반한 규칙 이름만. 값은 싣지 않는다(jsonschema 의 e.message 는 값을 담는다, 계약 INTERFACES I7).
+    모르는 키(additionalProperties)만 예외로 키 이름을 싣는다: 값이 아니라 설정 작성자가 쓴 이름이고, 오타를 찾는 데 필요하다."""
+    where = "/" + "/".join(map(str, e.absolute_path))
+    if e.validator == "additionalProperties" and isinstance(e.instance, dict):
+        extra = sorted(set(e.instance) - set((e.schema.get("properties") or {})))
+        return f"{where}: additionalProperties({', '.join(map(str, extra))})"
+    return f"{where}: {e.validator}"

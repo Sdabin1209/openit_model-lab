@@ -27,6 +27,9 @@ def prepare(dst: pathlib.Path) -> None:
         if isinstance(v, dict):
             ref = v.get("$ref")
             # 왜 '#' 앞의 파일 이름으로 가르나: 계약 4.0.0의 공통 정의는 `_common.schema.json#/$defs/HttpClientSettings`처럼 조각으로 참조한다
+            # 왜: 계약 Id 는 문자열 타입이다(_common.$defs.Id, 5.0.0). 다른 계약 조각은 모양을 몰라 object 로 둔다.
+            if ref == "_common.schema.json#/$defs/Id":
+                return {"type": "string", "description": "계약 _common#/$defs/Id"}
             if isinstance(ref, str) and ref.split("#")[0].endswith(".schema.json") and ref.split("#")[0] not in own:
                 return {"type": "object", "description": "계약 " + ref.replace(".schema.json", "")}
             return {k: walk(x) for k, x in v.items()}

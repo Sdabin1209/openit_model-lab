@@ -42,9 +42,11 @@
 | 23 | components/train_data.py, server_row_convert.py | `role`은 LORA_A/LORA_B, LoRA-B 정답은 문자열 | 함수 인자 검사. `TrainDataRequest`가 정하지만 변환 함수를 직접 부르는 호출(시험·스크립트)은 스키마를 거치지 않는다 |
 | 24 | components/evaluation_report_build.py | 지표 이름이 계약 지표 레지스트리에 있다 | 정본이 계약 패키지의 함수(`metric_name_problems`)다 |
 | 25 | components/model_registry.py | 게시 검증: 매니페스트 스키마, `content_hash`·`adapter_hash`·`serving_config_hash` 재계산, 시스템 프롬프트·`ModelPackageLayout`, 같은 버전의 내용 충돌 | 스키마는 계약이 맡고(`validator`), 해시 계산과 저장 상태 대조는 문서 밖이다 |
-| 26 | components/model_registry.py, link_registry_serve.py | 경로의 Id 형식, `limit`·`cursor` 값, tar 안의 경로('..', 절대 경로, 심볼릭 링크) | HTTP 경로·쿼리·스트림 입력. `RegistryServiceConfig`는 기동 설정만 다룬다 |
+| 26 | components/model_registry.py, link_registry_serve.py | 경로의 Id 형식(계약 `is_id` 호출, 패턴 사본 없음, 5.0.0), `limit`·`cursor` 값, tar 안의 경로('..', 절대 경로, 심볼릭 링크) | HTTP 경로·쿼리·스트림 입력. `RegistryServiceConfig`는 기동 설정만 다룬다 |
 | 27 | service/app.py | 토큰 문자열 형식(`역할=토큰`)과 최소 길이·글자 다양성 | 비밀 값은 스키마에 적지 않는다(D84). 길이 하한 근거는 ADR 0009 |
 | 28 | components/server_train_wrap.py | 서버 스크립트·데이터셋 파일 존재, 스크립트 sha256 일치, 디스크 여유, GPU, 스크립트 종료 코드 | 실행 환경 상태 |
 | 29 | components/lora_train_hf.py, backend_hf_*.py | 학습 환경(torch 등)과 CUDA GPU가 있다. 최대 길이 안에 드는 샘플이 있다 | 실행 환경 상태와 데이터 길이(토큰화 뒤에야 안다) |
+
+계약 5.0.0: Id 칸은 `_common.schema.json#/$defs/Id`를 `$ref`한다(패턴·128자 사본 삭제). 학습 설정의 `base_model.id`(`/` 허용 Hub 이름)는 계약 Id가 아니라 영역 소유 칸이라 자기 패턴을 둔다. 저장된 매니페스트의 계약 MAJOR가 현재와 다르면(4.x) 읽기는 `UNSUPPORTED_VERSION`, `/readyz`는 실패한다(새 환경 전제, 이전 없음).
 
 옮긴 것(참고): 학습 기록 형식(`TrainWrapRecord`, 시험의 부분 기록을 완전한 기록으로 고쳤다), 실행 설정 형식과 비밀 키 규칙(`RunConfig`, `SecretFree`), 두 역할 필수(`RunPlan`), 평가 온도 0(`EvalServingPlan`), HTTP 저장소 필수 필드와 레지스트리 종류별 필수 필드(`RunConfig`), 학습 설정 형식(`TrainWrapConfig`), 서버 줄 형식(`ServerDatasetRow`), 학습 요청 형식(`TrainRequest`), 데이터셋 참조 형식(`DatasetRef`), 서빙 설정 형식(계약 `ServingConfig` `$ref`).

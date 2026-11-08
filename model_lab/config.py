@@ -11,7 +11,7 @@ import re
 from pathlib import Path
 
 import yaml
-from boundary_contracts import canonical
+from boundary_contracts import canonical, is_id
 
 from .wiring import schemas
 from .wiring.errors import ConfigError
@@ -106,17 +106,16 @@ def validate_config(cfg: dict) -> None:
     check_inline_secrets(cfg)
     errs = schemas.errors("RunConfig", cfg)
     if errs:
-        msg = "; ".join(f"/{'/'.join(map(str, e.absolute_path))}: {e.message[:120]}" for e in errs[:8])
+        msg = "; ".join(schemas.describe(e) for e in errs[:8])
         raise ConfigError(f"설정 형식 위반: {msg}")
 
 
 PROFILES_DIR = Path(__file__).resolve().parent.parent / "profiles"
-_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 
 
 def load_profile(name: str) -> dict:
     """profiles/<name>.yaml. 이름은 파일 이름뿐이다(경로 불가)."""
-    if not _NAME.match(name):
+    if not is_id(name):    # 왜: 프로파일 이름은 계약 Id 형식이면 파일 이름으로 안전하다(5.0.0, D117)
         raise ConfigError("프로파일 이름은 파일 이름이어야 한다(경로 불가)")
     p = PROFILES_DIR / f"{name}.yaml"
     if not p.is_file():
@@ -166,7 +165,7 @@ def load_train_config(path: str | Path, overrides: dict | None = None) -> dict:
     _reject_resume(cfg)
     errs = schemas.errors("TrainWrapConfig", cfg)
     if errs:
-        raise ConfigError("학습 설정 형식 위반: " + "; ".join(f"/{'/'.join(map(str, e.absolute_path))}: {e.message[:120]}" for e in errs[:8]))
+        raise ConfigError("학습 설정 형식 위반: " + "; ".join(schemas.describe(e) for e in errs[:8]))
     # 스키마 밖 조건(schemas/README.md): 다른 속성의 값을 키 집합으로 쓰는 조건과 값 중복 금지는 JSON Schema로 쓸 수 없다
     am = cfg["server"].get("arg_map", {})
     known = set(STD_ARGS) | set(cfg.get("hyperparams", {}))

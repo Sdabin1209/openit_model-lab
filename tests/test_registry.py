@@ -175,3 +175,14 @@ def test_system_prompt_is_part_of_package_and_checked(reg, tmp_path):
     missing["content_hash"] = canonical.content_hash(missing)
     assert code(reg.publish, missing, ad, rep) == "INTEGRITY_ERROR"
     assert reg.publish(m, ad, rep) == m                                                  # 올바른 것은 게시된다
+
+
+def test_a_4x_manifest_in_storage_is_not_served_silently(tmp_path):
+    """계약 5.0.0 새 환경 전제: 4.x 저장 데이터는 이전하지 않는다. 남아 있으면 읽기는 UNSUPPORTED_VERSION, 목록에는 드러난다(/readyz 실패의 근거)."""
+    r = MemoryModelRegistry()
+    r._ids.append("pkg-old"); r._vers["pkg-old"] = ["v1"]
+    r._m[("pkg-old", "v1")] = {"pipeline_schema_version": "4.0", "content_hash": canonical.content_hash({"pipeline_schema_version": "4.0"})}
+    with pytest.raises(BoundaryError) as e:
+        r.get_manifest("pkg-old", "v1")
+    assert e.value.code == "UNSUPPORTED_VERSION"
+    assert r.stale_records() == ["pkg-old/v1"]

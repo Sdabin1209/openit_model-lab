@@ -148,8 +148,7 @@
           "type": "string"
         },
         "profile": {
-          "type": "string",
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+          "$ref": "_common.schema.json#/$defs/Id"
         }
       }
     },
