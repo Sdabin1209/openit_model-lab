@@ -99,8 +99,10 @@ def test_config_no_longer_accepts_a_lineage_turn_engine_mark(cfg):
     from model_lab.config import validate_config
     bad = copy.deepcopy({k: v for k, v in cfg.items() if k != "_base_dir"})
     bad["lineage"] = {"turn_engine_version": "0.4.3"}
-    with pytest.raises(Exception, match="lineage"):
+    # 왜: 설정 오류는 모르는 키 이름을 싣지 않는다(describe, codex C2). 그래서 거부는 additionalProperties 규칙 이름으로 확인하고 키 이름이 새지 않는 것도 본다(codex C2 검토, 2026-11-09)
+    with pytest.raises(Exception, match="additionalProperties") as e:
         validate_config(bad)
+    assert "lineage" not in str(e.value) and "turn_engine_version" not in str(e.value)
 
 
 # ---- 이미지 라벨: 계약 ImageLabels ---------------------------------------------------------------------------------------------
