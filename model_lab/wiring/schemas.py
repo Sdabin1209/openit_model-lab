@@ -4,37 +4,45 @@
 from __future__ import annotations
 
 import json
-import warnings
 from functools import lru_cache
 from pathlib import Path
 
 import jsonschema
 from boundary_contracts import schema_dir as _contract_dir
-from boundary_contracts.schemas_api import ContractValidator  # 직접 만든 검증기도 계약의 비유한 수 검사를 받게 감싼다(5.0.0; 5.0.1 의 schema_validator 로 바꿀 예정)
-from boundary_contracts import format_checker as _bc_format_checker  # 형식(format) 검증기가 없으면 조용히 넘기지 않고 실패한다(계약 3.5.0)
+from boundary_contracts import format_checker
+from boundary_contracts.schemas_api import ContractValidator
 
 SCHEMAS_DIR = Path(__file__).resolve().parents[2] / "schemas"
 _BASE = "https://openit.example/model-lab/schemas/"
 
 
 @lru_cache(maxsize=1)
-def _store() -> dict:
-    store = {}
-    for p in Path(_contract_dir()).glob("*.schema.json"):
-        store[_BASE + p.name] = json.loads(p.read_text(encoding="utf-8"))
+def _registry():
+    """계약 registry(안정 URI·문진 스키마 위임 포함)에 영역 스키마와 계약 스키마를 이 영역의 기준 주소 아래에도 올린다.
+    왜: 영역 스키마의 상대 `$ref`(`ServingConfig.schema.json` 같은 계약 파일 이름, 다른 영역 스키마)가 _BASE 기준으로 풀린다(DESIGN 3절)."""
+    from referencing import Resource
+    from referencing.jsonschema import DRAFT202012
+    from boundary_contracts.schemas_api import schema_registry
+    reg = schema_registry()
+    own = {}
     for p in SCHEMAS_DIR.glob("*.schema.json"):
-        if _BASE + p.name in store:
+        own[p.name] = json.loads(p.read_text(encoding="utf-8"))
+    for p in Path(_contract_dir()).glob("*.schema.json"):
+        if p.name in own:
             raise RuntimeError(f"영역 스키마 {p.name}이 계약 스키마와 이름이 겹친다(영역 사이 타입은 복사하지 않는다, DESIGN 3절)")
-        store[_BASE + p.name] = json.loads(p.read_text(encoding="utf-8"))
-    return store
+        own[p.name] = json.loads(p.read_text(encoding="utf-8"))
+    for name, doc in own.items():
+        reg = reg.with_resource(_BASE + name, Resource.from_contents({**doc, "$id": _BASE + name}, default_specification=DRAFT202012))
+    return reg, own
 
 
 @lru_cache(maxsize=None)
-def validator(name: str) -> ContractValidator:
-    schema = _store()[_BASE + f"{name}.schema.json"]
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", DeprecationWarning)   # 계약 패키지의 validator()와 같은 RefResolver 방식
-        return ContractValidator(jsonschema.Draft202012Validator(schema, resolver=jsonschema.RefResolver(_BASE + f"{name}.schema.json", schema, store=_store()), format_checker=_bc_format_checker(schema)))
+def validator(name: str):
+    reg, docs = _registry()
+    # 왜 계약 검증기 부품을 그대로 쓰나: schema_validator 는 계약 registry 만 쓰므로 영역 스키마의 상대 $ref 를 못 푼다. 같은 규칙(형식 검사 강제·비유한 수 거부)을 영역 registry 로 건다
+    schema = {**docs[f"{name}.schema.json"], "$id": _BASE + f"{name}.schema.json"}
+    jsonschema.Draft202012Validator.check_schema(schema)
+    return ContractValidator(jsonschema.Draft202012Validator(schema, registry=reg, format_checker=format_checker(schema)))
 
 
 def check(name: str, doc) -> None:
