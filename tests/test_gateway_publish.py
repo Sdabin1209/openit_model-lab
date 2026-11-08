@@ -9,12 +9,13 @@ import threading
 
 from tests.doubles.serve import serve, stop
 from tests.test_pipeline import mk
+from tests.envutil import min_env
 
 
 def _self_signed(tmp_path):
     crt, key = tmp_path / "gw.crt", tmp_path / "gw.key"
     subprocess.run(["openssl", "req", "-x509", "-newkey", "rsa:2048", "-nodes", "-keyout", str(key), "-out", str(crt), "-days", "1",
-                    "-subj", "/CN=localhost", "-addext", "subjectAltName=DNS:localhost,IP:127.0.0.1"], check=True, capture_output=True)
+                    "-subj", "/CN=localhost", "-addext", "subjectAltName=DNS:localhost,IP:127.0.0.1"], check=True, capture_output=True, env=min_env())
     return crt, key
 
 

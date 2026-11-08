@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 
 from tests.conftest import ROOT
+from tests.envutil import min_env
 
 PKG = ROOT / "model_lab"
 HTTP = re.compile(r"^\s*(from|import)\s+(boundary_contracts\.clients|openit_link\.clients|urllib\.request|http\.client|http\.server|requests|waitress|wsgiref)\b", re.M)
@@ -71,7 +72,7 @@ def test_5_types_match_regenerated_output(tmp_path):
         pytest.skip("datamodel-codegen이 없다(requirements-codegen.txt). 이 환경에서는 types/ 재생성 비교를 하지 못했다")
     out = tmp_path / "types"
     subprocess.run([sys.executable, str(ROOT / "scripts" / "gen_types.py"), "--out", str(out)], check=True,
-                   env={**os.environ, "DATAMODEL_CODEGEN": exe}, capture_output=True)
+                   env=min_env(DATAMODEL_CODEGEN=exe), capture_output=True)
     for p in sorted(out.rglob("*.py")):
         assert (PKG / "types" / p.relative_to(out)).read_text(encoding="utf-8") == p.read_text(encoding="utf-8"), p.name
     assert {p.name for p in out.rglob("*.py")} == {p.name for p in (PKG / "types").rglob("*.py")}

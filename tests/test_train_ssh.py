@@ -13,6 +13,7 @@ from model_lab.cli import main as cli_main
 from model_lab.wiring import train_flow as tw
 from model_lab.wiring.errors import PipelineError
 from tests.conftest import ROOT
+from tests.envutil import min_env
 
 STUB = (ROOT / "tests" / "doubles" / "fake_server_train.py").read_text()
 
@@ -115,7 +116,7 @@ def test_script_changed_between_check_and_run_is_stopped_on_the_server(srv):
     cfg = tw.load_train_config(write())
     cmd = tw.plan(cfg)["command"]
     (home / "taehyeon" / "fake_server_train.py").write_text("print('바뀐 코드')\n")        # check_ready 뒤에 서버 코드가 바뀐 경우(복사 때 바뀐 것을 사본이 가져온다)
-    r = subprocess.run(cmd, capture_output=True, text=True)
+    r = subprocess.run(cmd, capture_output=True, text=True, env=min_env())
     assert r.returncode != 0 and "바뀐 코드" not in r.stdout and not (home / "dabin" / "openit-model-lab" / "runs").exists()
 
 

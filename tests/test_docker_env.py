@@ -61,7 +61,7 @@ import shutil as _sh
 import pytest as _pt
 
 
-@_pt.mark.skipif(_sh.which("docker") is None or subprocess.run(["docker", "info"], capture_output=True).returncode != 0, reason="docker 없음")
+@_pt.mark.skipif(_sh.which("docker") is None or subprocess.run(["docker", "info"], capture_output=True, env=__import__("tests.envutil", fromlist=["min_env"]).min_env()).returncode != 0, reason="docker 없음")
 def test_docker_build_ignores_a_broken_user_wide_config(tmp_path):
     home = _fake_home(tmp_path)
     base = {k: v for k, v in os.environ.items() if k != "DOCKER_CONFIG"}

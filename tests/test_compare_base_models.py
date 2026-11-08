@@ -37,7 +37,8 @@ def _full_workdir_env(tmp_path):
     (tmp_path / "home/openit-gpu").mkdir(parents=True)
     with open(tmp_path / "home/openit-gpu/big", "wb") as f:
         f.truncate(25 * 2**30)
-    return {**os.environ, "HOME": str(tmp_path / "home"), "HF_HOME": str(tmp_path / "hf")}
+    from tests.envutil import min_env
+    return min_env(HOME=str(tmp_path / "home"), HF_HOME=str(tmp_path / "hf"))
 
 
 def test_fake_run_ignores_host_disk_state(tmp_path):

@@ -14,6 +14,7 @@ import pytest
 from boundary_contracts import BoundaryError
 from model_lab.wiring import factories
 from tests.conftest import ROOT
+from tests.envutil import min_env
 
 SRC = [*sorted((ROOT / "model_lab").rglob("*.py")), *sorted((ROOT / "scripts").glob("*.py"))]
 
@@ -50,10 +51,8 @@ def test_http_targets_in_shipped_configs_satisfy_the_contract_http_client_settin
     for f in (ROOT / "configs").glob("*.yaml"):
         walk(yaml.safe_load(f.read_text(encoding="utf-8")))
     assert found
-    import jsonschema
-    from model_lab.wiring import schemas
-    ref = {"$ref": "_common.schema.json#/$defs/HttpClientSettings"}
-    v = jsonschema.Draft202012Validator(ref, resolver=jsonschema.RefResolver(schemas._BASE + "settings.json", ref, store=schemas._store()))
+    from boundary_contracts import validator
+    v = validator("_common#/$defs/HttpClientSettings")      # 계약 validator 는 조각(#/$defs/...)을 직접 받는다
     for spec in found:
         errs = list(v.iter_errors(spec))
         assert not errs, (spec, errs[0].message)
@@ -74,7 +73,7 @@ def test_no_database_connection_so_sslmode_does_not_apply():
 
 # ---- SSL_CERT_FILE만으로 사설 루트를 믿는 HTTPS 호출 1건 ----
 def _openssl(*args, cwd):
-    subprocess.run(["openssl", *args], cwd=cwd, check=True, capture_output=True, timeout=60)
+    subprocess.run(["openssl", *args], cwd=cwd, check=True, capture_output=True, timeout=60, env=min_env())
 
 
 def _make_ca(d: Path, name: str):

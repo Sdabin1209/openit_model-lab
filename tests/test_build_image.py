@@ -20,6 +20,7 @@ DOCKER_ENV = _de.docker_env()      # docker를 부르는 시험도 사용자 ~/.
 from tests.conftest import EXTERNAL_TOOL_GUARD_SECONDS, ROOT
 
 import re
+from tests.envutil import GIT_NAMES, min_env
 # 이 영역의 고정 버전은 requirements-service.txt가 정본이다(시험에 복사해 두면 핀을 올릴 때마다 어긋난다)
 PIN = re.search(r"^boundary-contracts @ .*@(v[0-9.]+)$", (ROOT / "requirements-service.txt").read_text(), re.M).group(1)
 SCRIPT = ROOT / "scripts" / "build-image.sh"
@@ -46,8 +47,8 @@ def bc_source(tmp_path, tag=None) -> Path:
     tag = tag or PIN
     d = tmp_path / f"bc-src-{tag}"
     d.mkdir(exist_ok=True)
-    tar = subprocess.run(["git", "-C", str(BC_REPO), "archive", tag], capture_output=True, check=True).stdout
-    subprocess.run(["tar", "-x", "-C", str(d)], input=tar, check=True)
+    tar = subprocess.run(["git", "-C", str(BC_REPO), "archive", tag], capture_output=True, check=True, env=min_env()).stdout
+    subprocess.run(["tar", "-x", "-C", str(d)], input=tar, check=True, env=min_env())
     return d
 
 
@@ -61,7 +62,7 @@ def request(tmp_path, **over):
 
 
 def run(p, **env):
-    return subprocess.run(["bash", str(SCRIPT), str(p)], cwd=ROOT, capture_output=True, text=True, env={**os.environ, **env}, timeout=EXTERNAL_TOOL_GUARD_SECONDS)   # 매달림 감시(판정 아님)
+    return subprocess.run(["bash", str(SCRIPT), str(p)], cwd=ROOT, capture_output=True, text=True, env=min_env(*GIT_NAMES, **env), timeout=EXTERNAL_TOOL_GUARD_SECONDS)   # 매달림 감시(판정 아님)
 
 
 @pytest.mark.parametrize("mutate,why", [

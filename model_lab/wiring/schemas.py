@@ -58,9 +58,11 @@ def errors(name: str, doc) -> list[jsonschema.ValidationError]:
 
 def describe(e: jsonschema.ValidationError) -> str:
     """위반 한 건의 설명: 위치와 위반한 규칙 이름만. 값은 싣지 않는다(jsonschema 의 e.message 는 값을 담는다, 계약 INTERFACES I7).
-    모르는 키(additionalProperties)만 예외로 키 이름을 싣는다: 값이 아니라 설정 작성자가 쓴 이름이고, 오타를 찾는 데 필요하다."""
+    모르는 키(additionalProperties)는 설정 작성자가 쓴 이름이고 빠진 키(required)는 스키마의 이름이라 값이 아니며, 오타를 찾는 데 필요해 싣는다."""
     where = "/" + "/".join(map(str, e.absolute_path))
     if e.validator == "additionalProperties" and isinstance(e.instance, dict):
         extra = sorted(set(e.instance) - set((e.schema.get("properties") or {})))
         return f"{where}: additionalProperties({', '.join(map(str, extra))})"
+    if e.validator == "required" and isinstance(e.instance, dict):
+        return f"{where}: required({', '.join(sorted(k for k in e.validator_value if k not in e.instance))})"      # 빠진 키 이름은 스키마에서 온다(값 아님)
     return f"{where}: {e.validator}"
