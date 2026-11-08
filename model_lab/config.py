@@ -11,7 +11,8 @@ import re
 from pathlib import Path
 
 import yaml
-from boundary_contracts import canonical, is_id
+from boundary_contracts import canonical, is_id, strict_json
+from boundary_contracts.errors import BoundaryError
 
 from .wiring import schemas
 from .wiring.errors import ConfigError
@@ -71,12 +72,25 @@ def load_yaml12(text: str):
     return yaml.load(text, Loader=_Yaml12Loader)  # noqa: S506  SafeLoader 파생이라 임의 객체를 만들지 않는다
 
 
+def _check_structure(data) -> None:
+    """JSON·YAML 두 형식이 같은 구조 규칙(깊이·값 수·유한 수·I-JSON 정수·키 문자열)을 받는 한 곳.
+    왜: JSON은 strict_json.loads가 읽으며 같은 규칙을 적용하는데 YAML은 변환 뒤 값에 따로 적용하지 않으면 형식마다 받는 조건이 달라진다(codex C2 검토, 2026-11-09, CONVENTIONS 10절)."""
+    try:
+        strict_json.check_json_value(data)
+    except BoundaryError:
+        raise ConfigError("설정 값이 계약 JSON 구조 규칙(깊이·값 수·유한 수·정수 범위·문자열 키)을 어긴다") from None
+
+
 def _read(path: Path) -> dict:
     try:
         text = path.read_text(encoding="utf-8")
-        data = json.loads(text) if path.suffix == ".json" else load_yaml12(text)
-    except (OSError, ValueError, yaml.YAMLError) as e:
+        # 왜: json.loads는 같은 키가 두 번이면 마지막 값으로 조용히 바꾼다. 계약 strict_json은 중복 키·1 MiB·깊이 64를 거부한다(CONVENTIONS 10절)
+        data = strict_json.loads(text) if path.suffix == ".json" else load_yaml12(text)
+    except BoundaryError:
+        raise ConfigError(f"설정 파일이 계약 JSON 규칙(중복 키·1 MiB·깊이 64·유한 수)을 어긴다: {path}") from None     # 원문·입력 값을 싣지 않는다
+    except (OSError, ValueError, yaml.YAMLError, RecursionError) as e:
         raise ConfigError(f"설정 파일을 읽을 수 없다: {path}: {type(e).__name__}") from None
+    _check_structure(data)
     if not isinstance(data, dict):
         raise ConfigError(f"설정 파일의 최상위는 객체여야 한다: {path}")
     return data

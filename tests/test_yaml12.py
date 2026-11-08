@@ -55,3 +55,45 @@ def test_disk_policy_off_is_read_as_the_documented_string(tmp_path):
     p = tmp_path / "t.yaml"
     p.write_text(raw)
     assert load_train_config(p)["output"]["disk_policy"] == "off"
+
+
+# 계약 strict_json 규칙(CONVENTIONS 10절): .json 설정은 중복 키·1 MiB·깊이 64를 거부하고, 오류에 입력 값이 실리지 않는다.
+SECRET = "sentinel-value-xyz"
+
+
+def load_json(tmp_path, text):
+    p = tmp_path / "c.json"
+    p.write_text(text)
+    return _read(p)
+
+
+def _rejects(tmp_path, text):
+    with pytest.raises(ConfigError) as e:
+        load_json(tmp_path, text)
+    assert SECRET not in str(e.value)
+
+
+def test_json_duplicate_key_is_rejected(tmp_path):
+    _rejects(tmp_path, '{"run": {"seed": 1, "seed": "%s"}}' % SECRET)
+
+
+def test_json_over_1_mib_is_rejected(tmp_path):
+    _rejects(tmp_path, '{"a": "%s' % SECRET + "x" * (1024 * 1024) + '"}')
+
+
+def test_json_deeper_than_64_is_rejected(tmp_path):
+    _rejects(tmp_path, '{"a":' * 65 + '"%s"' % SECRET + "}" * 65)
+
+
+def test_json_nan_is_rejected(tmp_path):
+    _rejects(tmp_path, '{"a": NaN}')
+
+
+def test_valid_json_is_read(tmp_path):
+    assert load_json(tmp_path, '{"a": {"b": [1, 2.5, null]}}') == {"a": {"b": [1, 2.5, None]}}
+
+
+def test_yaml_gets_the_same_structure_rules(tmp_path):
+    for text in ("a: .inf\n", "a: .nan\n", "a: 9007199254740993\n", "a: " + "[" * 65 + "]" * 65 + "\n"):
+        with pytest.raises(ConfigError):
+            load(tmp_path, text)

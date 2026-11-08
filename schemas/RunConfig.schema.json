@@ -99,9 +99,6 @@
         },
         "release_reader": {
           "$ref": "_common.schema.json#/$defs/HttpClientSettings"
-        },
-        "question_reader": {
-          "$ref": "_common.schema.json#/$defs/HttpClientSettings"
         }
       }
     },

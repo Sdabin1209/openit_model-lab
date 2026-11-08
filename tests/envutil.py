@@ -11,3 +11,6 @@ def min_env(*extra_names: str, **extra) -> dict:
     env = {k: os.environ[k] for k in (*ALLOWED, *extra_names) if k in os.environ}
     env.update(extra)
     return env
+
+# 왜: docker 호출은 엔진 연결에 필요한 이름이 있어야 한다(원격 엔진·TLS·ssh 컨텍스트). 이름만 허용하고 값은 출력하지 않는다(codex C2 검토, 2026-11-09)
+DOCKER_NAMES = ("DOCKER_CONFIG", "DOCKER_HOST", "DOCKER_CONTEXT", "DOCKER_TLS_VERIFY", "DOCKER_CERT_PATH", "SSH_AUTH_SOCK")

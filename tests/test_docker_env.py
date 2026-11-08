@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 from tests.conftest import ROOT
+from tests.envutil import DOCKER_NAMES, min_env
 
 _spec = importlib.util.spec_from_file_location("docker_env_mod", ROOT / "scripts" / "docker_env.py")
 de = importlib.util.module_from_spec(_spec); _spec.loader.exec_module(de)
@@ -64,8 +65,19 @@ import pytest as _pt
 @_pt.mark.skipif(_sh.which("docker") is None or subprocess.run(["docker", "info"], capture_output=True, env=__import__("tests.envutil", fromlist=["min_env"]).min_env()).returncode != 0, reason="docker 없음")
 def test_docker_build_ignores_a_broken_user_wide_config(tmp_path):
     home = _fake_home(tmp_path)
-    base = {k: v for k, v in os.environ.items() if k != "DOCKER_CONFIG"}
+    # 허용 목록: DOCKER_CONFIG 를 뺀 연결 이름만 받는다(C45, 제외 목록 아님)
+    base = {k: os.environ[k] for k in ("PATH", "LANG", "TMPDIR", *(n for n in DOCKER_NAMES if n != "DOCKER_CONFIG")) if k in os.environ}
     ok = _build(tmp_path, de.docker_env({**base, "HOME": str(home)}))
     assert ok.returncode == 0, ok.stderr
     bad = _build(tmp_path, {**base, "HOME": str(home)})      # 변이: 이 환경을 빼면 같은 망가진 설정으로 자격 오류가 난다(시험이 실제로 막는다는 증거)
     assert bad.returncode != 0 and "credentials" in bad.stderr
+
+
+def test_docker_connection_names_reach_the_child_environment(monkeypatch, tmp_path):
+    fake = {n: f"fake-{n.lower()}" for n in DOCKER_NAMES}      # 가짜 값. 출력하지 않는다
+    for n, v in fake.items():
+        monkeypatch.setenv(n, v)
+    env = de.docker_env(min_env(*DOCKER_NAMES))
+    assert all(env[n] == v for n, v in fake.items())
+    out = subprocess.run([sys.executable, "-c", "import os,sys;sys.exit(0 if all(n in os.environ for n in %r) else 1)" % (DOCKER_NAMES,)], env=env)
+    assert out.returncode == 0
